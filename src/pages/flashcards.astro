@@ -1,0 +1,24 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import FlashcardReviewer from '../components/FlashcardReviewer.svelte';
+import { allCards, deckNames } from '../lib/decks.ts';
+
+const decks = deckNames();
+---
+
+<BaseLayout
+  title="Flashcards"
+  description="Skriv det danska ordet utifrån svenskan. Spaced repetition (FSRS), framsteg sparas lokalt."
+>
+  <h1>Flashcards</h1>
+  <p class="lead">
+    Skriv det danska ordet utifrån svenskan. Spaced repetition (FSRS) schemalägger
+    repetitionen åt dig; framsteg sparas i din webbläsare.
+  </p>
+
+  <FlashcardReviewer client:load cards={allCards} decks={decks} />
+
+  <style>
+    .lead { color: var(--muted); }
+  </style>
+</BaseLayout>

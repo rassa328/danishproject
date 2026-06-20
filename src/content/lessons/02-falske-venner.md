@@ -1,0 +1,33 @@
+---
+title: 'Falska vänner – ord som lurar'
+level: b1
+topic: false-friends
+order: 2
+summary: 'Danska ord som ser svenska ut men betyder något annat: rolig, frokost, by, grine, sej med flera.'
+estMinutes: 7
+vocabTags: ['falsk-ven']
+---
+
+Eftersom danska och svenska ligger så nära varandra är det lätt att läsa ett ord "rätt" och ändå ha helt fel. Här är de vanligaste fällorna – alla finns som flashcards (tagg `falsk-ven`).
+
+| Danska | Ser ut som | Betyder på danska | Inte att förväxla med |
+| --- | --- | --- | --- |
+| rolig | rolig | lugn, stilla | rolig/kul = <span lang="da">sjov / morsom</span> |
+| frokost | frukost | lunch | frukost = <span lang="da">morgenmad</span> |
+| by | by | stad | by/liten ort = <span lang="da">landsby</span> |
+| grine | grina | skratta | gråta = <span lang="da">græde</span> |
+| sej | seg | cool, tuff | seg/trög = <span lang="da">sej</span> i fysisk mening |
+| springe | springa | hoppa | springa/löpa = <span lang="da">løbe</span> |
+| stadig | stadig | fortfarande | stabil/stadig = <span lang="da">stabil / fast</span> |
+| køretøj | (fartyg?) | fordon | fartyg = <span lang="da">skib</span> |
+
+> **Klassikern:** <span lang="da">"Filmen var rolig"</span> betyder att filmen var *lugn* – inte rolig. Vill du säga att något är kul: <span lang="da">"Det var sjovt"</span>.
+
+## Asymmetriska fällor
+
+Vissa ord överlappar delvis och är därför extra lömska:
+
+- <span lang="da">have</span> = både verbet *att ha* och substantivet *trädgård*.
+- <span lang="da">sky</span> = sås/sky (mat) eller blyg – inte i första hand "himmel".
+
+Träna dem i **flashcards** (tagg `falsk-ven`) tills de sitter – länken finns längst ner i lektionen.

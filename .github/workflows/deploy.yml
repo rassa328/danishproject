@@ -17,13 +17,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Quality gate — typecheck + unit tests must pass before we build/deploy.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx astro check
+      - run: npm test
+
   build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       # Builds with npm and uploads the Pages artifact (also injects .nojekyll).
-      # NOTE: the `astro check` + `vitest run` quality gate is added in M4/M5,
-      # once there are types/tests to check (vitest errors on zero tests).
       - uses: withastro/action@v6
         with:
           node-version: 22

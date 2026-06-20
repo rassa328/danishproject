@@ -1,0 +1,66 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import { withBase } from '../lib/url.ts';
+
+interface Props {
+  title: string;
+  level: 'b1' | 'b2';
+  topic: string;
+  estMinutes: number;
+  summary: string;
+  vocabTags: string[];
+}
+const { title, level, topic, estMinutes, summary, vocabTags } = Astro.props;
+const topicLabel: Record<string, string> = {
+  pronunciation: 'Uttal',
+  'false-friends': 'Falska vänner',
+  numbers: 'Tal',
+  spelling: 'Stavning',
+  listening: 'Lyssnarförståelse',
+  grammar: 'Grammatik',
+  idiom: 'Idiom',
+};
+---
+
+<BaseLayout title={title} description={summary}>
+  <p class="back"><a href={withBase('lektioner')}>← Lektioner</a></p>
+  <header class="lesson-head">
+    <h1>{title}</h1>
+    <p class="meta">
+      <span class="badge">{level.toUpperCase()}</span>
+      <span>{topicLabel[topic] ?? topic}</span>
+      <span>· {estMinutes} min</span>
+    </p>
+  </header>
+
+  <article class="prose">
+    <slot />
+  </article>
+
+  {
+    vocabTags.length > 0 && (
+      <p class="vocab-link">
+        Träna orden:{' '}
+        {vocabTags.map((t) => (
+          <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
+            #{t}
+          </a>
+        ))}
+      </p>
+    )
+  }
+
+  <style>
+    .back { font-size: var(--step--1); margin: 0 0 var(--sp-2); }
+    .lesson-head { margin-bottom: var(--sp-6); }
+    .meta { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; color: var(--muted); font-size: var(--step--1); margin: 0; }
+    .badge { background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius-pill); padding: 0 var(--sp-2); font-weight: 600; font-size: 0.75rem; }
+    .prose :global(h2) { border-bottom: 1px solid var(--border); padding-bottom: var(--sp-1); }
+    .prose :global(table) { width: 100%; border-collapse: collapse; font-size: var(--step--1); margin: var(--sp-4) 0; }
+    .prose :global(th), .prose :global(td) { border: 1px solid var(--border); padding: var(--sp-2); text-align: left; vertical-align: top; }
+    .prose :global(blockquote) { margin: var(--sp-4) 0; padding: var(--sp-2) var(--sp-4); border-left: 4px solid var(--warn); background: var(--warn-bg); border-radius: 0 var(--radius) var(--radius) 0; }
+    .prose :global(code) { background: color-mix(in oklab, var(--text) 8%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
+    .vocab-link { margin-top: var(--sp-8); }
+    .chip { display: inline-block; margin: 0 var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-pill); text-decoration: none; font-size: var(--step--1); }
+  </style>
+</BaseLayout>
