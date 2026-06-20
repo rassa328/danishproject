@@ -15,6 +15,7 @@ export interface Card {
   cefr: Cefr;
   tags: string[];
   audio?: string;
+  audioExample?: string;
 }
 
 export interface RowError {
@@ -95,6 +96,8 @@ function toCard(raw: Record<string, string>): { card?: Card; error?: string } {
   if (note) card.note = note;
   const audio = nfc(raw.audio);
   if (audio) card.audio = audio;
+  const audioEx = nfc(raw.audio_example);
+  if (audioEx) card.audioExample = audioEx;
   return { card };
 }
 

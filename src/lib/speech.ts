@@ -15,11 +15,19 @@ function synth(): SpeechSynthesis | null {
 }
 
 function pickDanish(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-  return (
-    voices.find((v) => v.lang === 'da-DK') ??
-    voices.find((v) => v.lang?.toLowerCase().startsWith('da')) ??
-    null
-  );
+  const danish = voices.filter((v) => v.lang?.toLowerCase().startsWith('da'));
+  if (danish.length === 0) return null;
+  // Prefer higher-fidelity voices: cloud (non-localService) and named engines
+  // (Microsoft/Google) beat the generic local eSpeak fallback. This only
+  // affects the rare Web Speech fallback path; committed clips are unaffected.
+  const score = (v: SpeechSynthesisVoice): number => {
+    let s = 0;
+    if (v.lang === 'da-DK') s += 4;
+    if (!v.localService) s += 2;
+    if (/microsoft|google/i.test(v.name)) s += 1;
+    return s;
+  };
+  return danish.reduce((best, v) => (score(v) > score(best) ? v : best));
 }
 
 /** Resolve a Danish voice, handling Chrome's async getVoices() (empty on first

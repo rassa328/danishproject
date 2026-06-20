@@ -11,7 +11,8 @@
     "preview": "astro preview",
     "astro": "astro",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "tts": "node --experimental-strip-types scripts/generate-tts.ts"
   },
   "dependencies": {
     "@astrojs/mdx": "^6.0.3",

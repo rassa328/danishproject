@@ -217,7 +217,7 @@
           </p>
           <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} /></p>
           <p class="sv">{current.swedish}</p>
-          {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa}</p>{/if}
+          {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label="Lyssna" /></p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
           <div class="grades">
             <button onclick={() => grade(1 as ReviewGrade)}>Igen (1)</button>
