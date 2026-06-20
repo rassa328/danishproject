@@ -1,0 +1,309 @@
+# Seed deck — verification report
+
+Generated from your notes by the verification workflow.
+
+- **84** clean cards (was 84 raw candidates)
+- **60** corrections/enrichments logged
+- **13** flagged as false friends (`falsk-ven`)
+- **14** notes routed to lessons instead of cards
+- **7** items still uncertain (need your call)
+
+## Decks
+
+- `hverdag-b1` — 29
+- `verber-b1` — 20
+- `falske-venner-b1` — 12
+- `udtryk-og-idiomer-b2` — 10
+- `smalltalk-b1` — 3
+- `känslor-b1` — 2
+- `udtryk-og-idiomer-b1` — 2
+- `kläder-b1` — 1
+- `hjem-og-koekken-b1` — 1
+- `foelelser-b1` — 1
+- `natur-og-vejr-b1` — 1
+- `tid-og-numre-b1` — 1
+- `hverdag-b2` — 1
+
+## Corrections made to your notes
+
+- **Hue - hatt**
+  - issue: 'hatt' är en oprecis/felaktig översättning av 'hue'. Danskt 'hue' = stickad mössa/luva; 'hatt' (med brätte) heter 'hat' på danska.
+  - → Ändrade svensk översättning till 'mössa'. Kortet behållet.
+  - source: Den Danske Ordbog / Cambridge Danish-English (ordnet.dk, dictionary.cambridge.org/da/ordbog/dansk-engelsk/hue) — 'hue' = cap/woolly hat.
+- **mormond - roligt**
+  - issue: 'mormond' är inte ett danskt ord; transkriptionsfel. Avsett ord är 'morsomt'.
+  - → Rättat danska till 'morsomt'. Lade till falsk-vän-varning: danskt 'roligt' = lugnt, inte roligt.
+  - source: Wiktionary 'morsom' (en.wiktionary.org/wiki/morsom) = funny/amusing; svenska 'roligt' = morsomt/sjovt.
+- **Dyp - doppa**
+  - issue: 'Dyp' är substantiv (ett dopp); paret matchar verbet 'doppa'. Infinitiv saknas.
+  - → Ändrade danska till verbinfinitiven 'dyppe' för att matcha 'doppa'.
+  - source: Den Danske Ordbog (ordnet.dk): 'dyppe' (vb) = doppa; 'dyp' (sb) = dopp.
+- **Det søger jeg for at få ordnet - det ser jag till att få fixat**
+  - issue: Användaren skrev 'søger' (= söker). Korrekt uttryck är 'sørger for' (= se till/ombesörja).
+  - → Rättat 'søger' → 'sørger'. Behållet som fras-kort.
+  - source: Den Danske Ordbog (ordnet.dk): 'sørge for' = ombesörja/se till; jämför 'søge' = söka.
+- **springe - hoppa**
+  - issue: Korrekt, men kräver falsk-vän-markering eftersom svenska 'springa' = löpa, inte hoppa.
+  - → Behållet; flyttat till falske-venner-deck och markerat 'falsk-ven|asymmetrisk' med not.
+  - source: dict.cc / dictzone Danish-English: 'springe' = jump; 'løbe' = run.
+- **Løbe springa**
+  - issue: Korrekt par; saknade bindestreck i källraden men paret är giltigt. Speglar springe-fällan.
+  - → Behållet; markerat som falsk vän (asymmetrisk) med not.
+  - source: dict.cc Danish-English: 'løbe' = run = svenska 'springa'.
+- **genstande - saker (item)**
+  - issue: Parentesen '(item)' är en metakommentar, inte del av översättningen.
+  - → Tog bort '(item)'; svensk sida = 'saker'. Behållet.
+  - source: Glosbe/DDO: 'genstand' = föremål/sak/objekt.
+- **Begejstret - entusiastisk**
+  - issue: Korrekt par, ingen ändring av innebörd.
+  - → Behållet; berikat med pos/deck/exempel.
+  - source: DDO: 'begejstret' = entusiastisk/begejstrad.
+- **tømmermænd baksmäla (looksWrong)**
+  - issue: Användarens svenska stavning 'baksmäla' saknar ett 'l'.
+  - → Rättat till 'baksmälla'. Paret tømmermænd↔baksmälla är korrekt (verifierat).
+  - source: Glosbe da-sv (tømmermænd→bakfylla/baksmälla); sv.wiktionary baksmälla
+- **Karklude — kökstrasa**
+  - issue: Användaren gav den danska pluralen 'Karklude' med versal; uppslagsformen bör vara singular.
+  - → Normaliserat till 'karklud' (sing.). Betydelse kökstrasa/disktrasa bekräftad.
+  - source: Den Danske Ordbog (karklud); allmän da-sv ordbok
+- **Anbefaler - rekommenderar**
+  - issue: Endast versal/format; ingen felöversättning.
+  - → Behållet. anbefale = rekommendera, verifierat.
+  - source: ordnet.dk DDO 'anbefale'; Glosbe rekommendera→anbefale
+- **temporärt/temporär = midlertidig (adjektiv) eller midlertidigt (adverb)**
+  - issue: Korrekt produktion-par; inget fel.
+  - → Behållet som produktion-par. midlertidig (adj) / midlertidigt (adv/n).
+  - source: Den Danske Ordbog 'midlertidig'
+- **Tripvis - stegvis (looksWrong)**
+  - issue: 'Tripvis' finns inte på danska — felstavning.
+  - → Rättat till 'trinvis' (av trin = steg). trinvis = stegvis bekräftat.
+  - source: Synonymordböcker da/sv (trinvis↔stegvis↔gradvis)
+- **steg - skrin, trin/trit (looksWrong)**
+  - issue: Hopblandning av flera ord. 'skrin' är inte ett trappsteg; 'trit' är felstavning; 'steg' på danska betyder stek, inte steg.
+  - → Upplöst till ett rent kort: dansk 'trin' = svensk 'steg/trappsteg'. Noterat att dansk 'steg' = stek och svensk 'skrin' = ask/skrin (separat ord). 'trit' rättat till 'trin'.
+  - source: Glosbe sv-da 'steg'→skridt/trin/niveau; Svensk-Dansk Ordbog 'skrin'
+- **Nemt - lätt**
+  - issue: Inget fel; ev. nyans mellan 'lätt' (=let, icke tung) och 'nem' (=enkel).
+  - → Behållet. Lagt till nyans i noten.
+  - source: Den Danske Ordbog 'nem'
+- **ked - sorligt (looksWrong)**
+  - issue: 'ked' ensamt är ofullständigt; svensk 'sorligt' är felstavat och fel ordklass-matchning.
+  - → Rättat till uttrycket 'ked af det' = ledsen/sorgsen. Den danska konstruktionen kräver 'af det'.
+  - source: Glosbe da-sv 'ked af'→ledsen; bab.la exempel 'jeg er ked af det'
+- **blid - mild**
+  - issue: Inget fel.
+  - → Behållet. blid = mild/vänlig, verifierat.
+  - source: DinOrdbog svensk-dansk 'blid'; Den Danske Ordbog 'mild'
+- **stået på - det pågått? (user unsure, looksWrong)**
+  - issue: Användaren var osäker på fras och gloss.
+  - → Bekräftat och behållet, omformulerat till hel fras 'hvad har der stået på?' = 'vad har det pågått?/vad har varit på gång?'. 'stå på' (om händelse) = pågå/hända.
+  - source: Native bruk; sproget.dk verb 'stå på' (pågå-betydelse)
+- **have - ha / trädgård**
+  - issue: Inget fel — homograf med två betydelser.
+  - → Behållet, markerat som homograf/falsk-ven: verb 'at have'=ha, subst. 'en have'=trädgård.
+  - source: Den Danske Ordbog 'have' (subst.) och 'have' (verb)
+- **bølgerna - vågorna (looksWrong)**
+  - issue: Användaren skrev fel dansk bestämd plural 'bølgerna'.
+  - → Rättat till 'bølgerne'. bølgerne = vågorna.
+  - source: Dansk böjning av 'bølge' (best. pl. bølgerne)
+- **du slår græset - du klipper gräset**
+  - issue: Liten stavning: 'græset' bör vara 'græsset'.
+  - → Rättat till 'du slår græsset'. Markerat den asymmetriska kollokationen slå (da) vs klippa (sv) gräs.
+  - source: Den Danske Ordbog 'slå' (slå græsset = klippa gräs)
+- **køretøj - fartyg (looksWrong)**
+  - issue: Felöversättning: 'fartyg' är fel. køretøj betyder fordon.
+  - → Rättat svensk sida till 'fordon'. Fartyg = dansk 'skib'. Klassisk fälla.
+  - source: Den Danske Ordbog 'køretøj' (= fordon); skib = fartyg
+- **bløt - mjukt**
+  - issue: 'bløt' är norska, inte danska (learner-noten flaggade detta korrekt själv). Danskt 'mjuk' i intetkøn/t-form är 'blødt'.
+  - → Rättat danish till 'blødt'. Behållen som kort med stavnings-tag.
+  - source: Wiktionary 'blød' (da): blød / blødt / bløde. https://da.wiktionary.org/wiki/bl%C3%B8d ; Svensk-Dansk Ordbog 'mjuk' = blød. https://ordnet.dk/sdo/ordbog/mjuk
+- **Det går sin skæve gang. - Det går sin sneda gång**
+  - issue: Den svenska sidan 'Det går sin sneda gång' är en ordagrann calque och INTE ett naturligt svenskt idiom. Det idiomatiska svenska uttrycket är 'Det går sin gilla gång'.
+  - → Rättat swedish till 'Det går sin gilla gång'. Danska sidan korrekt.
+  - source: Svenska idiom 'gå sin gilla gång' (utvecklas ostört/som vanligt). https://www.ordlista.se/idiom/ga-sin-gilla-gang/ ; Wiktionary. https://en.wiktionary.org/wiki/g%C3%A5_sin_gilla_g%C3%A5ng
+- **Det går godt tak, hvad med dig?**
+  - issue: Saknad interpunktion; ingen explicit svensk glosa i userNote.
+  - → Lade till komma ('Det går godt, tak. Hvad med dig?') och svensk glosa 'Det går bra, tack. Hur är det med dig?'.
+  - source: —
+- **Ja, den gik alt for hurtigt! Hvad med dig? Har du haft en god weekend?**
+  - issue: Korrekt danska; behövde svensk glosa och enrichment.
+  - → Behållen; lade till svensk glosa och note om 'weekend' vs 'helg'.
+  - source: —
+- **Velbekomme - smaklig måltid**
+  - issue: Glosan 'smaklig måltid' täcker bara användning före måltid; danska 'velbekomme' används även efter måltid (svar på 'tak for mad'), där svenskan snarare har 'varsågod'.
+  - → Behållen pairen; lade till registernote om dubbelanvändningen.
+  - source: Den Danske Ordbog / ODS 'velbekomme'. https://ordnet.dk/ddo/ordbog/velbekomme
+- **Jag undrar -> Jeg undrer mig over**
+  - issue: Korrekt riktning men strukturellt asymmetrisk (reflexivt + 'over' på danska); behövde flaggas.
+  - → Behållen som phrase; note om reflexiv konstruktion 'undre sig over' + tag 'asymmetrisk'.
+  - source: Den Danske Ordbog 'undre'. https://ordnet.dk/ddo/ordbog/undre
+- **Fortfarande -> Stadig**
+  - issue: Korrekt pair, men det är en genuin falsk vän som inte var markerad: svenska 'stadig' (stabil) ≠ danska 'stadig' (fortfarande).
+  - → Behållen; flyttad till falske-venner-deck med tags 'falsk-ven|asymmetrisk' och varningsnote.
+  - source: DinOrdbok dansk-svensk 'stadig'→fortfarande. https://www.dinordbok.no/sv/dansk-svensk/?q=stadig ; Wikipedia, lista över falska vänner nordiska språk. https://sv.wikipedia.org/wiki/Lista_%C3%B6ver_falska_v%C3%A4nner_mellan_svenska_och_%C3%B6vriga_nordiska_spr%C3%A5k
+- **Orden -> Ordene**
+  - issue: Korrekt pair men morfologiskt asymmetriskt (bestämd plural -ene vs -en); värt att flagga för inlärning.
+  - → Behållen som noun; note om bestämd plural-böjning + tag 'asymmetrisk'.
+  - source: Den Danske Ordbog 'ord' (best. pl. ordene). https://ordnet.dk/ddo/ordbog/ord
+- **Varje -> Hver; Försöker -> Prøver; Pratar -> snakker; begynde - börja; er; gentage - upprepa**
+  - issue: Alla korrekta pairs utan transkriptionsfel.
+  - → Behållna; normaliserade gemener i headword, lade till pos, cefr, exempel och svenska noter. Inga betydelseändringar.
+  - source: —
+- **formoue - förmögenhet**
+  - issue: Danish spelling typo: 'formoue' is not a Danish word.
+  - → Corrected to 'formue' (= förmögenhet), confirmed against Den Danske Ordbog. Tagged 'stavning'.
+  - source: ordnet.dk (Den Danske Ordbog), entry 'formue'
+- **Slæpps -> Kommer**
+  - issue: Flagged looksWrong. 'Slæpps' is not Danish; it is a mis-transcription of Swedish 'släpps' (passive of 'släppa' = is released/launched). The loose gloss 'Kommer' is the learner's paraphrase ('kommer ut').
+  - → Resolved (not rejected): made it a Danish<->Swedish pair with Swedish prompt 'släpps' and Danish 'udkommer' (also 'bliver udgivet'). Standard register; vardaglig variant 'kommer (ud)'.
+  - source: bab.la / synonymer.se: Swedish 'släpps'/'kommer ut' for media releases; Den Danske Ordbog 'udkomme'
+- **jordbær - jordgubbe**
+  - issue: Correct pair but an asymmetric false friend worth flagging: Danish 'jordbær' looks like Swedish 'jordbär', which is not modern standard Swedish (strawberry = jordgubbe).
+  - → Kept; moved to falske-venner deck and tagged 'falsk-ven|asymmetrisk' with a note.
+  - source: sprakforsvaret.bloggplatsen.se; Wikipedia (smultron/jordbär history); majstro dansk-svensk ordbok
+- **sej - cool/tuff**
+  - issue: Swedish gloss is correct for the Danish word, but the look-alike Swedish cognate 'seg' means slow/sluggish/chewy — a genuine false friend not flagged by the learner.
+  - → Kept gloss; moved to falske-venner deck, tagged 'falsk-ven|asymmetrisk', added warning vs Swedish 'seg' in the note.
+  - source: Wikipedia 'Lista över falska vänner mellan svenska och övriga nordiska språk'; ordlista.se 'seg'
+- **Pæn -> Snygg/fin**
+  - issue: Accurate but needs nuance: 'pæn' spans both 'snygg/vacker' and 'fin/prydlig/anständig'.
+  - → Kept; added Swedish nuance note and example.
+  - source: ordnet.dk (Den Danske Ordbog) 'pæn'; glosbe da-sv
+- **Started 'jag skämtar - jeg joker, jeg laver bare sjov'**
+  - issue: Two Danish renderings offered; 'jeg joker' is colloquial/anglicism, 'jeg laver bare sjov' is the natural idiom.
+  - → Kept as one card with the natural idiom 'jeg laver bare sjov' as the headword; noted 'jeg joker' as a colloquial variant. Not rejected.
+  - source: ordnet.dk 'lave sjov'
+- **Knappt -> Knap nok**
+  - issue: Correct; just enriched.
+  - → Kept as phrase; added note distinguishing 'knap' (knapp/button, snäv) and example.
+  - source: glosbe da-en 'knap'; Quora discussion knap nok vs næppe (semantic check)
+- **Began -> Begyndte at lære (Började lära mig)**
+  - issue: Correct; note that Danish 'lære' lacks the reflexive 'mig' present in Swedish 'lära mig'.
+  - → Kept; added contrastive note.
+  - source: ordnet.dk 'lære'
+- **Ind imellem / Derhjemme / Ved siden af / Verkar ha / Gett upp / rusningstid**
+  - issue: No errors found; verified as correct pairs.
+  - → Kept with enrichment (pos, deck, cefr, examples, notes). No correction needed.
+  - source: Den Danske Ordbog / SAOL (general verification)
+- **Kurragemme - gemmeleg (kurragömma)**
+  - issue: Both fields garbled. The Danish word was given as the Swedish-looking 'Kurragemme' and the Swedish gloss embedded the actual Danish ('gemmeleg'). Production pair should be Danish 'gemmeleg' ↔ Swedish 'kurragömma'.
+  - → Set danish='gemmeleg', swedish='kurragömma'. Verified the children's hide-and-seek game pair.
+  - source: sv.wiktionary.org/wiki/kurragömma; da.glosbe.com/sv/da/kurragömma (gemmeleg listed as Danish translation)
+- **giv det slip - låta det vara**
+  - issue: 'giv det slip' is ungrammatical Danish. The idiom is 'give slip (på)' = let go / release. Object goes after 'slip' (e.g. 'giv slip på det') or use 'slip det'.
+  - → Corrected danish to 'giv slip'; expanded Swedish gloss to 'släpp taget, låt det vara'.
+  - source: da.glosbe.com/da/en/give slip på; Cambridge Danish 'slip'
+- **Sådan cirka - typ (tog typ 3 månader)**
+  - issue: Capitalisation and parenthetical example mixed into the gloss; 'typ' alone undersells it.
+  - → Normalised to lowercase 'sådan cirka'; cleaned Swedish gloss to 'typ, ungefär' and moved the example into example fields.
+  - source: n/a (formatting/normalisation)
+- **stadigt - fortfarande**
+  - issue: Pair is correct but is a notable false friend that must be flagged: Swedish 'stadig' means steady/sturdy, not 'fortfarande'. Lemma form is the adverb 'stadig'.
+  - → Kept pair, used lemma 'stadig', tagged falsk-ven|omvänd, added warning note. Verified Danish 'stadig(t)' = fortfarande/still.
+  - source: ordnet.dk/ddo (stadig); netcetera.dk stadig/stadigvæk
+- **rykke - flytta (i tid, e.g möte)**
+  - issue: Pair correct; 'e.g' anglicism in an otherwise Swedish gloss.
+  - → Kept; normalised gloss to 't.ex. ett möte'. Verified 'rykke' = move/shift a time. Added cross-ref note vs 'flytte'.
+  - source: ordnet.dk/ddo/ordbog/rykke; sproget.dk SV00001145
+- **flytte - flytta**
+  - issue: Correct, but identical-looking to 'rykke' card; risk of confusion.
+  - → Kept as-is; added a disambiguating note pointing to 'rykke' (time) vs 'flytte' (object/residence).
+  - source: n/a (verified cognate)
+- **Fællesnævner = gemensam nämnare**
+  - issue: Correct pair; '=' separator and capitalisation from raw notes.
+  - → Kept; normalised to lowercase lemma 'fællesnævner'. Set cefr b2 (lower-frequency/figurative).
+  - source: n/a (verified compound; nævner=nämnare)
+- **Sluge - svälja**
+  - issue: Correct; just capitalisation.
+  - → Kept; lowercased to 'sluge'. Added figurative note ('sluge en bog' = sluka en bok).
+  - source: n/a (verified cognate)
+- **taske - väska**
+  - issue: Correct pair; worth a slang/register note (taske can be a derogatory term in Danish slang) for the learner.
+  - → Kept; added note about slang sense while keeping primary meaning 'väska'.
+  - source: n/a (verified; sense note)
+- **nysgerrighed - nyfikenhet; lænestol - fåtölj; Baglæns - baklänges; Jeg kan godt lide - jag gillar; At tage skraldet - ta smällen**
+  - issue: No translation errors; only minor casing/formatting and missing enrichment.
+  - → Accepted as correct pairs; lowercased lemmas where needed and added pos/cefr/deck/examples/notes. All verified as standard Danish↔Swedish.
+  - source: n/a (verified standard vocabulary/idiom)
+- **Plejar**
+  - issue: Swedish-influenced spelling of the Danish verb; the Danish base form is 'pleje' (present 'plejer'), not 'plejar'. Flagged looksWrong.
+  - → Corrected to 'plejer' (present) / infinitive 'at pleje'. Kept Swedish gloss 'brukar'; added the second sense 'vårda/sköta'. Tagged 'stavning'.
+  - source: Den Danske Ordbog, ordnet.dk/ddo/ordbog/pleje
+- **At bide tænderne sammen**
+  - issue: Capitalization only; valid idiom.
+  - → Lowercased to 'at bide tænderne sammen' (mid-sentence/headword style); pair confirmed correct, Swedish 'bita ihop (tänderna), härda ut' is exact.
+  - source: DR Ligetil 'Danske idiomer', dr.dk
+- **Man må bare tage det på brystet = man får bara brösta det**
+  - issue: Swedish gloss 'brösta det' is a weak/slangy equivalent; 'brösta (upp) sig' actually leans toward 'spänna sig/skryta/agera kaxig', not 'ta ansvar/stå för det'.
+  - → Kept the pair but flagged the mismatch in the Swedish note and offered the more accurate gloss 'ta det på sig / ta smällen / härda ut'. Not rejected since the Danish idiom is real and the learner's gloss is in colloquial use.
+  - source: Synonymer.se 'brösta sig'; SAOB 'brösta'; Den Danske Ordbog 'bryst'
+- **Mangler = saknas, fattas eller behöver**
+  - issue: Listed as 'vocab' with no pos; needed pos + base form.
+  - → Tagged as verb (base 'at mangle'); clarified the two senses (sakna vs. behöva/fattas) in the note. Pair correct.
+  - source: Den Danske Ordbog 'mangle'
+- **sgu = faktiskt / minsann**
+  - issue: Needed register/etymology nuance; no false equivalent in Swedish.
+  - → Kept; added note that it is an informal reinforcing modal particle / mild oath from 'så Gud', avoid in formal contexts. No single Swedish equivalent.
+  - source: Dansk Sprognævn; Den Danske Ordbog 'sgu'; da.wiktionary.org/wiki/sgu
+- **i lige måde = detsamma / likaså**
+  - issue: Capitalization and pos.
+  - → Lowercased; tagged 'phrase'. Confirmed gloss 'detsamma/likaså' (lit. 'i lika måtto').
+  - source: sv.wiktionary.org/wiki/i_lige_måde; Glosbe da→sv
+- **Snildt = enkelt, lätt, smidigt eller utan problem**
+  - issue: Missed false-friend with Swedish 'snäll'; the learner's note 'besläktat med snäll' is etymologically right but risks the trap that 'snild' means 'snäll'.
+  - → Kept gloss for adverb 'snildt' = lätt/utan problem, but reclassified into the false-friends deck and added explicit warning: adj. 'snild' = smart/listig (not 'snäll'); Swedish 'snäll' (kind) = Danish 'sød/rar'. Tagged 'falsk-ven|asymmetrisk'.
+  - source: Den Danske Ordbog 'snild' (besl. svensk 'snäll' = flink, rar); ordnet.dk
+- **lige = precis / just / rakt / lika**
+  - issue: Highly polysemous; needed disambiguation.
+  - → Kept core glosses as adverb; note lists the senses (precis/just, rakt, lika/jämnt, softening filler) and warns only one sense maps to Swedish 'lika'.
+  - source: Den Danske Ordbog 'lige'
+- **Jeg løb om morgenen**
+  - issue: A full example sentence captured as a card, not a vocab pair.
+  - → Kept as a usable past-tense example/dictation card (kind 'phrase'); translation 'jag sprang på morgonen' is correct.
+  - source: native
+- **Tøve, Akavet, Driller, Alligevel, lomme**
+  - issue: Capitalization and missing pos/cefr/deck/examples.
+  - → Lowercased headwords, assigned pos, cefr, decks, Swedish notes and natural DA/SV examples. All pairs verified correct.
+  - source: Den Danske Ordbog (tøve, akavet, drille, alligevel, lomme)
+
+## Notes routed to lessons (not flashcards)
+
+- **plejer — multi-meaning** → _L9 grammar_
+  - Plejer = brukar/vanligtvis (habitual), men kan även betyda 'vårda' / 'passa på' (to care for). User wrote 'Plejar' (Swedish-influenced spelling); the Danish form is 'plejer'.
+- **sgu — förstärkningsord/mild svordom** → _L10 idiom_
+  - sgu = faktiskt / banne mig. Milt svordomsord från 'så Gud', förstärkningsord typ 'visst/faktiskt/minsann'. Det er sgu rigtigt = Det är minsann sant. Jeg ved det sgu ikke = Jag vet det faktiskt inte. Det var sgu godt = Det var fan bra.
+- **lomme — sammansättningar** → _L10 idiom_
+  - lomme = ficka. Sammansättningar: lommeregner (miniräknare), lommelygte (ficklampa).
+- **når vs da (när i nutid/framtid vs dåtid)** → _L9 grammar_
+  - På danska använder man 'da' för 'när' i dåtid (= 'den gången då'). 'Når' används för nutid/framtid. Swedish 'när' maps to both depending on tense.
+- **börja → begynde (börja finns inte på danska)** → _L9 grammar_
+  - 'Börja' finns inte på danska! Danskan säger 'begynde', dåtid 'begyndte'. Swedish börja → begynde / begyndte.
+- **tøve — multi-meaning + collocation** → _L9 grammar_
+  - Tøve = tveka, dröja eller vänta. Collocation 'tøve med' = tveka inför / avvakta med.
+- **alligevel — motsättning/konsekvens** → _L10 idiom_
+  - Alligevel = ändå, emellertid eller likväl. Uttrycker motsättning/konsekvens som kvarstår trots tidigare omständigheter.
+- **akavet — fysiskt vs socialt** → _L10 idiom_
+  - Akavet = pinsam, genant, avig eller klumpig. Kan vara fysiskt klumpig rörelse ('kejtet') eller en socialt obekväm situation.
+- **driller / at drille — multi-meaning** → _L10 idiom_
+  - Driller = krånglar, ställer till det, retar, är besvärligt. Grundform 'at drille'. Det driller = Det krånglar. Han driller mig = Han retas med mig. 'der er nogle ord, der driller' = det finns vissa ord som ställer till det.
+- **snildt — multi-meaning + släktskap** → _L10 idiom_
+  - Snildt = enkelt, lätt, smidigt eller utan problem. Der kan snildt være tre på bagsædet = Det får enkelt/lätt plats tre i baksätet. Besläktat med svenska 'snäll'. Det kan du snildt nå = Det hinner du enkelt med.
+- **lige — utfyllnadsord och betydelser** → _L3 reduced speech_
+  - lige = precis / just / rakt / lika / likadant / jämnt / ibland utfyllnadsord. Kom lige her = Kom just hit. Jeg skal lige gøre det færdigt = Jag ska bara göra klart det. Vent lige lidt = Vänta lite bara. Det er lige mig = Det är precis min grej. Det passer lige = Det passar precis. Han er lige så høj som mig = Han är lika lång som jag. Gå lige ud = Gå rakt fram. Lige nu = Just nu. For lige at være sikker = Bara för att vara säker. Faste uttryck: lige nu=just nu, lige før=precis innan/nyss, lige efter=precis efter, lige meget=spelar ingen roll, lige som=precis som, lige ved og næsten=nästan.
+- **fire vs fyrre — uttalskontrast** → _L2 blødt d / pronunciation_
+  - 'fire' har ett tydligt i-ljud (som svenskans 'fira'). 'fyrre' har ett ö-ljud (som i svenskans 'för'). Viktig minimal pair-kontrast 4 vs 40.
+- **Väderfras — lyn, torden, regn** → _L10 idiom_
+  - Det lynede og tordnede, og regnen stod ned i stænger. = Det blixtrade och dundrade, och regnen öste ner. ('stod ned i stænger' = öste ner).
+- **Stor uttals-fusklapp (pronunciation cheat sheet)** → _L2 blødt d / pronunciation_
+  - -e ending = weak schwa (at løbe = lø-bə; huse = hu-sə). -er ending = weak a/ə with r-color (arbejder; biler). -et ending = soft d not hard t (løbet; huset). -ede = soft d (vaskede). Soft d after a vowel (mad, hud) = like English 'th' in 'the' but lazier, no hard d-stop. Medial P/T/K become B/D/G (spise=[sbise], stol=[sdol], spiste=[sbisde], skib=[sgib]). -ng = single sound like English 'sing' (sang). Silent d after l/n/r (ild=[il], mand=[man], ord=[or], bord=[bor]). Silent h before v/j (hvem=[vem], hjem=[jem]). Checklist: swallow endings -e/-er; -et/-ede become soft d; medial p/t/k voice to b/d/g; skip silent d after l/n/r and h in hv-/hj-.
+
+## Still uncertain — your call
+
+- **mormond - roligt** — 'mormond' is not a Danish word; likely a transcription typo (perhaps 'morsomt' = roligt). Flagged looksWrong; core meaning unclear.
+- **Tripvis - stegvis** — 'Tripvis' is not standard Danish for 'stegvis' (that would be 'trinvis'). Possible typo/blend; uncertain whether it belongs as a card or is an error.
+- **steg - skrin, trin/trit** — The Swedish/Danish glosses are jumbled: 'steg'='skrin' is wrong (skrin=skrika/shrine?), and 'trin/trit' mixes forms. Whole line is garbled and meaning is unclear.
+- **Slæpps -> Kommer** — 'Slæpps' is not a Danish word (looks like Swedish 'släpps' or a typo). Mapping to 'Kommer' is unexplained; could be 'slippes' or 'slipper'. Genuinely unclear.
+- **Kureagömma - gemmeleg (kurragömma)** — User intended Swedish 'kurragömma' (hide-and-seek) = Danish 'gemmeleg', but wrote 'Kureagömma' which is garbled on the Swedish side. Direction and spelling both off.
+- **stået på - det pågått?** — User added a question mark indicating their own uncertainty about whether 'stået på' means 'pågått'. Needs verification.
+- **ked - sorligt** — 'ked' alone usually appears as 'ked af det' (ledsen/sorgsen); the bare gloss 'sorligt' (typo for 'sorgligt') and lone 'ked' make the card form uncertain.
