@@ -52,6 +52,7 @@ export const UI = {
     repeatDue: 'Repetera förfallna',
     practiceFree: 'Öva fritt (påverkar inte schemat)',
     noTagMatch: 'Inga kort matchar den här taggen.',
+    confirmRestart: 'Du är mitt i en omgång. Vill du börja om?',
     progress: (i: number, total: number, remaining: number) => `Kort ${i} av ${total} · ${remaining} kvar`,
     reviewedCount: (n: number) => `Du repeterade ${n} kort.`,
     backup: {

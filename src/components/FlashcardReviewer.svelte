@@ -18,6 +18,10 @@
   let fromLesson = $state<string | null>(null);
   let selectedDeck = $state(decks[0] ?? '');
   let direction = $state<Direction>('produce');
+  // Previous values so a cancelled "restart?" confirm can revert the control.
+  let prevDeck = selectedDeck;
+  let prevDirection: Direction = direction;
+  let grading = false; // re-entrancy guard for the grade transition window
   let queue = $state<Card[]>([]);
   let idx = $state(0);
   let phase = $state<'prompt' | 'revealed' | 'done'>('prompt');
@@ -31,6 +35,21 @@
   const now = () => new Date();
   const current = $derived(queue[idx]);
   const remaining = $derived(Math.max(0, queue.length - idx));
+  // True when the current filter (tag or deck) contains no cards at all — lets
+  // the done screen say "no match, clear filter" instead of "all caught up".
+  const poolEmpty = $derived(ready && pool().length === 0);
+
+  /** Restart the session, but if the learner is mid-round, confirm first and
+   *  revert the just-changed control on cancel. */
+  function restartGuarded(revert: () => void) {
+    if (reviewed > 0 && phase !== 'done' && !confirm(T.confirmRestart)) {
+      revert();
+      return;
+    }
+    prevDeck = selectedDeck;
+    prevDirection = direction;
+    start();
+  }
 
   function shuffle<T>(a: T[]): T[] {
     for (let i = a.length - 1; i > 0; i--) {
@@ -92,17 +111,22 @@
   }
 
   function grade(g: ReviewGrade) {
-    if (phase !== 'revealed' || !current) return;
-    const eff = clampForCorrectness(g, wasCorrect);
-    const { result } = store.grade(current.id, direction, eff, now());
-    if (!result.ok) warning = T.saveError;
-    reviewed++;
-    idx++;
-    typed = '';
-    if (idx >= queue.length) phase = 'done';
-    else {
-      phase = 'prompt';
-      afterPrompt();
+    if (grading || phase !== 'revealed' || !current) return;
+    grading = true;
+    try {
+      const eff = clampForCorrectness(g, wasCorrect);
+      const { result } = store.grade(current.id, direction, eff, now());
+      if (!result.ok) warning = T.saveError;
+      reviewed++;
+      idx++;
+      typed = '';
+      if (idx >= queue.length) phase = 'done';
+      else {
+        phase = 'prompt';
+        afterPrompt();
+      }
+    } finally {
+      grading = false;
     }
   }
 
@@ -157,7 +181,7 @@
     {:else}
       <label>
         {T.deckLabel}
-        <select bind:value={selectedDeck} onchange={() => start()}>
+        <select bind:value={selectedDeck} onchange={() => restartGuarded(() => (selectedDeck = prevDeck))}>
           {#each decks as d}<option value={d}>{d}</option>{/each}
         </select>
       </label>
@@ -165,8 +189,8 @@
 
     <fieldset class="dir">
       <legend class="vh">{T.directionLegend}</legend>
-      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => start()} /> {T.write}</label>
-      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => start()} /> {T.listen}</label>
+      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
+      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
     </fieldset>
   </div>
 
@@ -180,13 +204,21 @@
   >
     {#if phase === 'done'}
       <div class="done">
-        <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
-        {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
-        <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
-        <div class="grades">
-          <button onclick={() => start(false)}>{T.repeatDue}</button>
-          <button onclick={() => start(true)}>{T.practiceFree}</button>
-        </div>
+        {#if reviewed === 0 && tag && poolEmpty}
+          <h2 tabindex="-1">{T.doneEmpty}</h2>
+          <p>{T.noTagMatch}</p>
+          <div class="grades">
+            <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
+          </div>
+        {:else}
+          <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
+          {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
+          <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
+          <div class="grades">
+            <button onclick={() => start(false)}>{T.repeatDue}</button>
+            <button onclick={() => start(true)}>{T.practiceFree}</button>
+          </div>
+        {/if}
       </div>
     {:else if current}
       <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
