@@ -52,7 +52,7 @@ export const normalizeAnswer = (s: string): string =>
  *  explicit `accepted` synonyms/inflections — all normalized & de-duped. */
 export function acceptedAnswers(card: Pick<Card, 'danish' | 'accepted'>): string[] {
   const variants = card.danish.split('/').map((s) => s.trim());
-  const all = [...variants, ...card.accepted].map(normalizeAnswer).filter(Boolean);
+  const all = [...variants, ...(card.accepted ?? [])].map(normalizeAnswer).filter(Boolean);
   return [...new Set(all)];
 }
 

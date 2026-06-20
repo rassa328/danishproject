@@ -34,7 +34,7 @@ const lessonIds = new Set(files.map((f) => f.replace(/\.mdx?$/, '')));
 
 for (const file of files) {
   const raw = readFileSync(`${lessonsDir}/${file}`, 'utf8');
-  const m = raw.match(/^---\n([\s\S]*?)\n---/);
+  const m = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!m) {
     errors.push(`${file}: no frontmatter block`);
     continue;

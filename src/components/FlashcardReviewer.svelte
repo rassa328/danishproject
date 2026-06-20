@@ -76,21 +76,29 @@
       if (!r) fresh.push(c);
       else if (!r.suspended && new Date(r.due) <= now()) due.push(c);
     }
-    // Introduce easier (B1) cards before harder (B2) ones; shuffle within level.
+    // Fill the new-card budget with easier (B1) cards before harder (B2) ones.
+    // The queue is shuffled below, so this changes which fresh cards are
+    // introduced, not their order within the session.
     fresh.sort((a, b) => (a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1));
     return shuffle([...due, ...fresh.slice(0, settings.newPerDay)]);
   }
 
-  // Multiple-choice options for 'recognize' mode: the answer + up to 3 distractors
-  // drawn from the same pool, shuffled. Rebuilt on each new card.
+  // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
+  // Distractors come from the WHOLE deck (not just the active pool) so small or
+  // single-card decks still get real options; same part-of-speech words are
+  // preferred for plausibility. Rebuilt on each new card.
   let choices = $state<string[]>([]);
   function buildChoices() {
     if (direction !== 'recognize' || !current) {
       choices = [];
       return;
     }
-    const others = [...new Set(pool().map((c) => c.danish))].filter((d) => d !== current.danish);
-    choices = shuffle([current.danish, ...shuffle(others).slice(0, 3)]);
+    const correct = current.danish;
+    const uniq = (cs: Card[]) => [...new Set(cs.map((c) => c.danish))].filter((d) => d !== correct);
+    const samePos = shuffle(uniq(cards.filter((c) => c.pos === current.pos)));
+    const anyPos = shuffle(uniq(cards));
+    const distractors = [...new Set([...samePos, ...anyPos])].slice(0, 3);
+    choices = shuffle([correct, ...distractors]);
   }
 
   function choose(option: string) {

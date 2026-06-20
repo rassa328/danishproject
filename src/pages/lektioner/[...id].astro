@@ -5,23 +5,30 @@ import { getNeighbors } from '../../lib/lessons.ts';
 
 export async function getStaticPaths() {
   const lessons = await getCollection('lessons', ({ data }) => !data.draft);
-  return lessons.map((entry) => ({ params: { id: entry.id }, props: { entry, lessons } }));
+  const titleById = new Map(lessons.map((l) => [l.id, l.data.title]));
+  const link = (l: { id: string; data: { title: string } } | null) =>
+    l ? { id: l.id, title: l.data.title } : null;
+  return lessons.map((entry) => {
+    const { prev, next, index, total } = getNeighbors(lessons, entry.id);
+    const prerequisites = entry.data.prerequisites
+      .filter((id) => titleById.has(id))
+      .map((id) => ({ id, title: titleById.get(id) as string }));
+    return {
+      params: { id: entry.id },
+      props: {
+        entry,
+        prev: link(prev),
+        next: link(next),
+        position: String(index + 1) + ' / ' + String(total),
+        prerequisites,
+      },
+    };
+  });
 }
 
-const { entry, lessons } = Astro.props;
+const { entry, prev, next, position, prerequisites } = Astro.props;
 const { data } = entry;
 const { Content } = await render(entry);
-
-const titleById = new Map(lessons.map((l) => [l.id, l.data.title]));
-const link = (l: { id: string; data: { title: string } } | null) =>
-  l ? { id: l.id, title: l.data.title } : null;
-const { prev, next, index, total } = getNeighbors(lessons, entry.id);
-
-// Resolve prerequisite ids to {id,title}, skipping any that no longer exist
-// (the content validator guarantees they exist, but stay defensive).
-const prerequisites = data.prerequisites
-  .filter((id) => titleById.has(id))
-  .map((id) => ({ id, title: titleById.get(id)! }));
 ---
 
 <LessonLayout
@@ -35,9 +42,9 @@ const prerequisites = data.prerequisites
   prerequisites={prerequisites}
   vocabTags={data.vocabTags}
   checkpoint={data.checkpoint}
-  prev={link(prev)}
-  next={link(next)}
-  position={`${index + 1} / ${total}`}
+  prev={prev}
+  next={next}
+  position={position}
 >
   <Content />
 </LessonLayout>

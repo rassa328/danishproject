@@ -35,11 +35,16 @@ const lessons = defineCollection({
     // `answer` is the 0-based index of the correct option.
     checkpoint: z
       .array(
-        z.object({
-          q: z.string(),
-          options: z.array(z.string()).min(2),
-          answer: z.number().int().nonnegative(),
-        }),
+        z
+          .object({
+            q: z.string(),
+            options: z.array(z.string()).min(2),
+            answer: z.number().int().nonnegative(),
+          })
+          .refine((c) => c.answer < c.options.length, {
+            message: 'checkpoint answer index is out of range for its options',
+            path: ['answer'],
+          }),
       )
       .default([]),
     draft: z.boolean().default(false),
