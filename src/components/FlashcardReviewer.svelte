@@ -1,7 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { Store } from '../lib/storage.ts';
+  import { Store, type Direction } from '../lib/storage.ts';
   import { clampForCorrectness, type ReviewGrade } from '../lib/srs.ts';
+  import { speak } from '../lib/speech.ts';
+  import { withBase } from '../lib/url.ts';
+  import SpeakButton from './SpeakButton.svelte';
   import type { Card } from '../lib/vocab.ts';
 
   let { cards, decks }: { cards: Card[]; decks: string[] } = $props();
@@ -10,6 +13,7 @@
   let ready = $state(false);
   let tag = $state<string | null>(null);
   let selectedDeck = $state(decks[0] ?? '');
+  let direction = $state<Direction>('produce');
   let queue = $state<Card[]>([]);
   let idx = $state(0);
   let phase = $state<'prompt' | 'revealed' | 'done'>('prompt');
@@ -21,8 +25,8 @@
   let input = $state<HTMLInputElement>();
 
   const now = () => new Date();
-  // Normalize for comparison: trim + lowercase + collapse spaces ONLY.
-  // Crucially we do NOT fold æ/ø/å — a Swedish spelling (läse/ö) must be wrong.
+  // trim + lowercase + collapse spaces ONLY — never fold æ/ø/å (a Swedish
+  // spelling like "läse" must count as wrong).
   const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
   const current = $derived(queue[idx]);
   const remaining = $derived(Math.max(0, queue.length - idx));
@@ -36,7 +40,9 @@
   }
 
   function pool(): Card[] {
-    return tag ? cards.filter((c) => c.tags.includes(tag as string)) : cards.filter((c) => c.deck === selectedDeck);
+    return tag
+      ? cards.filter((c) => c.tags.includes(tag as string))
+      : cards.filter((c) => c.deck === selectedDeck);
   }
 
   function buildQueue(free: boolean): Card[] {
@@ -46,11 +52,17 @@
     const due: Card[] = [];
     const fresh: Card[] = [];
     for (const c of dc) {
-      const r = store.getRecord(c.id, 'produce');
+      const r = store.getRecord(c.id, direction);
       if (!r) fresh.push(c);
       else if (!r.suspended && new Date(r.due) <= now()) due.push(c);
     }
     return shuffle([...due, ...fresh.slice(0, settings.newPerDay)]);
+  }
+
+  function playPrompt() {
+    if (direction === 'listen' && current) {
+      void speak(current.danish, current.audio ? { audioUrl: withBase(current.audio) } : {});
+    }
   }
 
   function start(free = false) {
@@ -60,11 +72,14 @@
     typed = '';
     warning = '';
     phase = queue.length ? 'prompt' : 'done';
-    if (phase === 'prompt') focusInput();
+    if (phase === 'prompt') afterPrompt();
   }
 
-  function focusInput() {
-    tick().then(() => input?.focus());
+  function afterPrompt() {
+    tick().then(() => {
+      input?.focus();
+      playPrompt();
+    });
   }
 
   async function submit() {
@@ -78,7 +93,7 @@
   function grade(g: ReviewGrade) {
     if (phase !== 'revealed' || !current) return;
     const eff = clampForCorrectness(g, wasCorrect);
-    const { result } = store.grade(current.id, 'produce', eff, now());
+    const { result } = store.grade(current.id, direction, eff, now());
     if (!result.ok) warning = 'Framsteg kunde inte sparas (lagringen kan vara full). Exportera en backup.';
     reviewed++;
     idx++;
@@ -86,7 +101,7 @@
     if (idx >= queue.length) phase = 'done';
     else {
       phase = 'prompt';
-      focusInput();
+      afterPrompt();
     }
   }
 
@@ -142,12 +157,18 @@
         </select>
       </label>
     {/if}
+
+    <fieldset class="dir">
+      <legend class="vh">Riktning</legend>
+      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => start()} /> Skriv</label>
+      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => start()} /> Lyssna</label>
+    </fieldset>
   </div>
 
   <section
     class="reviewer"
     role="group"
-    aria-label="Flashcards: skriv det danska ordet"
+    aria-label="Flashcards"
     tabindex="-1"
     bind:this={container}
     onkeydown={onContainerKey}
@@ -164,8 +185,13 @@
     {:else if current}
       <p class="progress" aria-live="polite">Kort {idx + 1} av {queue.length} · {remaining} kvar</p>
 
-      <p class="prompt">{current.swedish}</p>
-      {#if current.exampleSv}<p class="hint">{current.exampleSv}</p>{/if}
+      {#if direction === 'listen'}
+        <p class="prompt-listen">🎧 Lyssna och skriv ordet du hör:</p>
+        <SpeakButton text={current.danish} audio={current.audio} label="Spela igen" />
+      {:else}
+        <p class="prompt">{current.swedish}</p>
+        {#if current.exampleSv}<p class="hint">{current.exampleSv}</p>{/if}
+      {/if}
 
       {#if phase === 'prompt'}
         <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -189,7 +215,8 @@
           <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
             {wasCorrect ? '✓ Rätt!' : '✗ Inte riktigt'}
           </p>
-          <p class="da" lang="da">{current.danish}</p>
+          <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} /></p>
+          <p class="sv">{current.swedish}</p>
           {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa}</p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
           <div class="grades">
@@ -217,19 +244,23 @@
 {/if}
 
 <style>
-  .bar { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-4); flex-wrap: wrap; }
+  .bar { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-4); flex-wrap: wrap; }
   select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+  .dir { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3); display: flex; gap: var(--sp-3); margin: 0; }
+  .dir label { display: inline-flex; align-items: center; gap: 0.3em; font-size: var(--step--1); }
   .reviewer { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--sp-6); min-height: 16rem; }
   .reviewer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .progress { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-4); }
   .prompt { font-size: var(--step-2); font-weight: 600; margin: 0 0 var(--sp-2); }
+  .prompt-listen { font-size: var(--step-1); margin: 0 0 var(--sp-2); }
   .hint { color: var(--muted); font-size: var(--step--1); margin: var(--sp-1) 0; }
   form { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
   form input { flex: 1 1 12rem; }
   .verdict { font-weight: 700; margin: 0 0 var(--sp-2); }
   .verdict.ok { color: var(--correct); }
   .verdict.no { color: var(--accent); }
-  .da { font-size: var(--step-2); font-weight: 700; margin: 0 0 var(--sp-1); }
+  .da { font-size: var(--step-2); font-weight: 700; margin: 0 0 var(--sp-1); display: flex; align-items: baseline; gap: var(--sp-3); }
+  .sv { margin: 0 0 var(--sp-1); }
   .ex { color: var(--muted); margin: 0 0 var(--sp-2); }
   .grades { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
   .warning { color: var(--accent); margin-top: var(--sp-4); }
