@@ -77,8 +77,21 @@ export const UI = {
     prerequisitesLabel: 'Gör först:',
     objectivesHead: 'Efter lektionen kan du:',
     trainWords: 'Träna orden:',
+    practiceCta: 'Börja öva orden →',
+    readBadge: '✓ Läst',
     navLabel: 'Mellan lektioner',
     prev: '← Föregående',
     next: 'Nästa →',
+    backToLesson: '← Tillbaka till lektionen',
+    indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar — grupperade efter tema.',
+    progress: (done: number, total: number) => `Du har läst ${done} av ${total} lektioner.`,
+  },
+
+  // Light, non-gamified progress (personal-tool scope).
+  progress: {
+    words: (started: number, total: number) => `${started} av ${total} ord påbörjade`,
+    due: (n: number) => (n === 1 ? '1 ord att repetera' : `${n} ord att repetera`),
+    dueNone: 'Inget att repetera just nu',
+    homeHint: 'Börja med en lektion, träna sedan orden med flashcards.',
   },
 } as const;

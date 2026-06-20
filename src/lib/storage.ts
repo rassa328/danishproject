@@ -237,6 +237,14 @@ export class Store {
     return { record: rec, result: this.saveSrs() };
   }
 
+  /** Distinct vocab cards the learner has started (any direction/state). */
+  startedCount(): number {
+    const srs = this.loadSrs().srs;
+    const ids = new Set<string>();
+    for (const k of Object.keys(srs)) ids.add(k.split('::')[0] as string);
+    return ids.size;
+  }
+
   /** Count of records due now (+ new cards are handled by the reviewer queue). */
   dueCount(now: Date = new Date()): number {
     const srs = this.loadSrs().srs;

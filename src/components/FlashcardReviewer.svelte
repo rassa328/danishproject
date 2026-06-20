@@ -15,6 +15,7 @@
   let store: Store;
   let ready = $state(false);
   let tag = $state<string | null>(null);
+  let fromLesson = $state<string | null>(null);
   let selectedDeck = $state(decks[0] ?? '');
   let direction = $state<Direction>('produce');
   let queue = $state<Card[]>([]);
@@ -137,6 +138,7 @@
     store = new Store();
     const params = new URLSearchParams(location.search);
     tag = params.get('tag');
+    fromLesson = params.get('from');
     ready = true;
     start();
   });
@@ -145,6 +147,9 @@
 {#if !ready}
   <p>{T.loading}</p>
 {:else}
+  {#if fromLesson}
+    <p class="from-lesson"><a href={withBase(`lektioner/${fromLesson}`)}>{UI.lessons.backToLesson}</a></p>
+  {/if}
   <div class="bar">
     {#if tag}
       <span>{T.trainingTagPrefix} <strong>#{tag}</strong></span>
@@ -177,6 +182,7 @@
       <div class="done">
         <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
         {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
+        <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
         <div class="grades">
           <button onclick={() => start(false)}>{T.repeatDue}</button>
           <button onclick={() => start(true)}>{T.practiceFree}</button>
@@ -244,6 +250,8 @@
 {/if}
 
 <style>
+  .from-lesson { font-size: var(--step--1); margin: 0 0 var(--sp-3); }
+  .started { color: var(--muted); font-size: var(--step--1); margin-top: var(--sp-2); }
   .bar { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-4); flex-wrap: wrap; }
   select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
   .dir { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3); display: flex; gap: var(--sp-3); margin: 0; }

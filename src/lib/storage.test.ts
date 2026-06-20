@@ -101,6 +101,16 @@ describe('Store: non-destructive deck merge (the data-integrity contract)', () =
     expect(s.getRecord('a', 'produce')).not.toBeNull();
   });
 
+  it('startedCount counts distinct vocab ids across directions', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    expect(s.startedCount()).toBe(0);
+    s.grade('v1', 'produce', Rating.Good, T0);
+    s.grade('v1', 'listen', Rating.Good, T0); // same card, other direction
+    s.grade('v2', 'produce', Rating.Again, T0);
+    expect(s.startedCount()).toBe(2);
+  });
+
   it('export/import backup round-trips', () => {
     const kv = memoryKV();
     const s = new Store(kv);

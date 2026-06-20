@@ -4,10 +4,12 @@ import { withBase } from '../lib/url.ts';
 import { formatLevel } from '../lib/format.ts';
 import { UI } from '../lib/strings.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
+import LessonProgress from '../components/LessonProgress.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
 type LessonRef = { id: string; title: string };
 interface Props {
+  lessonId: string;
   title: string;
   level: 'b1' | 'b2';
   topic: string;
@@ -21,6 +23,7 @@ interface Props {
   position?: string;
 }
 const {
+  lessonId,
   title,
   level,
   topic,
@@ -33,6 +36,9 @@ const {
   next = null,
   position,
 } = Astro.props;
+const practiceHref = vocabTags.length
+  ? withBase(`flashcards?tag=${encodeURIComponent(vocabTags[0]!)}&from=${encodeURIComponent(lessonId)}`)
+  : null;
 const topicLabel: Record<string, string> = {
   pronunciation: 'Uttal',
   'false-friends': 'Falska vänner',
@@ -53,6 +59,7 @@ const topicLabel: Record<string, string> = {
       <span class="badge">{formatLevel(level)}</span>
       <span>{topicLabel[topic] ?? topic}</span>
       <span>· {estMinutes} min</span>
+      <LessonProgress client:idle lessonId={lessonId} />
     </p>
     {
       prerequisites.length > 0 && (
@@ -84,15 +91,20 @@ const topicLabel: Record<string, string> = {
   <LessonAudio clips={lessonAudio} client:idle />
 
   {
-    vocabTags.length > 0 && (
-      <p class="vocab-link">
-        {UI.lessons.trainWords}{' '}
-        {vocabTags.map((t) => (
-          <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
-            #{t}
-          </a>
-        ))}
-      </p>
+    practiceHref && (
+      <div class="practice">
+        <a class="cta" href={practiceHref}>{UI.lessons.practiceCta}</a>
+        {vocabTags.length > 1 && (
+          <p class="vocab-link">
+            {UI.lessons.trainWords}{' '}
+            {vocabTags.map((t) => (
+              <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
+                #{t}
+              </a>
+            ))}
+          </p>
+        )}
+      </div>
     )
   }
 
@@ -144,7 +156,10 @@ const topicLabel: Record<string, string> = {
     .prose :global(.da-clickable:hover), .prose :global(.da-clickable:focus-visible) { text-decoration-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
     .prose :global(.da-clickable:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
     .prose :global(.da-clickable.is-playing) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
-    .vocab-link { margin-top: var(--sp-8); }
+    .practice { margin-top: var(--sp-8); }
+    .cta { display: inline-block; padding: var(--sp-3) var(--sp-6); background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius); text-decoration: none; font-weight: 600; min-height: var(--min-tap); }
+    .cta:hover { filter: brightness(1.08); }
+    .vocab-link { margin-top: var(--sp-3); margin-bottom: 0; color: var(--muted); font-size: var(--step--1); }
     .chip { display: inline-block; margin: 0 var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-pill); text-decoration: none; font-size: var(--step--1); }
   </style>
 </BaseLayout>

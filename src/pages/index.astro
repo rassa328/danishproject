@@ -2,6 +2,8 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
 import { cardCount } from '../lib/decks.ts';
+import { UI } from '../lib/strings.ts';
+import ProgressSummary from '../components/ProgressSummary.svelte';
 ---
 
 <BaseLayout
@@ -16,16 +18,22 @@ import { cardCount } from '../lib/decks.ts';
     falska vänner och talad danska. Den här sidan tränar just det.
   </p>
 
+  <p class="path-hint">{UI.progress.homeHint}</p>
+  <ProgressSummary client:idle total={cardCount} />
+
   <div class="cards">
-    <a class="card" href={withBase('flashcards')}>
-      <h2>Flashcards</h2>
-      <p>Skriv det danska ordet utifrån svenskan. {cardCount} kort med spaced repetition (FSRS).</p>
-    </a>
     <a class="card" href={withBase('lektioner')}>
+      <span class="step">1</span>
       <h2>Lektioner</h2>
       <p>Korta lektioner om stød, falska vänner och det vigesimala talsystemet.</p>
     </a>
+    <a class="card" href={withBase('flashcards')}>
+      <span class="step">2</span>
+      <h2>Flashcards</h2>
+      <p>Skriv det danska ordet utifrån svenskan. {cardCount} kort som repeteras precis innan du glömmer dem.</p>
+    </a>
     <a class="card" href={withBase('ordlista')}>
+      <span class="step">3</span>
       <h2>Ordlista</h2>
       <p>Alla {cardCount} ord med svensk översättning, exempel och uttal — din referenslista.</p>
     </a>
@@ -35,9 +43,11 @@ import { cardCount } from '../lib/decks.ts';
     .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--muted); margin: 0 0 var(--sp-2); }
     h1 span[lang='da'] { color: var(--accent); }
     .lead { font-size: var(--step-1); color: var(--muted); }
-    .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-8); }
-    .card { display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
+    .path-hint { margin: var(--sp-6) 0 0; font-weight: 600; }
+    .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-4); }
+    .card { position: relative; display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
     .card:hover { border-color: var(--accent); }
+    .card .step { position: absolute; top: var(--sp-4); right: var(--sp-4); width: 1.5em; height: 1.5em; display: grid; place-items: center; border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-contrast); font-size: var(--step--1); font-weight: 700; }
     .card h2 { margin: 0 0 var(--sp-2); color: var(--accent); }
     .card p { margin: 0; color: var(--muted); font-size: var(--step--1); }
   </style>

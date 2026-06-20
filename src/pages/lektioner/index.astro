@@ -4,14 +4,18 @@ import { getCollection } from 'astro:content';
 import { withBase } from '../../lib/url.ts';
 import { groupByUnit } from '../../lib/lessons.ts';
 import { formatLevel } from '../../lib/format.ts';
+import { UI } from '../../lib/strings.ts';
+import LessonsProgress from '../../components/LessonsProgress.svelte';
 
 const lessons = await getCollection('lessons', ({ data }) => !data.draft);
 const units = groupByUnit(lessons);
+const lessonIds = lessons.map((l) => l.id);
 ---
 
-<BaseLayout title="Lektioner" description="Korta danska lektioner för svenskar: uttal, falska vänner och tal.">
-  <h1>Lektioner</h1>
-  <p class="lead">Korta lektioner om det som faktiskt är svårt för svenskar — grupperade efter tema.</p>
+<BaseLayout title={UI.nav.lessons} description="Korta danska lektioner för svenskar: uttal, falska vänner och tal.">
+  <h1>{UI.nav.lessons}</h1>
+  <p class="lead">{UI.lessons.indexLead}</p>
+  <LessonsProgress client:idle ids={lessonIds} />
 
   {
     units.map((u) => (
