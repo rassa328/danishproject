@@ -102,7 +102,9 @@ const sections = [...groups.entries()]
       text-underline-offset: 0.2em;
       text-decoration-color: var(--muted);
       border-radius: 3px;
-      transition: background-color 0.15s;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      :global(.da-clickable) { transition: background-color 0.15s; }
     }
     :global(.da-clickable:hover),
     :global(.da-clickable:focus-visible) {

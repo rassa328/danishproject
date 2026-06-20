@@ -23,10 +23,12 @@
 
 {#if available}
   <button type="button" class="speak" onclick={play} aria-label={`${label} på danska: ${text}`}>
-    🔊 {label}
+    <span aria-hidden="true">🔊</span> {label}
   </button>
 {:else}
-  <span class="novoice" title="Ingen dansk talsyntes i den här webbläsaren">🔇 Ingen dansk röst</span>
+  <span class="novoice" title="Ingen dansk talsyntes i den här webbläsaren"
+    ><span aria-hidden="true">🔇</span> Ingen dansk röst</span
+  >
 {/if}
 
 <style>
@@ -35,6 +37,7 @@
     align-items: center;
     gap: 0.3em;
     font-size: var(--step--1);
+    min-height: var(--min-tap);
   }
   .novoice {
     color: var(--muted);

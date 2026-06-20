@@ -263,7 +263,7 @@
             <button onclick={() => grade(3 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.good} (3)</button>
             <button onclick={() => grade(4 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.easy} (4)</button>
           </div>
-          {#if !wasCorrect}<p class="hint">{T.wrongHint}</p>{/if}
+          {#if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
         </div>
       {/if}
     {/if}
@@ -313,5 +313,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .answer { animation: fade 120ms ease-out; }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+    .done h2 { animation: pop 320ms ease-out; }
+    @keyframes pop { 0% { transform: scale(0.96); opacity: 0; } 60% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
   }
 </style>
