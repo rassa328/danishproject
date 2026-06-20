@@ -1,0 +1,67 @@
+---
+import type { Card } from '../lib/vocab.ts';
+
+interface Props {
+  cards: Card[];
+}
+const { cards } = Astro.props;
+---
+
+<table class="vocab">
+  <thead>
+    <tr>
+      <th lang="da">Dansk</th>
+      <th>Svenska</th>
+      <th>Not</th>
+    </tr>
+  </thead>
+  <tbody>
+    {
+      cards.map((c) => (
+        <tr>
+          <td>
+            <span class="da" lang="da">{c.danish}</span>
+            {c.exampleDa && (
+              <div class="ex" lang="da">{c.exampleDa}</div>
+            )}
+          </td>
+          <td>{c.swedish}</td>
+          <td class="note">{c.note}</td>
+        </tr>
+      ))
+    }
+  </tbody>
+</table>
+
+<style>
+  .vocab {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  .vocab th,
+  .vocab td {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid color-mix(in oklab, CanvasText 12%, transparent);
+    vertical-align: top;
+  }
+  .vocab th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+  }
+  .da {
+    font-weight: 600;
+  }
+  .ex {
+    font-size: 0.85rem;
+    opacity: 0.7;
+    margin-top: 0.15rem;
+  }
+  .note {
+    font-size: 0.85rem;
+    opacity: 0.8;
+  }
+</style>
