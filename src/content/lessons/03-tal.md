@@ -22,11 +22,11 @@ I modernt tal faller `-indstyve` bort, så bara den korta formen används:
 
 | Kort form | Lång form | Uträkning | Värde |
 | --- | --- | --- | --- |
-| tres | tresindstyve | 3 × 20 | 60 |
-| halvtreds | halvtredsindstyve | 2,5 × 20 | 50 |
-| halvfjerds | halvfjerdsindstyve | 3,5 × 20 | 70 |
-| firs | firsindstyve | 4 × 20 | 80 |
-| halvfems | halvfemsindstyve | 4,5 × 20 | 90 |
+| <span lang="da">tres</span> | <span lang="da">tresindstyve</span> | 3 × 20 | 60 |
+| <span lang="da">halvtreds</span> | <span lang="da">halvtredsindstyve</span> | 2,5 × 20 | 50 |
+| <span lang="da">halvfjerds</span> | <span lang="da">halvfjerdsindstyve</span> | 3,5 × 20 | 70 |
+| <span lang="da">firs</span> | <span lang="da">firsindstyve</span> | 4 × 20 | 80 |
+| <span lang="da">halvfems</span> | <span lang="da">halvfemsindstyve</span> | 4,5 × 20 | 90 |
 
 De lägre tiotalen är **inte** vigesimala: <span lang="da">tyve</span> = 20, <span lang="da">tredive</span> = 30, <span lang="da">fyrre</span> = 40.
 

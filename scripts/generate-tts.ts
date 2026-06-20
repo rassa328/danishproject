@@ -10,15 +10,17 @@
 // After generating, the vocab CSV's `audio` / `audio_example` columns are
 // rewritten to base-relative paths the UI resolves via withBase().
 
-import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Papa from 'papaparse';
-import { deriveId, nfc } from '../src/lib/vocab.ts';
+import { deriveId, nfc, audioKey, lessonAudioId } from '../src/lib/vocab.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CSV_PATH = path.join(ROOT, 'src/data/vocab/starter-deck.csv');
 const AUDIO_DIR = path.join(ROOT, 'public/audio');
+const LESSONS_DIR = path.join(ROOT, 'src/content/lessons');
+const MANIFEST_PATH = path.join(ROOT, 'src/data/lesson-audio.json');
 
 const KEY = process.env.AZURE_SPEECH_KEY;
 const REGION = process.env.AZURE_SPEECH_REGION;
@@ -68,6 +70,39 @@ async function synthesize(text: string): Promise<Buffer> {
   }
 }
 
+/** Turn a span's raw markdown inner text into the same string the browser sees
+ *  as `el.textContent` after rendering: decode entities, drop any nested tags,
+ *  and strip markdown emphasis/code markers. (Our lesson spans hold plain text,
+ *  so this is mostly defensive; audioKey() then handles quotes/whitespace.) */
+function spanInnerToText(inner: string): string {
+  return inner
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/<[^>]+>/g, '')
+    .replace(/[*`]/g, '');
+}
+
+/** Scan every lesson for `<span lang="da">…</span>` and return the unique Danish
+ *  texts (words, number forms, whole example sentences). */
+async function collectLessonSpanTexts(): Promise<string[]> {
+  const entries = await readdir(LESSONS_DIR);
+  const files = entries.filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
+  const re = /<span lang=["']da["']>([\s\S]*?)<\/span>/gi;
+  const seen = new Map<string, string>(); // audioKey -> display text
+  for (const file of files) {
+    const md = await readFile(path.join(LESSONS_DIR, file), 'utf8');
+    for (const m of md.matchAll(re)) {
+      const text = spanInnerToText(m[1] ?? '');
+      const key = audioKey(text);
+      if (key && !seen.has(key)) seen.set(key, text);
+    }
+  }
+  return [...seen.values()];
+}
+
 async function main() {
   if (!KEY || !REGION) {
     console.error('Missing AZURE_SPEECH_KEY and/or AZURE_SPEECH_REGION. See .env.example.');
@@ -90,6 +125,18 @@ async function main() {
     clips.push({ file: path.join(AUDIO_DIR, `${id}.mp3`), text: danish });
     const example = nfc(row.example_da);
     if (example) clips.push({ file: path.join(AUDIO_DIR, `${id}-ex.mp3`), text: example });
+  }
+
+  // Lesson prose: a clip per unique <span lang="da"> text so each Danish word,
+  // number form, and whole example sentence in the lessons is click-to-hear.
+  // Keyed by lessonAudioId (pos-less) so the in-browser island resolves the same
+  // filename from the rendered DOM text. Distinct from deck ids (which carry pos).
+  const lessonIds = new Set<string>();
+  for (const text of await collectLessonSpanTexts()) {
+    const id = lessonAudioId(text);
+    if (lessonIds.has(id)) continue;
+    lessonIds.add(id);
+    clips.push({ file: path.join(AUDIO_DIR, `${id}.mp3`), text });
   }
 
   let generated = 0;
@@ -131,8 +178,19 @@ async function main() {
   const out = Papa.unparse({ fields, data: rows }, { quotes: true });
   await writeFile(CSV_PATH, out + '\n');
 
+  // Lesson-audio manifest: the ids that actually have a clip on disk. The
+  // LessonAudio island only makes a span clickable when its id is here, so a
+  // failed/missing clip never produces a 404 (it just stays plain text).
+  const manifest: string[] = [];
+  for (const id of lessonIds) {
+    if (await exists(path.join(AUDIO_DIR, `${id}.mp3`))) manifest.push(id);
+  }
+  manifest.sort();
+  await writeFile(MANIFEST_PATH, JSON.stringify(manifest) + '\n');
+
   console.log(`\nDone: ${generated} generated, ${skipped} skipped, ${failed} failed.`);
-  console.log(`Voice: ${VOICE}. Clips in public/audio/, CSV updated.`);
+  console.log(`Voice: ${VOICE}. Clips in public/audio/, CSV + lesson-audio.json updated.`);
+  console.log(`Lesson clips: ${manifest.length} of ${lessonIds.size} lesson spans.`);
   if (failed) process.exit(1);
 }
 

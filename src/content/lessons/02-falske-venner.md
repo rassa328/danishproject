@@ -12,14 +12,14 @@ Eftersom danska och svenska ligger så nära varandra är det lätt att läsa et
 
 | Danska | Ser ut som | Betyder på danska | Inte att förväxla med |
 | --- | --- | --- | --- |
-| rolig | rolig | lugn, stilla | rolig/kul = <span lang="da">sjov / morsom</span> |
-| frokost | frukost | lunch | frukost = <span lang="da">morgenmad</span> |
-| by | by | stad | by/liten ort = <span lang="da">landsby</span> |
-| grine | grina | skratta | gråta = <span lang="da">græde</span> |
-| sej | seg | cool, tuff | seg/trög = <span lang="da">sej</span> i fysisk mening |
-| springe | springa | hoppa | springa/löpa = <span lang="da">løbe</span> |
-| stadig | stadig | fortfarande | stabil/stadig = <span lang="da">stabil / fast</span> |
-| køretøj | (fartyg?) | fordon | fartyg = <span lang="da">skib</span> |
+| <span lang="da">rolig</span> | rolig | lugn, stilla | rolig/kul = <span lang="da">sjov / morsom</span> |
+| <span lang="da">frokost</span> | frukost | lunch | frukost = <span lang="da">morgenmad</span> |
+| <span lang="da">by</span> | by | stad | by/liten ort = <span lang="da">landsby</span> |
+| <span lang="da">grine</span> | grina | skratta | gråta = <span lang="da">græde</span> |
+| <span lang="da">sej</span> | seg | cool, tuff | seg/trög = <span lang="da">sej</span> i fysisk mening |
+| <span lang="da">springe</span> | springa | hoppa | springa/löpa = <span lang="da">løbe</span> |
+| <span lang="da">stadig</span> | stadig | fortfarande | stabil/stadig = <span lang="da">stabil / fast</span> |
+| <span lang="da">køretøj</span> | (fartyg?) | fordon | fartyg = <span lang="da">skib</span> |
 
 > **Klassikern:** <span lang="da">"Filmen var rolig"</span> betyder att filmen var *lugn* – inte rolig. Vill du säga att något är kul: <span lang="da">"Det var sjovt"</span>.
 

@@ -16,10 +16,10 @@ Vissa danska ord rymmer två betydelser i samma form. Sammanhanget avgör – me
 
 | Danska | Betyder | Fälla |
 | --- | --- | --- |
-| gift | *gift* (äktenskap) **och** *gift* (toxin) | <span lang="da">Hun er gift</span> = hon är *gift*, inte förgiftad |
-| dyr | *djur* **och** *dyr* (kostsam) | <span lang="da">et dyr</span> = ett djur; <span lang="da">en dyr bil</span> = en dyr bil |
-| regne | *regna* **och** *räkna* | <span lang="da">regne med</span> = räkna med, inte "regna med" |
-| sky | *moln* **och** *sky* (köttsky/gelé), samt *blyg* (adj.) | en svensk tänker "himmel" eller "sås" – men <span lang="da">sky</span> är molnet eller den klara köttskyn |
+| <span lang="da">gift</span> | *gift* (äktenskap) **och** *gift* (toxin) | <span lang="da">Hun er gift</span> = hon är *gift*, inte förgiftad |
+| <span lang="da">dyr</span> | *djur* **och** *dyr* (kostsam) | <span lang="da">et dyr</span> = ett djur; <span lang="da">en dyr bil</span> = en dyr bil |
+| <span lang="da">regne</span> | *regna* **och** *räkna* | <span lang="da">regne med</span> = räkna med, inte "regna med" |
+| <span lang="da">sky</span> | *moln* **och** *sky* (köttsky/gelé), samt *blyg* (adj.) | en svensk tänker "himmel" eller "sås" – men <span lang="da">sky</span> är molnet eller den klara köttskyn |
 
 > Klassikern: <span lang="da">"Min søster er gift"</span> betyder att din syster är *gift* – ingen har förgiftat henne. Förgiftad heter <span lang="da">forgiftet</span>.
 
@@ -29,10 +29,10 @@ Här betyder det danska ordet något *snävare* eller *annat* än det svenska or
 
 | Danska | Betyder på danska | Svenska ordet betyder |
 | --- | --- | --- |
-| semester | akademisk termin | ledighet → danska <span lang="da">ferie</span> |
-| anledning | orsak, anledning | konkret tillfälle → danska <span lang="da">lejlighed</span> |
-| flink | vänlig, snäll | snabb/händig → danska <span lang="da">hurtig / dygtig</span> |
-| rar | snäll, vänlig (om person) | söt/näpen → danska <span lang="da">sød / nuttet</span> |
+| <span lang="da">semester</span> | akademisk termin | ledighet → danska <span lang="da">ferie</span> |
+| <span lang="da">anledning</span> | orsak, anledning | konkret tillfälle → danska <span lang="da">lejlighed</span> |
+| <span lang="da">flink</span> | vänlig, snäll | snabb/händig → danska <span lang="da">hurtig / dygtig</span> |
+| <span lang="da">rar</span> | snäll, vänlig (om person) | söt/näpen → danska <span lang="da">sød / nuttet</span> |
 
 Lägg märke till att <span lang="da">flink</span> och <span lang="da">rar</span> båda är *positiva* på danska, precis som på svenska – men de positiva nyanserna är förskjutna. En <span lang="da">rar mand</span> är en *snäll* man, inte en söt liten karl.
 

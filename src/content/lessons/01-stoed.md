@@ -16,12 +16,12 @@ Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska 
 
 | Utan stød | Med stød | Betydelse |
 | --- | --- | --- |
-| hun | hund | hon / hund |
-| mor | mord | mamma / mord |
-| bønner | bønder | bönor / bönder |
-| læser *(en läsare)* | læser *(läser, verb)* | substantivet saknar stød, verbet har det |
-| hænder *(händer/sker)* | hænder *(händer, kroppsdelar)* | verbet utan, substantivet med |
-| anden *(den andra)* | anden *(anden, fågeln)* | "den andra" utan, fågeln med |
+| <span lang="da">hun</span> | <span lang="da">hund</span> | hon / hund |
+| <span lang="da">mor</span> | <span lang="da">mord</span> | mamma / mord |
+| <span lang="da">bønner</span> | <span lang="da">bønder</span> | bönor / bönder |
+| <span lang="da">læser</span> *(en läsare)* | <span lang="da">læser</span> *(läser, verb)* | substantivet saknar stød, verbet har det |
+| <span lang="da">hænder</span> *(händer/sker)* | <span lang="da">hænder</span> *(händer, kroppsdelar)* | verbet utan, substantivet med |
+| <span lang="da">anden</span> *(den andra)* | <span lang="da">anden</span> *(anden, fågeln)* | "den andra" utan, fågeln med |
 
 > Härma **inte** stød med svensk tonaccent – det är den vanligaste signalen som avslöjar en svensk. Stødet är ett rösavbrott, inte en tonhöjning.
 
@@ -31,4 +31,4 @@ Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska 
 2. Jämför par-vis – säg <span lang="da">hun</span>/<span lang="da">hund</span> direkt efter varandra.
 3. Överdriv avbrottet i början; det blir naturligare med tiden.
 
-I nästa version får orden i den här lektionen riktiga ljudklipp (stød är svårt att återge med talsyntes).
+Orden i den här lektionen har **riktiga ljudklipp** – klicka på ett danskt ord för att höra det (äkta danskt stød, inte talsyntes). Par med olika stavning (<span lang="da">hun</span>/<span lang="da">hund</span>, <span lang="da">mor</span>/<span lang="da">mord</span>) hörs tydligt isär; de likstavade (<span lang="da">læser</span>, <span lang="da">anden</span>) låter likadant eftersom skillnaden bara är stødet.

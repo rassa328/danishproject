@@ -1,6 +1,8 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
+import LessonAudio from '../components/LessonAudio.svelte';
+import lessonAudio from '../data/lesson-audio.json';
 
 interface Props {
   title: string;
@@ -38,6 +40,8 @@ const topicLabel: Record<string, string> = {
     <slot />
   </article>
 
+  <LessonAudio clips={lessonAudio} client:idle />
+
   {
     vocabTags.length > 0 && (
       <p class="vocab-link">
@@ -61,6 +65,11 @@ const topicLabel: Record<string, string> = {
     .prose :global(th), .prose :global(td) { border: 1px solid var(--border); padding: var(--sp-2); text-align: left; vertical-align: top; }
     .prose :global(blockquote) { margin: var(--sp-4) 0; padding: var(--sp-2) var(--sp-4); border-left: 4px solid var(--warn); background: var(--warn-bg); border-radius: 0 var(--radius) var(--radius) 0; }
     .prose :global(code) { background: color-mix(in oklab, var(--text) 8%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
+    /* Click-to-hear: Danish words/sentences become tappable (added by LessonAudio). */
+    .prose :global(.da-clickable) { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 0.2em; text-decoration-color: var(--muted); border-radius: 3px; transition: background-color 0.15s; }
+    .prose :global(.da-clickable:hover), .prose :global(.da-clickable:focus-visible) { text-decoration-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+    .prose :global(.da-clickable:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .prose :global(.da-clickable.is-playing) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
     .vocab-link { margin-top: var(--sp-8); }
     .chip { display: inline-block; margin: 0 var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-pill); text-decoration: none; font-size: var(--step--1); }
   </style>
