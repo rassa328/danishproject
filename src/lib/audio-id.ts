@@ -49,3 +49,20 @@ export const audioKey = (s: string): string =>
 /** Stable clip id for a piece of lesson text (word or whole sentence). Pos-less
  *  (`''`) so lesson prose needs no part-of-speech; isomorphic like deriveId. */
 export const lessonAudioId = (text: string): string => deriveId(audioKey(text), '');
+
+/** A span may override its pronunciation when the visible text alone is
+ *  ambiguous (stød minimal pairs like `anden`/`anden`). The override is encoded
+ *  as a token so two identically-spelled spans get different clip ids:
+ *   - `ipa` → synthesized via SSML <phoneme alphabet="ipa">
+ *   - `say` → synthesized as a different carrier phrase (fallback)
+ *  Control char separator can't appear in span text or attribute values. */
+export const spanOverrideToken = (a: { ipa?: string; say?: string }): string | undefined =>
+  a.ipa ? 'ipa:' + a.ipa.trim() : a.say ? 'say:' + audioKey(a.say) : undefined;
+
+/** Clip id for a lesson span. With no override this equals lessonAudioId(text),
+ *  so every existing clip keeps its id; an override yields a distinct id. Used
+ *  identically by the generator and the browser island. */
+export const spanAudioId = (text: string, a: { ipa?: string; say?: string } = {}): string => {
+  const tok = spanOverrideToken(a);
+  return tok ? deriveId(audioKey(text) + '' + tok, '') : lessonAudioId(text);
+};

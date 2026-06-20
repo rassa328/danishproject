@@ -14,7 +14,7 @@ import { readFile, writeFile, mkdir, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Papa from 'papaparse';
-import { deriveId, nfc, audioKey, lessonAudioId } from '../src/lib/vocab.ts';
+import { deriveId, nfc, audioKey, spanAudioId } from '../src/lib/vocab.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CSV_PATH = path.join(ROOT, 'src/data/vocab/starter-deck.csv');
@@ -38,12 +38,19 @@ const exists = (p: string) =>
 const escapeXml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!);
 
-/** Azure REST TTS → MP3 bytes. Retries with backoff on 429 (rate limit). */
-async function synthesize(text: string): Promise<Buffer> {
+/** Azure REST TTS → MP3 bytes. Retries with backoff on 429 (rate limit). When
+ *  `ph` (IPA) is given the word is wrapped in a <phoneme> so we can force a
+ *  specific pronunciation — e.g. stød vs no stød for an otherwise identical
+ *  spelling. An unsupported IPA phone makes Azure return HTTP 400 (surfaced as a
+ *  failed clip), our signal to fall back to a carrier phrase instead. */
+async function synthesize(text: string, ph?: string): Promise<Buffer> {
+  const inner = ph
+    ? `<phoneme alphabet='ipa' ph='${escapeXml(ph)}'>${escapeXml(text)}</phoneme>`
+    : escapeXml(text);
   // rate -5% matches the slightly-slowed Web Speech fallback (rate 0.95).
   const ssml =
     `<speak version='1.0' xml:lang='da-DK'>` +
-    `<voice name='${VOICE}'><prosody rate='-5%'>${escapeXml(text)}</prosody></voice>` +
+    `<voice name='${VOICE}'><prosody rate='-5%'>${inner}</prosody></voice>` +
     `</speak>`;
   const url = `https://${REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
@@ -85,22 +92,31 @@ function spanInnerToText(inner: string): string {
     .replace(/[*`]/g, '');
 }
 
-/** Scan every lesson for `<span lang="da">…</span>` and return the unique Danish
- *  texts (words, number forms, whole example sentences). */
-async function collectLessonSpanTexts(): Promise<string[]> {
+type LessonSpan = { id: string; text: string; ph?: string; say?: string };
+
+/** Scan every lesson for `<span lang="da" …>…</span>` and return the unique
+ *  Danish clips to make (words, number forms, sentences). A span may carry a
+ *  `data-ipa` (phoneme) or `data-say` (carrier phrase) override to force a
+ *  pronunciation when the visible text alone is ambiguous (stød pairs); the
+ *  override makes the clip id distinct so two identical spellings get two clips. */
+async function collectLessonSpans(): Promise<LessonSpan[]> {
   const entries = await readdir(LESSONS_DIR);
   const files = entries.filter((f) => f.endsWith('.md') || f.endsWith('.mdx'));
-  const re = /<span lang=["']da["']>([\s\S]*?)<\/span>/gi;
-  const seen = new Map<string, string>(); // audioKey -> display text
+  const re = /<span lang=["']da["']([^>]*)>([\s\S]*?)<\/span>/gi;
+  const byId = new Map<string, LessonSpan>();
   for (const file of files) {
     const md = await readFile(path.join(LESSONS_DIR, file), 'utf8');
     for (const m of md.matchAll(re)) {
-      const text = spanInnerToText(m[1] ?? '');
-      const key = audioKey(text);
-      if (key && !seen.has(key)) seen.set(key, text);
+      const attrs = m[1] ?? '';
+      const text = spanInnerToText(m[2] ?? '');
+      if (!audioKey(text)) continue;
+      const ipa = /data-ipa=["']([^"']*)["']/i.exec(attrs)?.[1];
+      const say = /data-say=["']([^"']*)["']/i.exec(attrs)?.[1];
+      const id = spanAudioId(text, { ipa, say });
+      if (!byId.has(id)) byId.set(id, { id, text, ph: ipa, say });
     }
   }
-  return [...seen.values()];
+  return [...byId.values()];
 }
 
 async function main() {
@@ -116,7 +132,7 @@ async function main() {
 
   // Build the work list: a word clip per card, plus an example clip when the
   // card has a Danish example sentence. Filenames use the same id the app does.
-  type Clip = { file: string; text: string };
+  type Clip = { file: string; text: string; ph?: string };
   const clips: Clip[] = [];
   for (const row of rows) {
     const danish = nfc(row.danish);
@@ -127,16 +143,16 @@ async function main() {
     if (example) clips.push({ file: path.join(AUDIO_DIR, `${id}-ex.mp3`), text: example });
   }
 
-  // Lesson prose: a clip per unique <span lang="da"> text so each Danish word,
-  // number form, and whole example sentence in the lessons is click-to-hear.
-  // Keyed by lessonAudioId (pos-less) so the in-browser island resolves the same
-  // filename from the rendered DOM text. Distinct from deck ids (which carry pos).
+  // Lesson prose: a clip per unique <span lang="da"> so each Danish word, number
+  // form, and whole example sentence in the lessons is click-to-hear. Keyed by
+  // spanAudioId so the in-browser island resolves the same filename from the
+  // rendered DOM (text + any data-ipa/data-say override). Distinct from deck ids.
   const lessonIds = new Set<string>();
-  for (const text of await collectLessonSpanTexts()) {
-    const id = lessonAudioId(text);
-    if (lessonIds.has(id)) continue;
-    lessonIds.add(id);
-    clips.push({ file: path.join(AUDIO_DIR, `${id}.mp3`), text });
+  for (const span of await collectLessonSpans()) {
+    lessonIds.add(span.id);
+    // A data-say carrier phrase is spoken verbatim; otherwise speak the visible
+    // word (optionally shaped by an IPA phoneme).
+    clips.push({ file: path.join(AUDIO_DIR, `${span.id}.mp3`), text: span.say ?? span.text, ph: span.ph });
   }
 
   let generated = 0;
@@ -149,7 +165,7 @@ async function main() {
       continue;
     }
     try {
-      const mp3 = await synthesize(clip.text);
+      const mp3 = await synthesize(clip.text, clip.ph);
       await writeFile(clip.file, mp3);
       generated++;
       console.log(`✓ ${name}  "${clip.text.slice(0, 48)}"`);

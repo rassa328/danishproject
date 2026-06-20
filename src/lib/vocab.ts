@@ -1,9 +1,9 @@
 import Papa from 'papaparse';
-import { nfc, deriveId, audioKey, lessonAudioId } from './audio-id.ts';
+import { nfc, deriveId, audioKey, lessonAudioId, spanAudioId } from './audio-id.ts';
 
 // The isomorphic id/audio-key helpers live in audio-id.ts (papaparse-free so the
 // browser can import them). Re-export so existing importers keep using vocab.ts.
-export { nfc, deriveId, audioKey, lessonAudioId };
+export { nfc, deriveId, audioKey, lessonAudioId, spanAudioId };
 
 export type Pos = 'noun' | 'verb' | 'adj' | 'adv' | 'num' | 'phrase' | 'other';
 export type Cefr = 'b1' | 'b2';

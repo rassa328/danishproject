@@ -19,9 +19,9 @@ Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska 
 | <span lang="da">hun</span> | <span lang="da">hund</span> | hon / hund |
 | <span lang="da">mor</span> | <span lang="da">mord</span> | mamma / mord |
 | <span lang="da">bønner</span> | <span lang="da">bønder</span> | bönor / bönder |
-| <span lang="da">læser</span> *(en läsare)* | <span lang="da">læser</span> *(läser, verb)* | substantivet saknar stød, verbet har det |
-| <span lang="da">hænder</span> *(händer/sker)* | <span lang="da">hænder</span> *(händer, kroppsdelar)* | verbet utan, substantivet med |
-| <span lang="da">anden</span> *(den andra)* | <span lang="da">anden</span> *(anden, fågeln)* | "den andra" utan, fågeln med |
+| <span lang="da" data-ipa="ˈlɛːsɐ">læser</span> *(en läsare)* | <span lang="da" data-ipa="ˈlɛːʔsɐ">læser</span> *(läser, verb)* | substantivet saknar stød, verbet har det |
+| <span lang="da" data-ipa="ˈhɛnə">hænder</span> *(händer/sker)* | <span lang="da" data-ipa="ˈhɛnʔɐ">hænder</span> *(händer, kroppsdelar)* | verbet utan, substantivet med |
+| <span lang="da" data-ipa="ˈanən">anden</span> *(den andra)* | <span lang="da" data-ipa="ˈanʔən">anden</span> *(anden, fågeln)* | "den andra" utan, fågeln med |
 
 > Härma **inte** stød med svensk tonaccent – det är den vanligaste signalen som avslöjar en svensk. Stødet är ett rösavbrott, inte en tonhöjning.
 
@@ -31,4 +31,4 @@ Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska 
 2. Jämför par-vis – säg <span lang="da">hun</span>/<span lang="da">hund</span> direkt efter varandra.
 3. Överdriv avbrottet i början; det blir naturligare med tiden.
 
-Orden i den här lektionen har **riktiga ljudklipp** – klicka på ett danskt ord för att höra det (äkta danskt stød, inte talsyntes). Par med olika stavning (<span lang="da">hun</span>/<span lang="da">hund</span>, <span lang="da">mor</span>/<span lang="da">mord</span>) hörs tydligt isär; de likstavade (<span lang="da">læser</span>, <span lang="da">anden</span>) låter likadant eftersom skillnaden bara är stødet.
+Orden i den här lektionen har **riktiga ljudklipp** – klicka på ett danskt ord för att höra det (äkta danskt stød, inte talsyntes). Också de **likstavade** paren spelas nu med respektive utan stød: klicka på båda cellerna i en rad – t.ex. <span lang="da" data-ipa="ˈanən">anden</span> (den andra) mot <span lang="da" data-ipa="ˈanʔən">anden</span> (fågeln) – och lyssna efter avbrottet i den senare.

@@ -7,7 +7,7 @@
   import { onMount } from 'svelte';
   import { speak, hasDanishVoice } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
-  import { lessonAudioId } from '../lib/audio-id.ts';
+  import { spanAudioId } from '../lib/audio-id.ts';
 
   let { clips = [] }: { clips?: string[] } = $props();
 
@@ -24,7 +24,9 @@
 
     for (const el of spans) {
       const text = el.textContent ?? '';
-      const id = lessonAudioId(text);
+      // A span may override its pronunciation (stød pairs) via data-ipa/data-say;
+      // the same override yields the same clip id the generator wrote.
+      const id = spanAudioId(text, { ipa: el.dataset.ipa, say: el.dataset.say });
       const hasClip = have.has(id);
       if (!hasClip && !voiceFallback) continue;
 
