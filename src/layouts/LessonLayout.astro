@@ -5,9 +5,11 @@ import { formatLevel } from '../lib/format.ts';
 import { UI } from '../lib/strings.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
 import LessonProgress from '../components/LessonProgress.svelte';
+import Checkpoint from '../components/Checkpoint.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
 type LessonRef = { id: string; title: string };
+type CheckpointQ = { q: string; options: string[]; answer: number };
 interface Props {
   lessonId: string;
   title: string;
@@ -18,6 +20,7 @@ interface Props {
   objectives?: string[];
   prerequisites?: LessonRef[];
   vocabTags: string[];
+  checkpoint?: CheckpointQ[];
   prev?: LessonRef | null;
   next?: LessonRef | null;
   position?: string;
@@ -32,6 +35,7 @@ const {
   objectives = [],
   prerequisites = [],
   vocabTags,
+  checkpoint = [],
   prev = null,
   next = null,
   position,
@@ -89,6 +93,8 @@ const topicLabel: Record<string, string> = {
   </article>
 
   <LessonAudio clips={lessonAudio} client:idle />
+
+  {checkpoint.length > 0 && <Checkpoint client:visible items={checkpoint} />}
 
   {
     practiceHref && (

@@ -11,6 +11,13 @@ objectives:
   - 'Läsa och säga danska tal med entalet före tiotalet'
 prerequisites: []
 vocabTags: []
+checkpoint:
+  - q: "Vad betyder 'halvtreds'?"
+    options: ['40', '50', '60']
+    answer: 1
+  - q: 'Vilken bas bygger det danska talsystemet på?'
+    options: ['10', '12', '20']
+    answer: 2
 ---
 
 Danska tiotal från 50 och uppåt bygger på **tjugo (20) som bas** – ett system svenskar inte har. Det är den enskilt största stötestenen när man ska *höra* danska priser och årtal.

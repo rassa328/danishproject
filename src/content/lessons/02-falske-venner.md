@@ -11,6 +11,16 @@ objectives:
   - 'Sluta gissa betydelsen utifrån hur ordet ser ut på svenska'
 prerequisites: []
 vocabTags: ['falsk-ven']
+checkpoint:
+  - q: "Vad betyder danska 'rolig'?"
+    options: ['lugn', 'rolig/kul', 'arg']
+    answer: 0
+  - q: "Vad betyder danska 'frokost'?"
+    options: ['frukost', 'lunch', 'middag']
+    answer: 1
+  - q: "Danska 'by' betyder:"
+    options: ['liten by', 'stad', 'gård']
+    answer: 1
 ---
 
 Eftersom danska och svenska ligger så nära varandra är det lätt att läsa ett ord "rätt" och ändå ha helt fel. Här är de vanligaste fällorna – alla finns som flashcards (tagg `falsk-ven`).

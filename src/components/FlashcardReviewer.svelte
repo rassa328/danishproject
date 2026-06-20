@@ -76,7 +76,46 @@
       if (!r) fresh.push(c);
       else if (!r.suspended && new Date(r.due) <= now()) due.push(c);
     }
+    // Introduce easier (B1) cards before harder (B2) ones; shuffle within level.
+    fresh.sort((a, b) => (a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1));
     return shuffle([...due, ...fresh.slice(0, settings.newPerDay)]);
+  }
+
+  // Multiple-choice options for 'recognize' mode: the answer + up to 3 distractors
+  // drawn from the same pool, shuffled. Rebuilt on each new card.
+  let choices = $state<string[]>([]);
+  function buildChoices() {
+    if (direction !== 'recognize' || !current) {
+      choices = [];
+      return;
+    }
+    const others = [...new Set(pool().map((c) => c.danish))].filter((d) => d !== current.danish);
+    choices = shuffle([current.danish, ...shuffle(others).slice(0, 3)]);
+  }
+
+  function choose(option: string) {
+    if (phase !== 'prompt' || !current) return;
+    typed = option;
+    wasCorrect = option === current.danish;
+    phase = 'revealed';
+    tick().then(() => container?.focus());
+  }
+
+  // Insert a Danish letter at the caret — Swedish keyboards lack æ/ø.
+  function insertChar(ch: string) {
+    const el = input;
+    if (!el) {
+      typed += ch;
+      return;
+    }
+    const s = el.selectionStart ?? typed.length;
+    const e = el.selectionEnd ?? typed.length;
+    typed = typed.slice(0, s) + ch + typed.slice(e);
+    tick().then(() => {
+      el.focus();
+      const pos = s + ch.length;
+      el.setSelectionRange(pos, pos);
+    });
   }
 
   function playPrompt() {
@@ -96,6 +135,7 @@
   }
 
   function afterPrompt() {
+    buildChoices();
     tick().then(() => {
       input?.focus();
       playPrompt();
@@ -190,6 +230,7 @@
     <fieldset class="dir">
       <legend class="vh">{T.directionLegend}</legend>
       <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
+      <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
       <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
     </fieldset>
   </div>
@@ -232,22 +273,36 @@
       {/if}
 
       {#if phase === 'prompt'}
-        <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
-          <label class="vh" for="answer">{T.inputLabel}</label>
-          <input
-            id="answer"
-            type="text"
-            bind:value={typed}
-            bind:this={input}
-            lang="da"
-            autocomplete="off"
-            autocapitalize="off"
-            autocorrect="off"
-            spellcheck={false}
-            placeholder={T.placeholder}
-          />
-          <button type="submit">{T.reveal}</button>
-        </form>
+        {#if direction === 'recognize'}
+          <div class="choices" role="group" aria-label={T.choosePrompt}>
+            {#each choices as c}
+              <button type="button" class="choice" lang="da" onclick={() => choose(c)}>{c}</button>
+            {/each}
+          </div>
+        {:else}
+          <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
+            <label class="vh" for="answer">{T.inputLabel}</label>
+            <input
+              id="answer"
+              type="text"
+              bind:value={typed}
+              bind:this={input}
+              lang="da"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck={false}
+              placeholder={T.placeholder}
+            />
+            <button type="submit">{T.reveal}</button>
+          </form>
+          <p class="charbar">
+            <span>{T.charHelper}</span>
+            {#each ['æ', 'ø', 'å'] as ch}
+              <button type="button" class="char" onclick={() => insertChar(ch)} aria-label={`Infoga ${ch}`}>{ch}</button>
+            {/each}
+          </p>
+        {/if}
       {:else}
         <div class="answer" aria-live="polite">
           <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
@@ -296,6 +351,10 @@
   .hint { color: var(--muted); font-size: var(--step--1); margin: var(--sp-1) 0; }
   form { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
   form input { flex: 1 1 12rem; }
+  .choices { display: grid; gap: var(--sp-2); margin-top: var(--sp-4); }
+  .choice { text-align: left; font-size: var(--step-0); padding: var(--sp-3) var(--sp-4); min-height: var(--min-tap); }
+  .charbar { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0 0; color: var(--muted); font-size: var(--step--1); }
+  .char { min-width: 2.2em; min-height: 2.2em; font-size: var(--step-0); }
   .verdict { font-weight: 700; margin: 0 0 var(--sp-2); }
   .verdict.ok { color: var(--correct); }
   .verdict.no { color: var(--accent); }

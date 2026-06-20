@@ -11,6 +11,16 @@ objectives:
   - 'Välja rätt mellan da och når'
 prerequisites: []
 vocabTags: []
+checkpoint:
+  - q: "Engångshändelse i dåtid: 'Jeg var glad ___ jeg så dig.' Vilket ord?"
+    options: ['da', 'når', 'hvornår']
+    answer: 0
+  - q: "Vad heter svenska 'börja' på danska?"
+    options: ['börja', 'begynde', 'börje']
+    answer: 1
+  - q: "Danskt perfekt av rörelseverb: 'Jeg ___ gået hjem.'"
+    options: ['har', 'er', 'var']
+    answer: 1
 ---
 
 Bra nyheter: nästan all dansk grammatik fungerar som svensk. Lägg energin på de få punkter som faktiskt skiljer sig.

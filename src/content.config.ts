@@ -31,6 +31,17 @@ const lessons = defineCollection({
     // enforced by scripts/check-content.mjs (prebuild). Leave empty for
     // prose-only lessons with no deck yet.
     vocabTags: z.array(z.string()).default([]),
+    // Optional end-of-lesson self-check: a few multiple-choice questions.
+    // `answer` is the 0-based index of the correct option.
+    checkpoint: z
+      .array(
+        z.object({
+          q: z.string(),
+          options: z.array(z.string()).min(2),
+          answer: z.number().int().nonnegative(),
+        }),
+      )
+      .default([]),
     draft: z.boolean().default(false),
   }),
 });

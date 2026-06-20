@@ -33,6 +33,9 @@ export const UI = {
     directionLegend: 'Riktning',
     write: 'Skriv',
     listen: 'Lyssna',
+    recognize: 'Känn igen',
+    choosePrompt: 'Välj rätt danska ord',
+    charHelper: 'Saknar æ ø å på tangentbordet? Klicka för att infoga:',
     trainingTagPrefix: 'Tränar taggen',
     showAllDecks: 'Visa alla kortlekar',
     listenPrompt: '🎧 Lyssna och skriv ordet du hör:',
@@ -86,6 +89,16 @@ export const UI = {
     backToLesson: '← Tillbaka till lektionen',
     indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar — grupperade efter tema.',
     progress: (done: number, total: number) => `Du har läst ${done} av ${total} lektioner.`,
+  },
+
+  // End-of-lesson self-check (a couple of quick multiple-choice questions).
+  checkpoint: {
+    heading: 'Snabbkoll',
+    intro: 'Testa dig själv innan du går vidare.',
+    correct: 'Rätt!',
+    wrong: 'Inte riktigt — rätt svar är markerat.',
+    reset: 'Försök igen',
+    done: 'Snyggt! Du är redo att öva orden.',
   },
 
   // Light, non-gamified progress (personal-tool scope).

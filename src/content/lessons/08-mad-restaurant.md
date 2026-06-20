@@ -11,6 +11,13 @@ objectives:
   - 'Undvika måltidsfällan frokost = lunch'
 prerequisites: ['02-falske-venner']
 vocabTags: ['mad']
+checkpoint:
+  - q: "På danska är 'frokost':"
+    options: ['frukost', 'lunch', 'kvällsmat']
+    answer: 1
+  - q: "Vad betyder danska 'morgenmad'?"
+    options: ['frukost', 'lunch', 'mellanmål']
+    answer: 0
 draft: false
 ---
 Som svensk klarar du det mesta på en dansk meny – men måltidsnamnen är en klassisk fälla, och några restaurangord ser bekanta ut men sitter snett. Här är det du behöver för att äta ute och handla mat.
