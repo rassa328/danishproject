@@ -20,13 +20,19 @@ const { cards } = Astro.props;
       cards.map((c) => (
         <tr>
           <td>
-            <span class="da" lang="da">{c.danish}</span>
+            <span class="da" lang="da" data-audio={c.audio}>{c.danish}</span>
             {c.exampleDa && (
-              <div class="ex" lang="da">{c.exampleDa}</div>
+              <div class="ex" lang="da" data-audio={c.audioExample}>{c.exampleDa}</div>
             )}
           </td>
-          <td>{c.swedish}</td>
-          <td class="note">{c.note}</td>
+          <td>
+            {c.swedish}
+            {c.exampleSv && <div class="ex">{c.exampleSv}</div>}
+          </td>
+          <td class="note">
+            {c.tags.includes('falsk-ven') && <span class="warn" title="Falsk vän">⚠ </span>}
+            {c.note}
+          </td>
         </tr>
       ))
     }
@@ -63,5 +69,9 @@ const { cards } = Astro.props;
   .note {
     font-size: 0.85rem;
     opacity: 0.8;
+  }
+  .warn {
+    color: var(--warn);
+    opacity: 1;
   }
 </style>

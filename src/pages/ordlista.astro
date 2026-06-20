@@ -1,0 +1,126 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import VocabTable from '../components/VocabTable.astro';
+import WordAudio from '../components/WordAudio.svelte';
+import { allCards, cardCount } from '../lib/decks.ts';
+import type { Card } from '../lib/vocab.ts';
+
+// Merge a couple of stray/duplicate decks, then strip the -b1/-b2 level suffix so
+// a theme's B1 and B2 words sit together (e.g. falske-venner-b1 + -b2 → one theme).
+const DECK_ALIAS: Record<string, string> = { foelelser: 'känslor' };
+const themeKey = (deck: string): string => {
+  const base = deck.replace(/-b[12]$/, '');
+  return DECK_ALIAS[base] ?? base;
+};
+
+// Clean Swedish section headers; unmapped keys fall back to the humanizer.
+const THEME_LABELS: Record<string, string> = {
+  hverdag: 'Vardag',
+  verber: 'Verb',
+  'rejser-og-transport': 'Resor & transport',
+  'mad-og-restaurant': 'Mat & restaurang',
+  'krop-og-sundhed': 'Kropp & hälsa',
+  'hjem-og-familie': 'Hem & familj',
+  'hjem-og-koekken': 'Hem & kök',
+  arbejde: 'Arbete',
+  'falske-venner': 'Falska vänner',
+  'udtryk-og-idiomer': 'Uttryck & idiom',
+  smalltalk: 'Småprat',
+  känslor: 'Känslor',
+  'tid-og-numre': 'Tid & tal',
+  'natur-og-vejr': 'Natur & väder',
+  kläder: 'Kläder',
+};
+const humanize = (key: string): string => {
+  const s = key.replace(/-og-/g, ' & ').replace(/-/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+const label = (key: string): string => THEME_LABELS[key] ?? humanize(key);
+
+// Group every card by theme.
+const groups = new Map<string, Card[]>();
+for (const c of allCards) {
+  const k = themeKey(c.deck);
+  const arr = groups.get(k);
+  if (arr) arr.push(c);
+  else groups.set(k, [c]);
+}
+
+// Biggest themes first; within a theme, words sorted by Danish (da collation).
+const sections = [...groups.entries()]
+  .map(([key, cards]) => ({
+    label: label(key),
+    levels: [...new Set(cards.map((c) => c.cefr))].sort(),
+    cards: [...cards].sort((a, b) => a.danish.localeCompare(b.danish, 'da')),
+  }))
+  .sort((a, b) => b.cards.length - a.cards.length || a.label.localeCompare(b.label, 'sv'));
+---
+
+<BaseLayout
+  title="Ordlista"
+  description={`Alla ${cardCount} danska ord med svensk översättning, exempel och uttal — din fusklapp.`}
+>
+  <h1>Ordlista</h1>
+  <p class="lead">
+    Alla {cardCount} ord på ett ställe — din fusklapp. Klicka på ett danskt ord
+    (eller exempel) för att höra det på danska.
+  </p>
+
+  {
+    sections.map((s) => (
+      <section class="theme">
+        <h2>
+          {s.label}
+          <span class="meta">{s.levels.map((l) => l.toUpperCase()).join(' · ')} · {s.cards.length} ord</span>
+        </h2>
+        <VocabTable cards={s.cards} />
+      </section>
+    ))
+  }
+
+  <WordAudio client:idle />
+
+  <style>
+    .lead { color: var(--muted); }
+    .theme { margin-top: var(--sp-8); }
+    .theme h2 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: var(--sp-3);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: var(--sp-1);
+    }
+    .theme h2 .meta {
+      font-size: var(--step--1);
+      font-weight: 400;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Click-to-hear affordance (class added at runtime by WordAudio). */
+    :global(.da-clickable) {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 0.2em;
+      text-decoration-color: var(--muted);
+      border-radius: 3px;
+      transition: background-color 0.15s;
+    }
+    :global(.da-clickable:hover),
+    :global(.da-clickable:focus-visible) {
+      text-decoration-color: var(--accent);
+      background: color-mix(in oklab, var(--accent) 12%, transparent);
+    }
+    :global(.da-clickable:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+    :global(.da-clickable.is-playing) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
+
+    /* Printable cheat sheet: drop the chrome and the click affordance. */
+    @media print {
+      :global(nav), :global(footer), :global(.skip-link) { display: none !important; }
+      :global(.da-clickable) { text-decoration: none; cursor: auto; background: none; }
+      .theme { break-inside: avoid; }
+    }
+  </style>
+</BaseLayout>
