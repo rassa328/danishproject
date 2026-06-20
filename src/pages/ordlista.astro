@@ -4,6 +4,7 @@ import VocabTable from '../components/VocabTable.astro';
 import WordAudio from '../components/WordAudio.svelte';
 import { allCards, cardCount } from '../lib/decks.ts';
 import { formatLevel } from '../lib/format.ts';
+import { UI } from '../lib/strings.ts';
 import type { Card } from '../lib/vocab.ts';
 
 // Merge a couple of stray/duplicate decks, then strip the -b1/-b2 level suffix so
@@ -57,15 +58,9 @@ const sections = [...groups.entries()]
   .sort((a, b) => b.cards.length - a.cards.length || a.label.localeCompare(b.label, 'sv'));
 ---
 
-<BaseLayout
-  title="Ordlista"
-  description={`Alla ${cardCount} danska ord med svensk översättning, exempel och uttal — din fusklapp.`}
->
-  <h1>Ordlista</h1>
-  <p class="lead">
-    Alla {cardCount} ord på ett ställe — din fusklapp. Klicka på ett danskt ord
-    (eller exempel) för att höra det på danska.
-  </p>
+<BaseLayout title={UI.wordlist.title} description={UI.wordlist.description(cardCount)}>
+  <h1>{UI.wordlist.title}</h1>
+  <p class="lead">{UI.wordlist.lead(cardCount)}</p>
 
   {
     sections.map((s) => (

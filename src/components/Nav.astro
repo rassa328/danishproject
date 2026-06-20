@@ -1,23 +1,26 @@
 ---
 import { withBase } from '../lib/url.ts';
+import { UI } from '../lib/strings.ts';
 
 const path = Astro.url.pathname.replace(/\/$/, '');
 const links = [
-  { href: withBase(''), label: 'Hem' },
-  { href: withBase('lektioner'), label: 'Lektioner' },
-  { href: withBase('flashcards'), label: 'Flashcards' },
-  { href: withBase('ordlista'), label: 'Ordlista' },
+  { href: withBase(''), label: UI.nav.home, match: 'exact' as const },
+  { href: withBase('lektioner'), label: UI.nav.lessons, match: 'prefix' as const },
+  { href: withBase('flashcards'), label: UI.nav.flashcards, match: 'prefix' as const },
+  { href: withBase('ordlista'), label: UI.nav.wordlist, match: 'prefix' as const },
 ];
-const isActive = (href: string) => path === href.replace(/\/$/, '');
+const norm = (href: string) => href.replace(/\/$/, '');
+const isActive = (l: (typeof links)[number]) =>
+  l.match === 'exact' ? path === norm(l.href) : path === norm(l.href) || path.startsWith(norm(l.href) + '/');
 ---
 
-<nav aria-label="Huvudmeny">
-  <a class="brand" href={withBase('')}><span lang="da">Dansk</span> för svenskar</a>
+<nav aria-label={UI.nav.menuLabel}>
+  <a class="brand" href={withBase('')}><span lang="da">{UI.brandDa}</span>{UI.brandRest}</a>
   <ul>
     {
       links.map((l) => (
         <li>
-          <a href={l.href} aria-current={isActive(l.href) ? 'page' : undefined}>
+          <a href={l.href} aria-current={isActive(l) ? 'page' : undefined}>
             {l.label}
           </a>
         </li>

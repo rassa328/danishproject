@@ -2,6 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
 import { formatLevel } from '../lib/format.ts';
+import { UI } from '../lib/strings.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
@@ -45,7 +46,7 @@ const topicLabel: Record<string, string> = {
 ---
 
 <BaseLayout title={title} description={summary}>
-  <p class="back"><a href={withBase('lektioner')}>← Lektioner</a>{position && <span class="pos"> · Lektion {position}</span>}</p>
+  <p class="back"><a href={withBase('lektioner')}>{UI.lessons.backToList}</a>{position && <span class="pos"> · {UI.lessons.positionPrefix} {position}</span>}</p>
   <header class="lesson-head">
     <h1>{title}</h1>
     <p class="meta">
@@ -56,7 +57,7 @@ const topicLabel: Record<string, string> = {
     {
       prerequisites.length > 0 && (
         <p class="prereq">
-          Gör först:{' '}
+          {UI.lessons.prerequisitesLabel}{' '}
           {prerequisites.map((p, i) => (
             <>
               {i > 0 && ', '}
@@ -69,7 +70,7 @@ const topicLabel: Record<string, string> = {
     {
       objectives.length > 0 && (
         <div class="objectives">
-          <p class="objectives-head">Efter lektionen kan du:</p>
+          <p class="objectives-head">{UI.lessons.objectivesHead}</p>
           <ul>{objectives.map((o) => <li>{o}</li>)}</ul>
         </div>
       )
@@ -85,7 +86,7 @@ const topicLabel: Record<string, string> = {
   {
     vocabTags.length > 0 && (
       <p class="vocab-link">
-        Träna orden:{' '}
+        {UI.lessons.trainWords}{' '}
         {vocabTags.map((t) => (
           <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
             #{t}
@@ -97,10 +98,10 @@ const topicLabel: Record<string, string> = {
 
   {
     (prev || next) && (
-      <nav class="lesson-nav" aria-label="Mellan lektioner">
+      <nav class="lesson-nav" aria-label={UI.lessons.navLabel}>
         {prev ? (
           <a class="nav-prev" href={withBase(`lektioner/${prev.id}`)}>
-            <span class="dir">← Föregående</span>
+            <span class="dir">{UI.lessons.prev}</span>
             <span class="nav-title">{prev.title}</span>
           </a>
         ) : (
@@ -108,7 +109,7 @@ const topicLabel: Record<string, string> = {
         )}
         {next && (
           <a class="nav-next" href={withBase(`lektioner/${next.id}`)}>
-            <span class="dir">Nästa →</span>
+            <span class="dir">{UI.lessons.next}</span>
             <span class="nav-title">{next.title}</span>
           </a>
         )}
@@ -137,7 +138,7 @@ const topicLabel: Record<string, string> = {
     .prose :global(table) { width: 100%; border-collapse: collapse; font-size: var(--step--1); margin: var(--sp-4) 0; }
     .prose :global(th), .prose :global(td) { border: 1px solid var(--border); padding: var(--sp-2); text-align: left; vertical-align: top; }
     .prose :global(blockquote) { margin: var(--sp-4) 0; padding: var(--sp-2) var(--sp-4); border-left: 4px solid var(--warn); background: var(--warn-bg); border-radius: 0 var(--radius) var(--radius) 0; }
-    .prose :global(code) { background: color-mix(in oklab, var(--text) 8%, transparent); padding: 0.1em 0.3em; border-radius: 4px; }
+    .prose :global(code) { background: var(--code-bg); padding: 0.1em 0.3em; border-radius: 4px; }
     /* Click-to-hear: Danish words/sentences become tappable (added by LessonAudio). */
     .prose :global(.da-clickable) { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 0.2em; text-decoration-color: var(--muted); border-radius: 3px; transition: background-color 0.15s; }
     .prose :global(.da-clickable:hover), .prose :global(.da-clickable:focus-visible) { text-decoration-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }

@@ -10,9 +10,9 @@ const { cards } = Astro.props;
 <table class="vocab">
   <thead>
     <tr>
-      <th lang="da">Dansk</th>
-      <th>Svenska</th>
-      <th>Not</th>
+      <th scope="col" lang="da">Dansk</th>
+      <th scope="col">Svenska</th>
+      <th scope="col">Not</th>
     </tr>
   </thead>
   <tbody>
@@ -43,17 +43,17 @@ const { cards } = Astro.props;
   .vocab {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.95rem;
+    font-size: var(--step-0);
   }
   .vocab th,
   .vocab td {
     text-align: left;
-    padding: 0.5rem 0.6rem;
-    border-bottom: 1px solid color-mix(in oklab, CanvasText 12%, transparent);
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--subtle-border);
     vertical-align: top;
   }
   .vocab th {
-    font-size: 0.8rem;
+    font-size: var(--step--1);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     opacity: 0.6;
@@ -62,12 +62,12 @@ const { cards } = Astro.props;
     font-weight: 600;
   }
   .ex {
-    font-size: 0.85rem;
+    font-size: var(--step--1);
     opacity: 0.7;
-    margin-top: 0.15rem;
+    margin-top: var(--sp-1);
   }
   .note {
-    font-size: 0.85rem;
+    font-size: var(--step--1);
     opacity: 0.8;
   }
   .warn {

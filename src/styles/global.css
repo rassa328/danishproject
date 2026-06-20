@@ -22,6 +22,7 @@
   --radius: 8px;
   --radius-pill: 999px;
   --maxw: 46rem;
+  --min-tap: 2.75rem; /* WCAG 2.5.5 minimum touch target */
 
   --bg: #fbfaf8;
   --surface: #ffffff;
@@ -34,6 +35,11 @@
   --warn: #8a6d00;
   --warn-bg: #fff8e1;
   --due: #0969da;
+
+  /* Derived surfaces. Defined via var(--text) so they track light/dark
+     automatically — never hardcode CanvasText (it ignores our dark theme). */
+  --code-bg: color-mix(in oklab, var(--text) 8%, transparent);
+  --subtle-border: color-mix(in oklab, var(--text) 12%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {

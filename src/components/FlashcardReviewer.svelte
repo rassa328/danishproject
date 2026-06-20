@@ -6,6 +6,9 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import { matchAnswer, type Card } from '../lib/vocab.ts';
+  import { UI } from '../lib/strings.ts';
+
+  const T = UI.flashcards;
 
   let { cards, decks }: { cards: Card[]; decks: string[] } = $props();
 
@@ -91,7 +94,7 @@
     if (phase !== 'revealed' || !current) return;
     const eff = clampForCorrectness(g, wasCorrect);
     const { result } = store.grade(current.id, direction, eff, now());
-    if (!result.ok) warning = 'Framsteg kunde inte sparas (lagringen kan vara full). Exportera en backup.';
+    if (!result.ok) warning = T.saveError;
     reviewed++;
     idx++;
     typed = '';
@@ -125,7 +128,7 @@
     if (!file) return;
     file.text().then((t) => {
       const r = store.importBackup(t);
-      warning = r.ok ? 'Backup importerad.' : 'Kunde inte läsa backup-filen.';
+      warning = r.ok ? T.backup.imported : T.backup.importError;
       start();
     });
   }
@@ -140,15 +143,15 @@
 </script>
 
 {#if !ready}
-  <p>Laddar…</p>
+  <p>{T.loading}</p>
 {:else}
   <div class="bar">
     {#if tag}
-      <span>Tränar taggen <strong>#{tag}</strong></span>
-      <button onclick={() => { tag = null; start(); }}>Visa alla kortlekar</button>
+      <span>{T.trainingTagPrefix} <strong>#{tag}</strong></span>
+      <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
     {:else}
       <label>
-        Kortlek:
+        {T.deckLabel}
         <select bind:value={selectedDeck} onchange={() => start()}>
           {#each decks as d}<option value={d}>{d}</option>{/each}
         </select>
@@ -156,9 +159,9 @@
     {/if}
 
     <fieldset class="dir">
-      <legend class="vh">Riktning</legend>
-      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => start()} /> Skriv</label>
-      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => start()} /> Lyssna</label>
+      <legend class="vh">{T.directionLegend}</legend>
+      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => start()} /> {T.write}</label>
+      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => start()} /> {T.listen}</label>
     </fieldset>
   </div>
 
@@ -172,19 +175,19 @@
   >
     {#if phase === 'done'}
       <div class="done">
-        <h2 tabindex="-1">{reviewed > 0 ? 'Klart för nu!' : 'Inga kort att repetera just nu'}</h2>
-        {#if reviewed > 0}<p>Du repeterade {reviewed} kort.</p>{/if}
+        <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
+        {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
         <div class="grades">
-          <button onclick={() => start(false)}>Repetera förfallna</button>
-          <button onclick={() => start(true)}>Öva fritt (påverkar ej schemat)</button>
+          <button onclick={() => start(false)}>{T.repeatDue}</button>
+          <button onclick={() => start(true)}>{T.practiceFree}</button>
         </div>
       </div>
     {:else if current}
-      <p class="progress" aria-live="polite">Kort {idx + 1} av {queue.length} · {remaining} kvar</p>
+      <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
 
       {#if direction === 'listen'}
-        <p class="prompt-listen">🎧 Lyssna och skriv ordet du hör:</p>
-        <SpeakButton text={current.danish} audio={current.audio} label="Spela igen" />
+        <p class="prompt-listen">{T.listenPrompt}</p>
+        <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
       {:else}
         <p class="prompt">{current.swedish}</p>
         {#if current.exampleSv}<p class="hint">{current.exampleSv}</p>{/if}
@@ -192,7 +195,7 @@
 
       {#if phase === 'prompt'}
         <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
-          <label class="vh" for="answer">Skriv ordet på danska</label>
+          <label class="vh" for="answer">{T.inputLabel}</label>
           <input
             id="answer"
             type="text"
@@ -203,26 +206,26 @@
             autocapitalize="off"
             autocorrect="off"
             spellcheck={false}
-            placeholder="skriv på danska…"
+            placeholder={T.placeholder}
           />
-          <button type="submit">Visa svar (Enter)</button>
+          <button type="submit">{T.reveal}</button>
         </form>
       {:else}
         <div class="answer" aria-live="polite">
           <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
-            {wasCorrect ? '✓ Rätt!' : '✗ Inte riktigt'}
+            {wasCorrect ? T.correct : T.incorrect}
           </p>
           <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} /></p>
           <p class="sv">{current.swedish}</p>
-          {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label="Lyssna" /></p>{/if}
+          {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
           <div class="grades">
-            <button onclick={() => grade(1 as ReviewGrade)}>Igen (1)</button>
-            <button onclick={() => grade(2 as ReviewGrade)} disabled={!wasCorrect}>Svårt (2)</button>
-            <button onclick={() => grade(3 as ReviewGrade)} disabled={!wasCorrect}>Bra (3)</button>
-            <button onclick={() => grade(4 as ReviewGrade)} disabled={!wasCorrect}>Lätt (4)</button>
+            <button onclick={() => grade(1 as ReviewGrade)}>{T.grades.again} (1)</button>
+            <button onclick={() => grade(2 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.hard} (2)</button>
+            <button onclick={() => grade(3 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.good} (3)</button>
+            <button onclick={() => grade(4 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.easy} (4)</button>
           </div>
-          {#if !wasCorrect}<p class="hint">Fel svar räknas som ”Igen”.</p>{/if}
+          {#if !wasCorrect}<p class="hint">{T.wrongHint}</p>{/if}
         </div>
       {/if}
     {/if}
@@ -231,11 +234,11 @@
   </section>
 
   <details class="backup">
-    <summary>Säkerhetskopiera</summary>
-    <p>Framsteg sparas bara i den här webbläsaren. Exportera då och då, eller flytta till en annan enhet.</p>
-    <button onclick={exportBackup}>Exportera backup (JSON)</button>
-    <label class="import">Importera backup
-      <input type="file" accept="application/json" onchange={importBackup} />
+    <summary>{T.backup.summary}</summary>
+    <p>{T.backup.note}</p>
+    <button onclick={exportBackup}>{T.backup.export}</button>
+    <label class="import">{T.backup.import}
+      <input type="file" accept="application/json" aria-label={T.backup.import} onchange={importBackup} />
     </label>
   </details>
 {/if}

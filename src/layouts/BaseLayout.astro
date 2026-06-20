@@ -2,13 +2,14 @@
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
 import { withBase } from '../lib/url.ts';
+import { UI } from '../lib/strings.ts';
 
 interface Props {
   title: string;
   description?: string;
 }
 const { title, description } = Astro.props;
-const fullTitle = title === 'Dansk för svenskar' ? title : `${title} · Dansk för svenskar`;
+const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
 ---
 
 <!doctype html>
@@ -22,14 +23,14 @@ const fullTitle = title === 'Dansk för svenskar' ? title : `${title} · Dansk f
     <title>{fullTitle}</title>
   </head>
   <body>
-    <a class="skip-link" href="#main">Hoppa till innehåll</a>
+    <a class="skip-link" href="#main">{UI.skipLink}</a>
     <Nav />
     <main id="main">
       <slot />
     </main>
     <footer>
       <p>
-        Lär dig danska som svensk · framsteg sparas i din webbläsare ·
+        {UI.footer}
         <a href={withBase('flashcards')}>flashcards</a>
       </p>
     </footer>
