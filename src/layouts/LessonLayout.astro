@@ -1,18 +1,37 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
+import { formatLevel } from '../lib/format.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
+type LessonRef = { id: string; title: string };
 interface Props {
   title: string;
   level: 'b1' | 'b2';
   topic: string;
   estMinutes: number;
   summary: string;
+  objectives?: string[];
+  prerequisites?: LessonRef[];
   vocabTags: string[];
+  prev?: LessonRef | null;
+  next?: LessonRef | null;
+  position?: string;
 }
-const { title, level, topic, estMinutes, summary, vocabTags } = Astro.props;
+const {
+  title,
+  level,
+  topic,
+  estMinutes,
+  summary,
+  objectives = [],
+  prerequisites = [],
+  vocabTags,
+  prev = null,
+  next = null,
+  position,
+} = Astro.props;
 const topicLabel: Record<string, string> = {
   pronunciation: 'Uttal',
   'false-friends': 'Falska vänner',
@@ -26,14 +45,35 @@ const topicLabel: Record<string, string> = {
 ---
 
 <BaseLayout title={title} description={summary}>
-  <p class="back"><a href={withBase('lektioner')}>← Lektioner</a></p>
+  <p class="back"><a href={withBase('lektioner')}>← Lektioner</a>{position && <span class="pos"> · Lektion {position}</span>}</p>
   <header class="lesson-head">
     <h1>{title}</h1>
     <p class="meta">
-      <span class="badge">{level.toUpperCase()}</span>
+      <span class="badge">{formatLevel(level)}</span>
       <span>{topicLabel[topic] ?? topic}</span>
       <span>· {estMinutes} min</span>
     </p>
+    {
+      prerequisites.length > 0 && (
+        <p class="prereq">
+          Gör först:{' '}
+          {prerequisites.map((p, i) => (
+            <>
+              {i > 0 && ', '}
+              <a href={withBase(`lektioner/${p.id}`)}>{p.title}</a>
+            </>
+          ))}
+        </p>
+      )
+    }
+    {
+      objectives.length > 0 && (
+        <div class="objectives">
+          <p class="objectives-head">Efter lektionen kan du:</p>
+          <ul>{objectives.map((o) => <li>{o}</li>)}</ul>
+        </div>
+      )
+    }
   </header>
 
   <article class="prose">
@@ -55,9 +95,42 @@ const topicLabel: Record<string, string> = {
     )
   }
 
+  {
+    (prev || next) && (
+      <nav class="lesson-nav" aria-label="Mellan lektioner">
+        {prev ? (
+          <a class="nav-prev" href={withBase(`lektioner/${prev.id}`)}>
+            <span class="dir">← Föregående</span>
+            <span class="nav-title">{prev.title}</span>
+          </a>
+        ) : (
+          <span />
+        )}
+        {next && (
+          <a class="nav-next" href={withBase(`lektioner/${next.id}`)}>
+            <span class="dir">Nästa →</span>
+            <span class="nav-title">{next.title}</span>
+          </a>
+        )}
+      </nav>
+    )
+  }
+
   <style>
     .back { font-size: var(--step--1); margin: 0 0 var(--sp-2); }
+    .pos { color: var(--muted); }
     .lesson-head { margin-bottom: var(--sp-6); }
+    .prereq { font-size: var(--step--1); color: var(--muted); margin: var(--sp-2) 0 0; }
+    .objectives { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .objectives-head { margin: 0 0 var(--sp-1); font-weight: 600; font-size: var(--step--1); }
+    .objectives ul { margin: 0; padding-left: 1.2em; }
+    .objectives li { font-size: var(--step--1); }
+    .lesson-nav { display: flex; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-8); }
+    .lesson-nav a { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
+    .lesson-nav a:hover { border-color: var(--accent); }
+    .lesson-nav .nav-next { text-align: right; }
+    .lesson-nav .dir { font-size: var(--step--1); color: var(--muted); }
+    .lesson-nav .nav-title { font-weight: 600; }
     .meta { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; color: var(--muted); font-size: var(--step--1); margin: 0; }
     .badge { background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius-pill); padding: 0 var(--sp-2); font-weight: 600; font-size: 0.75rem; }
     .prose :global(h2) { border-bottom: 1px solid var(--border); padding-bottom: var(--sp-1); }

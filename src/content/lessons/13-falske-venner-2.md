@@ -2,9 +2,14 @@
 title: 'Falske venner 2: flere fælder'
 level: b2
 topic: false-friends
+unit: falske-venner
 order: 13
 summary: 'Fler falska vänner mellan danska och svenska: gift, dyr, regne, semester, anledning, flink, rar med flera – ord där betydelserna delvis överlappar och lurar.'
 estMinutes: 8
+objectives:
+  - 'Hantera fler falska vänner med delvis överlappande betydelser'
+  - 'Skilja gift, dyr och regne åt i sammanhang'
+prerequisites: ['02-falske-venner']
 vocabTags: ['falsk-ven']
 draft: false
 ---

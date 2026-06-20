@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parse, deriveId } from './vocab.ts';
+import { parse, deriveId, matchAnswer, acceptedAnswers, normalizeAnswer } from './vocab.ts';
 import { allCards, deckNames, getByTag } from './decks.ts';
 
 const csv = readFileSync(new URL('../data/vocab/starter-deck.csv', import.meta.url), 'utf8');
@@ -24,6 +24,47 @@ describe('vocab.parse (real seed deck)', () => {
   it('ids are unique across the deck', () => {
     const { cards } = parse(csv);
     expect(new Set(cards.map((c) => c.id)).size).toBe(cards.length);
+  });
+});
+
+describe('matchAnswer', () => {
+  const card = (danish: string, accepted: string[] = []) => ({ danish, accepted });
+
+  it('accepts the exact stored form (case/space/diacritic-insensitive trim)', () => {
+    expect(matchAnswer('  Læse ', card('læse'))).toBe(true);
+    expect(matchAnswer('hund', card('hund'))).toBe(true);
+  });
+
+  it('rejects a Swedish-letter spelling (never folds æ/ø/å)', () => {
+    expect(matchAnswer('läse', card('læse'))).toBe(false);
+    expect(matchAnswer(' books', card('bøger'))).toBe(false);
+    expect(matchAnswer('bocker', card('bøger'))).toBe(false);
+  });
+
+  it('accepts any "/"-separated variant of the stored form', () => {
+    const c = card('midlertidig / midlertidigt');
+    expect(matchAnswer('midlertidig', c)).toBe(true);
+    expect(matchAnswer('midlertidigt', c)).toBe(true);
+  });
+
+  it('accepts explicit synonyms/inflections from the accepted list', () => {
+    const c = card('hoppe', ['springe']);
+    expect(matchAnswer('hoppe', c)).toBe(true);
+    expect(matchAnswer('springe', c)).toBe(true);
+    expect(matchAnswer('løbe', c)).toBe(false);
+  });
+
+  it('rejects empty input', () => {
+    expect(matchAnswer('', card('hund'))).toBe(false);
+    expect(matchAnswer('   ', card('hund'))).toBe(false);
+  });
+
+  it('acceptedAnswers de-dupes and normalizes', () => {
+    expect(acceptedAnswers(card('Hund / hund', ['HUND'])).sort()).toEqual(['hund']);
+  });
+
+  it('normalizeAnswer collapses whitespace and lowercases without folding', () => {
+    expect(normalizeAnswer('  GÅ   nu ')).toBe('gå nu');
   });
 });
 

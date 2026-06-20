@@ -19,6 +19,10 @@ export interface Card {
   deck: string;
   cefr: Cefr;
   tags: string[];
+  /** Extra Danish spellings accepted as correct (synonyms, inflections). The
+   *  stored `danish` form and its `/`-separated variants are always accepted on
+   *  top of these — see acceptedAnswers(). */
+  accepted: string[];
   audio?: string;
   audioExample?: string;
 }
@@ -35,6 +39,28 @@ export interface ParseResult {
 
 const POS = new Set<Pos>(['noun', 'verb', 'adj', 'adv', 'num', 'phrase', 'other']);
 const CEFR = new Set<Cefr>(['b1', 'b2']);
+
+// ---- answer matching ----
+// trim + lowercase + collapse spaces, NFC only — never fold æ/ø/å. A Swedish
+// spelling like "läse" (Danish "læse") must count as WRONG, so diacritics and
+// the Nordic letters are significant.
+export const normalizeAnswer = (s: string): string =>
+  nfc(s).trim().toLowerCase().replace(/\s+/g, ' ');
+
+/** Every Danish form accepted as correct for a card: the stored `danish` value,
+ *  each `/`-separated variant of it (e.g. "midlertidig / midlertidigt"), and any
+ *  explicit `accepted` synonyms/inflections — all normalized & de-duped. */
+export function acceptedAnswers(card: Pick<Card, 'danish' | 'accepted'>): string[] {
+  const variants = card.danish.split('/').map((s) => s.trim());
+  const all = [...variants, ...card.accepted].map(normalizeAnswer).filter(Boolean);
+  return [...new Set(all)];
+}
+
+/** True if the learner's typed answer matches any accepted Danish form. */
+export function matchAnswer(typed: string, card: Pick<Card, 'danish' | 'accepted'>): boolean {
+  const t = normalizeAnswer(typed);
+  return t.length > 0 && acceptedAnswers(card).includes(t);
+}
 
 const splitTags = (s: string | undefined): string[] =>
   nfc(s)
@@ -62,6 +88,7 @@ function toCard(raw: Record<string, string>): { card?: Card; error?: string } {
     deck: nfc(raw.deck) || 'allmänt-b1',
     cefr,
     tags: splitTags(raw.tags),
+    accepted: splitTags(raw.accepted),
   };
   const exDa = nfc(raw.example_da);
   if (exDa) card.exampleDa = exDa;

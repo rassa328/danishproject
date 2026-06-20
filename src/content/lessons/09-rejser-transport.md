@@ -2,9 +2,14 @@
 title: 'Rejser og transport'
 level: b1
 topic: vocabulary
+unit: hverdag
 order: 9
 summary: 'Tåg, flyg och kollektivtrafik på danska – billet, afgang, forsinkelse och hur du köper biljett och frågar om förseningar.'
 estMinutes: 7
+objectives:
+  - 'Köpa biljett och fråga om förseningar på danska'
+  - 'Använda reseord som afgang och forsinkelse'
+prerequisites: []
 vocabTags: ['rejser']
 draft: false
 ---

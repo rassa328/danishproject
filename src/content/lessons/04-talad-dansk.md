@@ -2,9 +2,14 @@
 title: 'Talad danska – när bokstäverna ljuger'
 level: b2
 topic: listening
+unit: grund
 order: 4
 summary: 'Uttals-fusklapp för svenskar: svaga ändelser, blødt d, mjuka p/t/k och stumma bokstäver – det som gör talad danska svår att höra.'
 estMinutes: 10
+objectives:
+  - 'Höra svaga ändelser, blødt d och stumma bokstäver i talad danska'
+  - 'Koppla en dansk stavning till hur ordet faktiskt uttalas'
+prerequisites: ['01-stoed']
 vocabTags: []
 ---
 

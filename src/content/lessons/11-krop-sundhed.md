@@ -2,9 +2,14 @@
 title: 'Krop, sundhed og hos lægen'
 level: b1
 topic: vocabulary
+unit: hverdag
 order: 11
 summary: 'Kroppsdelar, symtom och ett läkarbesök på danska – med fokus på en/et-artiklar (et recept!), stavningsfällor (mave, ryg) och læge ≠ lege.'
 estMinutes: 7
+objectives:
+  - 'Beskriva kroppsdelar och symtom på danska'
+  - 'Klara ett läkarbesök och skilja læge från lege'
+prerequisites: []
 vocabTags: ['krop']
 draft: false
 ---

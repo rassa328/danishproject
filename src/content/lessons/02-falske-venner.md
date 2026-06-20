@@ -2,9 +2,14 @@
 title: 'Falska vänner – ord som lurar'
 level: b1
 topic: false-friends
+unit: falske-venner
 order: 2
 summary: 'Danska ord som ser svenska ut men betyder något annat: rolig, frokost, by, grine, sej med flera.'
 estMinutes: 7
+objectives:
+  - 'Känna igen de vanligaste falska vännerna mellan danska och svenska'
+  - 'Sluta gissa betydelsen utifrån hur ordet ser ut på svenska'
+prerequisites: []
 vocabTags: ['falsk-ven']
 ---
 

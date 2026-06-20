@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import VocabTable from '../components/VocabTable.astro';
 import WordAudio from '../components/WordAudio.svelte';
 import { allCards, cardCount } from '../lib/decks.ts';
+import { formatLevel } from '../lib/format.ts';
 import type { Card } from '../lib/vocab.ts';
 
 // Merge a couple of stray/duplicate decks, then strip the -b1/-b2 level suffix so
@@ -71,7 +72,7 @@ const sections = [...groups.entries()]
       <section class="theme">
         <h2>
           {s.label}
-          <span class="meta">{s.levels.map((l) => l.toUpperCase()).join(' · ')} · {s.cards.length} ord</span>
+          <span class="meta">{s.levels.map((l) => formatLevel(l)).join(' · ')} · {s.cards.length} ord</span>
         </h2>
         <VocabTable cards={s.cards} />
       </section>

@@ -2,9 +2,14 @@
 title: 'Grammatik som faktiskt skiljer sig'
 level: b2
 topic: grammar
+unit: system
 order: 7
 summary: 'Det mesta i dansk grammatik överförs gratis från svenskan. Här är de få saker som faktiskt skiljer sig.'
 estMinutes: 8
+objectives:
+  - 'Hantera de få grammatiska skillnaderna mot svenskan'
+  - 'Välja rätt mellan da och når'
+prerequisites: []
 vocabTags: []
 ---
 

@@ -2,9 +2,14 @@
 title: 'Mad, restaurant og indkøb'
 level: b1
 topic: vocabulary
+unit: hverdag
 order: 8
 summary: 'Mat, restaurang och inköp: lär dig måltidsfällan (frokost=lunch) plus de viktigaste orden för att äta ute och handla mat på danska.'
 estMinutes: 7
+objectives:
+  - 'Beställa mat och handla mat på danska'
+  - 'Undvika måltidsfällan frokost = lunch'
+prerequisites: ['02-falske-venner']
 vocabTags: ['mad']
 draft: false
 ---

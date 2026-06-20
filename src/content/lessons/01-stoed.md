@@ -2,10 +2,15 @@
 title: 'Stød – ljudet som ändrar betydelse'
 level: b1
 topic: pronunciation
+unit: grund
 order: 1
 summary: 'Vad stød är, varför svenskar saknar det, och minimala par där stødet ensamt skiljer orden åt.'
 estMinutes: 8
-vocabTags: ['minimalt-par']
+objectives:
+  - 'Förklara vad stød är och varför svenskar inte hör det'
+  - 'Känna igen minimala par där stødet ensamt skiljer orden åt'
+prerequisites: []
+vocabTags: []
 ---
 
 **Stød** är ett kort, knirkigt avbrott i rösten (en glottal "knäpp") som ligger på långa vokaler eller på vokal + *l, m, n, ng, r, v, j*. Svenskan har **tonaccent** (accent 1 och 2) men **inget stød** – och det är just därför svenskar låter svenska när de pratar danska.

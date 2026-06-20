@@ -2,9 +2,14 @@
 title: 'Arbejde og arbejdspladsen'
 level: b2
 topic: vocabulary
+unit: hverdag
 order: 10
 summary: 'Arbetsord på danska: möte, deadline, lön och de falska vännerna ferie, frist och fyre.'
 estMinutes: 8
+objectives:
+  - 'Använda vanliga arbetsord på danska'
+  - 'Undvika falska vänner som ferie, frist och fyre'
+prerequisites: ['02-falske-venner']
 vocabTags: ['arbejde']
 draft: false
 ---

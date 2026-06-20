@@ -2,9 +2,14 @@
 title: 'Hjem, bolig og familie'
 level: b1
 topic: vocabulary
+unit: hverdag
 order: 12
 summary: 'Hem, bostad och familj: stora falska vännen stue (vardagsrum/våning, inte stuga), værelse vs rum, samt bolig-, köks- och släktord.'
 estMinutes: 7
+objectives:
+  - 'Prata om hem, bostad och familj på danska'
+  - 'Undvika stora falska vännen stue (inte stuga)'
+prerequisites: ['02-falske-venner']
 vocabTags: ['hjem']
 draft: false
 ---

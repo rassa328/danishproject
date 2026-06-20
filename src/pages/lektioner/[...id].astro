@@ -1,15 +1,27 @@
 ---
 import LessonLayout from '../../layouts/LessonLayout.astro';
 import { getCollection, render } from 'astro:content';
+import { getNeighbors } from '../../lib/lessons.ts';
 
 export async function getStaticPaths() {
   const lessons = await getCollection('lessons', ({ data }) => !data.draft);
-  return lessons.map((entry) => ({ params: { id: entry.id }, props: { entry } }));
+  return lessons.map((entry) => ({ params: { id: entry.id }, props: { entry, lessons } }));
 }
 
-const { entry } = Astro.props;
+const { entry, lessons } = Astro.props;
 const { data } = entry;
 const { Content } = await render(entry);
+
+const titleById = new Map(lessons.map((l) => [l.id, l.data.title]));
+const link = (l: { id: string; data: { title: string } } | null) =>
+  l ? { id: l.id, title: l.data.title } : null;
+const { prev, next, index, total } = getNeighbors(lessons, entry.id);
+
+// Resolve prerequisite ids to {id,title}, skipping any that no longer exist
+// (the content validator guarantees they exist, but stay defensive).
+const prerequisites = data.prerequisites
+  .filter((id) => titleById.has(id))
+  .map((id) => ({ id, title: titleById.get(id)! }));
 ---
 
 <LessonLayout
@@ -18,7 +30,12 @@ const { Content } = await render(entry);
   topic={data.topic}
   estMinutes={data.estMinutes}
   summary={data.summary}
+  objectives={data.objectives}
+  prerequisites={prerequisites}
   vocabTags={data.vocabTags}
+  prev={link(prev)}
+  next={link(next)}
+  position={`${index + 1} / ${total}`}
 >
   <Content />
 </LessonLayout>

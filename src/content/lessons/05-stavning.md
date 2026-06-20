@@ -2,9 +2,14 @@
 title: 'Stavning: svenska → danska genvägar'
 level: b1
 topic: spelling
+unit: grund
 order: 5
 summary: 'Systematiska bokstavsmotsvarigheter mellan svenska och danska – och fällorna när en regel landar på fel ord.'
 estMinutes: 7
+objectives:
+  - 'Använda systematiska bokstavsmotsvarigheter svenska → danska'
+  - 'Se var en stavningsregel landar på fel ord'
+prerequisites: []
 vocabTags: ['stavning']
 ---
 

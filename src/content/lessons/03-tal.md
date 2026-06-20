@@ -2,10 +2,15 @@
 title: 'Tal och det vigesimala systemet'
 level: b1
 topic: numbers
+unit: system
 order: 3
 summary: 'Varför 50 heter halvtreds: det danska 20-bas-systemet, korta och långa former, och entalet före tiotalet.'
 estMinutes: 9
-vocabTags: ['tal']
+objectives:
+  - 'Förstå det vigesimala (20-bas) talsystemet bakom halvtreds'
+  - 'Läsa och säga danska tal med entalet före tiotalet'
+prerequisites: []
+vocabTags: []
 ---
 
 Danska tiotal från 50 och uppåt bygger på **tjugo (20) som bas** – ett system svenskar inte har. Det är den enskilt största stötestenen när man ska *höra* danska priser och årtal.

@@ -12,6 +12,7 @@ const card = (id: string, deck = 'd1'): Card => ({
   deck,
   cefr: 'b1',
   tags: [],
+  accepted: [],
 });
 
 describe('Store: settings + grading', () => {

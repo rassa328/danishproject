@@ -5,7 +5,7 @@
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
-  import type { Card } from '../lib/vocab.ts';
+  import { matchAnswer, type Card } from '../lib/vocab.ts';
 
   let { cards, decks }: { cards: Card[]; decks: string[] } = $props();
 
@@ -25,9 +25,6 @@
   let input = $state<HTMLInputElement>();
 
   const now = () => new Date();
-  // trim + lowercase + collapse spaces ONLY — never fold æ/ø/å (a Swedish
-  // spelling like "läse" must count as wrong).
-  const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
   const current = $derived(queue[idx]);
   const remaining = $derived(Math.max(0, queue.length - idx));
 
@@ -84,7 +81,7 @@
 
   async function submit() {
     if (phase !== 'prompt' || !current) return;
-    wasCorrect = norm(typed) === norm(current.danish);
+    wasCorrect = matchAnswer(typed, current);
     phase = 'revealed';
     await tick();
     container?.focus();

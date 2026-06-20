@@ -2,9 +2,14 @@
 title: 'Vardagsfraser och småord'
 level: b2
 topic: idiom
+unit: system
 order: 6
 summary: 'Småorden som danskar strör in (lige, sgu) och idiom som inte går att översätta ord för ord.'
 estMinutes: 8
+objectives:
+  - 'Strö in danska småord som lige och sgu naturligt'
+  - 'Förstå idiom som inte går att översätta ord för ord'
+prerequisites: []
 vocabTags: ['fras']
 ---
 
