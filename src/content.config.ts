@@ -15,6 +15,7 @@ const lessons = defineCollection({
       'listening',
       'grammar',
       'idiom',
+      'vocabulary',
     ]),
     order: z.number().int(),
     summary: z.string(),
