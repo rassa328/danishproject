@@ -6,7 +6,7 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
-  import { matchAnswer, type Card } from '../lib/vocab.ts';
+  import { matchAnswer, clozeSentence, type Card } from '../lib/vocab.ts';
   import { matchesGroup, type StudyGroup } from '../lib/deck-groups.ts';
   import { UI } from '../lib/strings.ts';
 
@@ -47,6 +47,8 @@
   const selfGraded = $derived(direction === 'speak');
   // Optgroup headers for the picker, in first-seen order.
   const optgroups = $derived([...new Set(groups.map((g) => g.optgroup))]);
+  // The fill-in-the-blank sentence for 'cloze' (null when the card has none).
+  const clozeText = $derived(direction === 'cloze' && current ? clozeSentence(current) : null);
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -75,7 +77,9 @@
   }
 
   function buildQueue(free: boolean): Card[] {
-    const dc = pool();
+    let dc = pool();
+    // Cloze can only use cards whose example sentence contains the headword.
+    if (direction === 'cloze') dc = dc.filter((c) => clozeSentence(c) !== null);
     if (free) return shuffle([...dc]);
     const settings = store.getSettings();
     const due: Card[] = [];
@@ -278,6 +282,7 @@
       <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
       <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
       <label><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.speak}</label>
+      <label><input type="radio" name="dir" value="cloze" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.cloze}</label>
     </fieldset>
   </div>
 
@@ -314,6 +319,10 @@
       {#if direction === 'listen'}
         <p class="prompt-listen">{T.listenPrompt}</p>
         <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
+      {:else if direction === 'cloze'}
+        <p class="prompt-listen">{T.clozePrompt}</p>
+        <p class="prompt" lang="da">{clozeText}</p>
+        <p class="hint">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
       {:else}
         <p class="prompt">{current.swedish}</p>
         {#if current.exampleSv}<p class="hint">{current.exampleSv}</p>{/if}

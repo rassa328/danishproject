@@ -9,7 +9,9 @@ import type { Card } from './vocab.ts';
 
 // 'speak' (shadowing) is self-graded: the learner says the word aloud, hears the
 // native clip, and rates their own pronunciation — no typed answer to check.
-export type Direction = 'produce' | 'listen' | 'recognize' | 'speak';
+// 'cloze' tests a word inside its example sentence (fill in the blank); like
+// produce it is matchAnswer-graded.
+export type Direction = 'produce' | 'listen' | 'recognize' | 'speak' | 'cloze';
 
 /** ts-fsrs Card persisted verbatim (Dates as ISO) + our app-level flags. */
 export interface SrsRecord {

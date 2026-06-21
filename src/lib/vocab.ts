@@ -65,6 +65,28 @@ export function matchAnswer(typed: string, card: Pick<Card, 'danish' | 'accepted
   return t.length > 0 && acceptedAnswers(card).includes(t);
 }
 
+const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** A fill-in-the-blank version of the card's Danish example: the first occurrence
+ *  of the headword (or an accepted form, longest first so phrases win) replaced
+ *  with "____". Returns null if there's no example or no form is found in it —
+ *  the caller then excludes the card from cloze practice. \p{L} boundaries keep
+ *  æ/ø/å intact; matching is case-insensitive against the original sentence. */
+export function clozeSentence(card: Pick<Card, 'danish' | 'accepted' | 'exampleDa'>): string | null {
+  const ex = card.exampleDa;
+  if (!ex) return null;
+  const forms = [...new Set(acceptedAnswers(card))].filter(Boolean).sort((a, b) => b.length - a.length);
+  for (const f of forms) {
+    const re = new RegExp(`(^|[^\\p{L}])(${escapeRegex(f)})(?![\\p{L}])`, 'iu');
+    const m = re.exec(ex);
+    if (m) {
+      const start = m.index + (m[1] as string).length;
+      return ex.slice(0, start) + '____' + ex.slice(start + (m[2] as string).length);
+    }
+  }
+  return null;
+}
+
 const splitTags = (s: string | undefined): string[] =>
   nfc(s)
     .split(/[|,]/)

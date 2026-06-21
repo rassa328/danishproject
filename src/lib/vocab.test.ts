@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { parse, deriveId, matchAnswer, acceptedAnswers, normalizeAnswer } from './vocab.ts';
+import { parse, deriveId, matchAnswer, acceptedAnswers, normalizeAnswer, clozeSentence } from './vocab.ts';
 import { allCards, deckNames, getByTag } from './decks.ts';
 
 const csv = readFileSync(new URL('../data/vocab/starter-deck.csv', import.meta.url), 'utf8');
@@ -24,6 +24,36 @@ describe('vocab.parse (real seed deck)', () => {
   it('ids are unique across the deck', () => {
     const { cards } = parse(csv);
     expect(new Set(cards.map((c) => c.id)).size).toBe(cards.length);
+  });
+});
+
+describe('clozeSentence', () => {
+  const c = (over: Partial<Parameters<typeof clozeSentence>[0]>) =>
+    ({ danish: 'løbe', accepted: [], exampleDa: '', ...over }) as Parameters<typeof clozeSentence>[0];
+
+  it('blanks the exact headword form in the example', () => {
+    expect(clozeSentence(c({ danish: 'løbe', exampleDa: 'Jeg kan lide at løbe.' }))).toBe('Jeg kan lide at ____.');
+  });
+
+  it('matches case-insensitively and keeps æ/ø/å boundaries', () => {
+    expect(clozeSentence(c({ danish: 'øl', exampleDa: 'Øl smager godt.' }))).toBe('____ smager godt.');
+  });
+
+  it('blanks a multi-word phrase (longest form wins)', () => {
+    const r = clozeSentence(c({ danish: 'ved siden af', exampleDa: 'Han sad ved siden af mig.' }));
+    expect(r).toBe('Han sad ____ mig.');
+  });
+
+  it('matches an accepted inflected form when listed', () => {
+    const r = clozeSentence(c({ danish: 'løbe', accepted: ['løber'], exampleDa: 'Jeg løber hver dag.' }));
+    expect(r).toBe('Jeg ____ hver dag.');
+  });
+
+  it('returns null with no example, or when no form occurs as a whole word', () => {
+    expect(clozeSentence(c({ exampleDa: '' }))).toBeNull();
+    expect(clozeSentence(c({ danish: 'hund', exampleDa: 'Katten sover.' }))).toBeNull();
+    // inflected-only occurrence with no accepted form → not cloze-able
+    expect(clozeSentence(c({ danish: 'løbe', exampleDa: 'Jeg løber.' }))).toBeNull();
   });
 });
 
