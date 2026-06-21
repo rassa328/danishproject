@@ -94,7 +94,7 @@
       direction === 'cloze'
         ? raw.filter((c) => clozeSentence(c) !== null)
         : direction === 'listen-sentence'
-          ? raw.filter((c) => !!c.audioExample)
+          ? raw.filter((c) => !!c.audioExample && !!c.exampleDa)
           : raw;
     filteredReason =
       dc.length === 0 && raw.length > 0
@@ -389,7 +389,12 @@
         <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
       {:else if direction === 'listen-sentence'}
         <p class="prompt-listen">{T.listenSentencePrompt}</p>
-        {#if current.exampleDa}<SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.replay} />{/if}
+        <!-- Plain replay (not SpeakButton): its aria-label must NOT contain the
+             sentence text, or a screen reader would announce the answer before
+             the learner attempts to comprehend the audio. -->
+        <button type="button" class="replay" onclick={playPrompt} aria-label={T.replay}>
+          <span aria-hidden="true">🔊</span> {T.replay}
+        </button>
       {:else if direction === 'cloze'}
         <p class="prompt-listen">{T.clozePrompt}</p>
         <p class="prompt" lang="da">{clozeText?.text}</p>
