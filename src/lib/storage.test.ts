@@ -50,6 +50,27 @@ describe('Store: settings + grading', () => {
     expect(s.dueCount(T0)).toBe(0);
     expect(s.dueCount(new Date(T0.getTime() + 5 * 60_000))).toBe(1);
   });
+
+  it('streak: starts at 1, increments on consecutive days, no double-count same day', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    const d = (iso: string) => new Date(iso);
+    s.grade('v1', 'produce', Rating.Good, d('2026-06-20T08:00:00Z'));
+    expect(s.getStreak(d('2026-06-20T20:00:00Z'))).toBe(1);
+    s.grade('v1', 'produce', Rating.Good, d('2026-06-21T08:00:00Z'));
+    expect(s.getStreak(d('2026-06-21T09:00:00Z'))).toBe(2);
+    s.grade('v2', 'produce', Rating.Good, d('2026-06-21T18:00:00Z')); // same day
+    expect(s.getStreak(d('2026-06-21T19:00:00Z'))).toBe(2);
+  });
+
+  it('streak: a 2+ day gap resets to 1, and reads as broken when stale', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    s.grade('v1', 'produce', Rating.Good, new Date('2026-06-20T08:00:00Z'));
+    expect(s.getStreak(new Date('2026-06-25T08:00:00Z'))).toBe(0); // stale -> broken
+    s.grade('v1', 'produce', Rating.Good, new Date('2026-06-24T08:00:00Z')); // gap
+    expect(s.getStreak(new Date('2026-06-24T09:00:00Z'))).toBe(1);
+  });
 });
 
 describe('Store: resilience', () => {

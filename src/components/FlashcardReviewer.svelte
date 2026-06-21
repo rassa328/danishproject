@@ -5,6 +5,7 @@
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
+  import SettingsPanel from './SettingsPanel.svelte';
   import { matchAnswer, type Card } from '../lib/vocab.ts';
   import { UI } from '../lib/strings.ts';
 
@@ -83,7 +84,9 @@
     // The queue is shuffled below, so this changes which fresh cards are
     // introduced, not their order within the session.
     fresh.sort((a, b) => (a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1));
-    return shuffle([...due, ...fresh.slice(0, settings.newPerDay)]);
+    // Per-session caps: reviewPerDay bounds the due backlog so a big deck can't
+    // dump hundreds of reviews at once; newPerDay bounds fresh introductions.
+    return shuffle([...due.slice(0, settings.reviewPerDay), ...fresh.slice(0, settings.newPerDay)]);
   }
 
   // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
@@ -281,6 +284,7 @@
           <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
           <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
+          {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
           <div class="grades">
             <button onclick={() => start(false)}>{T.repeatDue}</button>
             <button onclick={() => start(true)}>{T.practiceFree}</button>
@@ -358,6 +362,8 @@
 
     {#if warning}<p class="warning" role="alert">{warning}</p>{/if}
   </section>
+
+  <SettingsPanel {store} onSaved={() => start()} />
 
   <details class="backup">
     <summary>{T.backup.summary}</summary>

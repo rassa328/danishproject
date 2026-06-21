@@ -236,7 +236,34 @@ export class Store {
       rec.suspended = true;
     }
     root.srs[key] = rec;
+    this.bumpStreak(root, now);
     return { record: rec, result: this.saveSrs() };
+  }
+
+  /** Advance the day-streak. Idempotent within a calendar day; consecutive days
+   *  increment, a gap of 2+ days resets to 1. Stores a date-only ISO string so
+   *  comparison is timezone-stable within a session. Mutates root (no save). */
+  private bumpStreak(root: SrsRoot, now: Date): void {
+    const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const prev = root.streak;
+    if (!prev) {
+      root.streak = { lastReviewIso: today, current: 1 };
+      return;
+    }
+    const last = prev.lastReviewIso.slice(0, 10);
+    if (last === today) return; // already counted today
+    const diffDays = Math.round((Date.parse(today) - Date.parse(last)) / 86_400_000);
+    root.streak = { lastReviewIso: today, current: diffDays === 1 ? prev.current + 1 : 1 };
+  }
+
+  /** Current consecutive-day study streak (0 if never studied or broken). */
+  getStreak(now: Date = new Date()): number {
+    const s = this.loadSrs().streak;
+    if (!s) return 0;
+    const today = now.toISOString().slice(0, 10);
+    const diffDays = Math.round((Date.parse(today) - Date.parse(s.lastReviewIso.slice(0, 10))) / 86_400_000);
+    // A streak that wasn't continued today or yesterday is already broken.
+    return diffDays <= 1 ? s.current : 0;
   }
 
   /** Distinct vocab cards the learner has started (any direction/state). */

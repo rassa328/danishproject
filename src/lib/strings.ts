@@ -105,11 +105,24 @@ export const UI = {
     done: 'Snyggt! Du är redo att öva orden.',
   },
 
+  // Per-session study settings (embedded in the reviewer, same Store instance).
+  settings: {
+    summary: 'Inställningar',
+    newPerDay: 'Nya ord per omgång',
+    reviewPerDay: 'Max repetitioner per omgång',
+    retention: 'Hur mycket vill du minnas (%)',
+    retentionHint: 'Högre = tätare repetition (fler kort, starkare minne).',
+    save: 'Spara',
+    saved: 'Sparat — gäller nästa omgång.',
+  },
+
   // Light, non-gamified progress (personal-tool scope).
   progress: {
     words: (started: number, total: number) => `${started} av ${total} ord påbörjade`,
     due: (n: number) => (n === 1 ? '1 ord att repetera' : `${n} ord att repetera`),
     dueNone: 'Inget att repetera just nu',
     homeHint: 'Börja med en lektion, träna sedan orden med flashcards.',
+    streak: (n: number) => (n === 1 ? '🔥 1 dag i rad' : `🔥 ${n} dagar i rad`),
+    streakNone: 'Ingen svit än — repetera i dag för att starta en.',
   },
 } as const;

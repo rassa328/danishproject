@@ -10,12 +10,14 @@
 
   let started = $state(0);
   let due = $state(0);
+  let streak = $state(0);
   let ready = $state(false);
 
   onMount(() => {
     const store = new Store();
     started = store.startedCount();
     due = store.dueCount();
+    streak = store.getStreak();
     ready = true;
   });
 </script>
@@ -25,6 +27,7 @@
     {UI.progress.words(started, total)}
     <span class="sep">·</span>
     {due > 0 ? UI.progress.due(due) : UI.progress.dueNone}
+    {#if streak > 0}<span class="sep">·</span>{UI.progress.streak(streak)}{/if}
   </p>
 {/if}
 
