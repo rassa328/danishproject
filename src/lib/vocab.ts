@@ -25,6 +25,9 @@ export interface Card {
   accepted: string[];
   audio?: string;
   audioExample?: string;
+  /** Optional frequency rank (1 = most frequent). Used to introduce new cards
+   *  most-useful-first; absent on decks without a frequency list (sort last). */
+  rank?: number;
 }
 
 export interface RowError {
@@ -100,6 +103,8 @@ function toCard(raw: Record<string, string>): { card?: Card; error?: string } {
   if (audio) card.audio = audio;
   const audioEx = nfc(raw.audio_example);
   if (audioEx) card.audioExample = audioEx;
+  const rank = Number(nfc(raw.rank));
+  if (Number.isFinite(rank) && rank > 0) card.rank = rank;
   return { card };
 }
 

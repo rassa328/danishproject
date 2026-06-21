@@ -7,20 +7,23 @@
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import { matchAnswer, type Card } from '../lib/vocab.ts';
+  import { matchesGroup, type StudyGroup } from '../lib/deck-groups.ts';
   import { UI } from '../lib/strings.ts';
 
   const T = UI.flashcards;
 
-  let { cards, decks }: { cards: Card[]; decks: string[] } = $props();
+  // `cards` is the full studyable set (starter ∪ praksis), serialized once.
+  // `groups` are lightweight picker descriptors that resolve to subsets of it.
+  let { cards, groups }: { cards: Card[]; groups: StudyGroup[] } = $props();
 
   let store: Store;
   let ready = $state(false);
   let tag = $state<string | null>(null);
   let fromLesson = $state<string | null>(null);
-  let selectedDeck = $state(decks[0] ?? '');
+  let selectedGroupId = $state(groups[0]?.id ?? '');
   let direction = $state<Direction>('produce');
   // Previous values so a cancelled "restart?" confirm can revert the control.
-  let prevDeck = selectedDeck;
+  let prevGroup = selectedGroupId;
   let prevDirection: Direction = direction;
   let grading = false; // re-entrancy guard for the grade transition window
   let queue = $state<Card[]>([]);
@@ -42,6 +45,8 @@
   // 'speak' mode has no typed answer: the learner rates their own pronunciation,
   // so we skip the correct/incorrect verdict and never floor the grade to Again.
   const selfGraded = $derived(direction === 'speak');
+  // Optgroup headers for the picker, in first-seen order.
+  const optgroups = $derived([...new Set(groups.map((g) => g.optgroup))]);
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -50,7 +55,7 @@
       revert();
       return;
     }
-    prevDeck = selectedDeck;
+    prevGroup = selectedGroupId;
     prevDirection = direction;
     start();
   }
@@ -64,9 +69,9 @@
   }
 
   function pool(): Card[] {
-    return tag
-      ? cards.filter((c) => c.tags.includes(tag as string))
-      : cards.filter((c) => c.deck === selectedDeck);
+    if (tag) return cards.filter((c) => c.tags.includes(tag as string));
+    const g = groups.find((x) => x.id === selectedGroupId);
+    return g ? cards.filter((c) => matchesGroup(c, g.match)) : [];
   }
 
   function buildQueue(free: boolean): Card[] {
@@ -80,19 +85,25 @@
       if (!r) fresh.push(c);
       else if (!r.suspended && new Date(r.due) <= now()) due.push(c);
     }
-    // Fill the new-card budget with easier (B1) cards before harder (B2) ones.
-    // The queue is shuffled below, so this changes which fresh cards are
-    // introduced, not their order within the session.
-    fresh.sort((a, b) => (a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1));
+    // Introduce new cards most-useful-first: by frequency rank when present,
+    // else by level (B1 before B2 — a coarse frequency proxy). The queue is
+    // shuffled below, so this changes WHICH fresh cards enter, not their order.
+    fresh.sort((a, b) => {
+      const ra = a.rank ?? Infinity;
+      const rb = b.rank ?? Infinity;
+      if (ra !== rb) return ra - rb;
+      return a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1;
+    });
     // Per-session caps: reviewPerDay bounds the due backlog so a big deck can't
     // dump hundreds of reviews at once; newPerDay bounds fresh introductions.
     return shuffle([...due.slice(0, settings.reviewPerDay), ...fresh.slice(0, settings.newPerDay)]);
   }
 
   // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
-  // Distractors come from the WHOLE deck (not just the active pool) so small or
-  // single-card decks still get real options; same part-of-speech words are
-  // preferred for plausibility. Rebuilt on each new card.
+  // Distractors are drawn from the ACTIVE pool so they stay in-domain (a 5000-word
+  // "all" pool would otherwise pair an emotion word with a cycling-part); for a
+  // tiny pool we fall back to the whole set so options still fill. Same
+  // part-of-speech is preferred for plausibility. Rebuilt on each new card.
   let choices = $state<string[]>([]);
   function buildChoices() {
     if (direction !== 'recognize' || !current) {
@@ -101,8 +112,10 @@
     }
     const correct = current.danish;
     const uniq = (cs: Card[]) => [...new Set(cs.map((c) => c.danish))].filter((d) => d !== correct);
-    const samePos = shuffle(uniq(cards.filter((c) => c.pos === current.pos)));
-    const anyPos = shuffle(uniq(cards));
+    const poolCards = pool();
+    const base = poolCards.length >= 8 ? poolCards : cards;
+    const samePos = shuffle(uniq(base.filter((c) => c.pos === current.pos)));
+    const anyPos = shuffle(uniq(base));
     const distractors = [...new Set([...samePos, ...anyPos])].slice(0, 3);
     choices = shuffle([correct, ...distractors]);
   }
@@ -249,8 +262,12 @@
     {:else}
       <label>
         {T.deckLabel}
-        <select bind:value={selectedDeck} onchange={() => restartGuarded(() => (selectedDeck = prevDeck))}>
-          {#each decks as d}<option value={d}>{d}</option>{/each}
+        <select bind:value={selectedGroupId} onchange={() => restartGuarded(() => (selectedGroupId = prevGroup))}>
+          {#each optgroups as og}
+            <optgroup label={og}>
+              {#each groups.filter((g) => g.optgroup === og) as g}<option value={g.id}>{g.label}</option>{/each}
+            </optgroup>
+          {/each}
         </select>
       </label>
     {/if}

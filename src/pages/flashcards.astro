@@ -1,17 +1,23 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FlashcardReviewer from '../components/FlashcardReviewer.svelte';
-import { allCards, deckNames } from '../lib/decks.ts';
+import { allCards } from '../lib/decks.ts';
+import { praksisCards } from '../lib/praksis.ts';
+import { buildStudyGroups } from '../lib/deck-groups.ts';
 import { UI } from '../lib/strings.ts';
 
-const decks = deckNames();
+// Full studyable set = curated starter deck + the 5000-word practice deck.
+// Serialized once to the island; `groups` are lightweight picker descriptors.
+// client:idle defers hydration so the larger parse never blocks first paint.
+const cards = [...allCards, ...praksisCards];
+const groups = buildStudyGroups(allCards, praksisCards);
 ---
 
 <BaseLayout title={UI.flashcards.title} description={UI.flashcards.description}>
   <h1>{UI.flashcards.title}</h1>
   <p class="lead">{UI.flashcards.lead}</p>
 
-  <FlashcardReviewer client:load cards={allCards} decks={decks} />
+  <FlashcardReviewer client:idle cards={cards} groups={groups} />
 
   <style>
     .lead { color: var(--muted); }
