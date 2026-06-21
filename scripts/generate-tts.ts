@@ -17,15 +17,33 @@ import Papa from 'papaparse';
 import { deriveId, nfc, audioKey, spanAudioId } from '../src/lib/vocab.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CSV_PATH = path.join(ROOT, 'src/data/vocab/starter-deck.csv');
 const AUDIO_DIR = path.join(ROOT, 'public/audio');
 const LESSONS_DIR = path.join(ROOT, 'src/content/lessons');
 const MANIFEST_PATH = path.join(ROOT, 'src/data/lesson-audio.json');
+
+// Selectable decks. Default 'starter' also does lesson-prose clips (the curated
+// content). The big 'praksis' deck (5000 words) is opt-in and SHOULD be gated:
+//   --deck=praksis --max-rank=1500   (only frequency-ranked top 1500)
+//   --deck=praksis --limit=1000      (cap clip count regardless of rank)
+// because 5000 mp3s add ~75–125 MB to the repo. The long tail falls back to
+// da-DK Web Speech in the app, so gating is safe.
+const DECK_PATHS: Record<string, string> = {
+  starter: path.join(ROOT, 'src/data/vocab/starter-deck.csv'),
+  praksis: path.join(ROOT, 'src/data/vocab/praksis-deck.csv'),
+};
+
+const argVal = (name: string): string => {
+  const a = process.argv.find((x) => x.startsWith(`${name}=`));
+  return a ? a.slice(name.length + 1) : '';
+};
 
 const KEY = process.env.AZURE_SPEECH_KEY;
 const REGION = process.env.AZURE_SPEECH_REGION;
 const VOICE = process.env.AZURE_SPEECH_VOICE || 'da-DK-ChristelNeural';
 const FORCE = process.argv.includes('--force');
+const DECK_SEL = argVal('--deck') || 'starter'; // 'starter' | 'praksis' | 'all'
+const LIMIT = Number(argVal('--limit')) || 0; // cap clips per deck (0 = no cap)
+const MAX_RANK = Number(argVal('--max-rank')) || 0; // only rank <= N (0 = all)
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -119,42 +137,11 @@ async function collectLessonSpans(): Promise<LessonSpan[]> {
   return [...byId.values()];
 }
 
-async function main() {
-  if (!KEY || !REGION) {
-    console.error('Missing AZURE_SPEECH_KEY and/or AZURE_SPEECH_REGION. See .env.example.');
-    process.exit(1);
-  }
+type Clip = { file: string; text: string; ph?: string };
+type Stats = { generated: number; skipped: number; failed: number };
 
-  const csv = await readFile(CSV_PATH, 'utf8');
-  const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
-  const rows = parsed.data;
-  await mkdir(AUDIO_DIR, { recursive: true });
-
-  // Build the work list: a word clip per card, plus an example clip when the
-  // card has a Danish example sentence. Filenames use the same id the app does.
-  type Clip = { file: string; text: string; ph?: string };
-  const clips: Clip[] = [];
-  for (const row of rows) {
-    const danish = nfc(row.danish);
-    if (!danish) continue;
-    const id = deriveId(danish, row.pos ?? '');
-    clips.push({ file: path.join(AUDIO_DIR, `${id}.mp3`), text: danish });
-    const example = nfc(row.example_da);
-    if (example) clips.push({ file: path.join(AUDIO_DIR, `${id}-ex.mp3`), text: example });
-  }
-
-  // Lesson prose: a clip per unique <span lang="da"> so each Danish word, number
-  // form, and whole example sentence in the lessons is click-to-hear. Keyed by
-  // spanAudioId so the in-browser island resolves the same filename from the
-  // rendered DOM (text + any data-ipa/data-say override). Distinct from deck ids.
-  const lessonIds = new Set<string>();
-  for (const span of await collectLessonSpans()) {
-    lessonIds.add(span.id);
-    // A data-say carrier phrase is spoken verbatim; otherwise speak the visible
-    // word (optionally shaped by an IPA phoneme).
-    clips.push({ file: path.join(AUDIO_DIR, `${span.id}.mp3`), text: span.say ?? span.text, ph: span.ph });
-  }
-
+/** Synthesize a list of clips, skipping ones already on disk (unless --force). */
+async function generateClips(clips: Clip[]): Promise<Stats> {
   let generated = 0;
   let skipped = 0;
   let failed = 0;
@@ -175,9 +162,44 @@ async function main() {
       console.error(`✗ ${name}: ${(err as Error).message}`);
     }
   }
+  return { generated, skipped, failed };
+}
 
-  // Rewrite the CSV so each column reflects what's actually on disk (a failed or
-  // missing clip leaves its cell empty, and the app falls back to Web Speech).
+/** Generate word/example clips for one deck CSV, with optional rank/limit gating
+ *  (to keep the big praksis deck's footprint sane), then rewrite the CSV's
+ *  audio/audio_example columns to reflect what's actually on disk. */
+async function processDeck(csvPath: string): Promise<Stats> {
+  const csv = await readFile(csvPath, 'utf8');
+  const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
+  const rows = parsed.data;
+
+  // Pick which rows get clips. Order by rank so --limit keeps the most frequent.
+  let eligible = rows.filter((r) => nfc(r.danish));
+  if (MAX_RANK > 0) {
+    eligible = eligible.filter((r) => {
+      const rk = Number(r.rank);
+      return !Number.isFinite(rk) || rk <= MAX_RANK; // unranked still allowed
+    });
+  }
+  eligible = [...eligible].sort(
+    (a, b) => (Number(a.rank) || Infinity) - (Number(b.rank) || Infinity),
+  );
+  if (LIMIT > 0) eligible = eligible.slice(0, LIMIT);
+
+  // A word clip per card, plus an example clip when the card has a Danish
+  // example sentence. Filenames use the same id the app derives.
+  const clips: Clip[] = [];
+  for (const row of eligible) {
+    const danish = nfc(row.danish);
+    const id = deriveId(danish, row.pos ?? '');
+    clips.push({ file: path.join(AUDIO_DIR, `${id}.mp3`), text: danish });
+    const example = nfc(row.example_da);
+    if (example) clips.push({ file: path.join(AUDIO_DIR, `${id}-ex.mp3`), text: example });
+  }
+  const stats = await generateClips(clips);
+
+  // Rewrite ALL rows so each column reflects disk (a failed/missing/ungated clip
+  // leaves its cell empty and the app falls back to Web Speech).
   for (const row of rows) {
     const danish = nfc(row.danish);
     if (!danish) continue;
@@ -186,27 +208,62 @@ async function main() {
     const hasEx = nfc(row.example_da) && (await exists(path.join(AUDIO_DIR, `${id}-ex.mp3`)));
     row.audio_example = hasEx ? `audio/${id}-ex.mp3` : '';
   }
-
-  // Explicit field list keeps the original column order and appends the two new
-  // columns; quotes:true preserves the existing fully-quoted CSV style.
+  // Keep original column order; ensure audio/audio_example are last.
   const baseFields = (parsed.meta.fields ?? []).filter((f) => f !== 'audio' && f !== 'audio_example');
   const fields = [...baseFields, 'audio', 'audio_example'];
   const out = Papa.unparse({ fields, data: rows }, { quotes: true });
-  await writeFile(CSV_PATH, out + '\n');
+  await writeFile(csvPath, out + '\n');
+  return stats;
+}
 
-  // Lesson-audio manifest: the ids that actually have a clip on disk. The
-  // LessonAudio island only makes a span clickable when its id is here, so a
-  // failed/missing clip never produces a 404 (it just stays plain text).
+/** Lesson prose: a clip per unique <span lang="da"> (word, number form, whole
+ *  sentence), keyed by spanAudioId so the in-browser island resolves the same
+ *  filename. Writes the manifest of ids that actually have a clip on disk. */
+async function processLessons(): Promise<Stats> {
+  const lessonIds = new Set<string>();
+  const clips: Clip[] = [];
+  for (const span of await collectLessonSpans()) {
+    lessonIds.add(span.id);
+    clips.push({ file: path.join(AUDIO_DIR, `${span.id}.mp3`), text: span.say ?? span.text, ph: span.ph });
+  }
+  const stats = await generateClips(clips);
   const manifest: string[] = [];
   for (const id of lessonIds) {
     if (await exists(path.join(AUDIO_DIR, `${id}.mp3`))) manifest.push(id);
   }
   manifest.sort();
   await writeFile(MANIFEST_PATH, JSON.stringify(manifest) + '\n');
-
-  console.log(`\nDone: ${generated} generated, ${skipped} skipped, ${failed} failed.`);
-  console.log(`Voice: ${VOICE}. Clips in public/audio/, CSV + lesson-audio.json updated.`);
   console.log(`Lesson clips: ${manifest.length} of ${lessonIds.size} lesson spans.`);
+  return stats;
+}
+
+async function main() {
+  if (!KEY || !REGION) {
+    console.error('Missing AZURE_SPEECH_KEY and/or AZURE_SPEECH_REGION. See .env.example.');
+    process.exit(1);
+  }
+  await mkdir(AUDIO_DIR, { recursive: true });
+
+  const decks = DECK_SEL === 'all' ? ['starter', 'praksis'] : [DECK_SEL];
+  let failed = 0;
+  for (const d of decks) {
+    const p = DECK_PATHS[d];
+    if (!p) {
+      console.error(`Unknown --deck "${d}". Use: ${Object.keys(DECK_PATHS).join(', ')}, or all.`);
+      process.exit(1);
+    }
+    console.log(`\n=== Deck: ${d}${LIMIT ? ` (limit ${LIMIT})` : ''}${MAX_RANK ? ` (rank ≤ ${MAX_RANK})` : ''} ===`);
+    const s = await processDeck(p);
+    failed += s.failed;
+    console.log(`  ${s.generated} generated, ${s.skipped} skipped, ${s.failed} failed.`);
+  }
+
+  // Lessons accompany the curated content; skip when doing only the praksis deck.
+  if (DECK_SEL === 'starter' || DECK_SEL === 'all') {
+    failed += (await processLessons()).failed;
+  }
+
+  console.log(`\nDone. Voice: ${VOICE}. Clips in public/audio/.`);
   if (failed) process.exit(1);
 }
 
