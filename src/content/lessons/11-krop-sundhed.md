@@ -11,6 +11,7 @@ objectives:
   - 'Klara ett läkarbesök och skilja læge från lege'
 prerequisites: []
 vocabTags: ['krop']
+practiceDirection: 'listen-sentence'
 draft: false
 ---
 När du blir sjuk på en resa till Danmark behöver du ord som inte alltid ser ut som du tror. Det mesta känns igen, men notera artikeln (en/et) och ett par stavningsfällor.

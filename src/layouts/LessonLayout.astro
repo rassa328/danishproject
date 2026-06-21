@@ -20,6 +20,7 @@ interface Props {
   objectives?: string[];
   prerequisites?: LessonRef[];
   vocabTags: string[];
+  practiceDirection?: string | undefined;
   checkpoint?: CheckpointQ[];
   prev?: LessonRef | null;
   next?: LessonRef | null;
@@ -35,13 +36,17 @@ const {
   objectives = [],
   prerequisites = [],
   vocabTags,
+  practiceDirection,
   checkpoint = [],
   prev = null,
   next = null,
   position,
 } = Astro.props;
+const dirParam = practiceDirection ? `&direction=${encodeURIComponent(practiceDirection)}` : '';
 const practiceHref = vocabTags.length
-  ? withBase(`flashcards?tag=${encodeURIComponent(vocabTags[0]!)}&from=${encodeURIComponent(lessonId)}`)
+  ? withBase(
+      `flashcards?tag=${encodeURIComponent(vocabTags[0]!)}&from=${encodeURIComponent(lessonId)}${dirParam}`,
+    )
   : null;
 const topicLabel: Record<string, string> = {
   pronunciation: 'Uttal',

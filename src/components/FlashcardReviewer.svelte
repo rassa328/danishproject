@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { Store, type Direction } from '../lib/storage.ts';
+  import { Store, DIRECTIONS, type Direction } from '../lib/storage.ts';
   import { clampForCorrectness, type ReviewGrade } from '../lib/srs.ts';
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
@@ -39,9 +39,9 @@
   const now = () => new Date();
   const current = $derived(queue[idx]);
   const remaining = $derived(Math.max(0, queue.length - idx));
-  // 'speak' mode has no typed answer: the learner rates their own pronunciation,
-  // so we skip the correct/incorrect verdict and never floor the grade to Again.
-  const selfGraded = $derived(direction === 'speak');
+  // Self-graded modes have no typed answer (speak: rate your pronunciation;
+  // listen-sentence: rate your comprehension) — skip the verdict, never floor.
+  const selfGraded = $derived(direction === 'speak' || direction === 'listen-sentence');
   // Optgroup headers for the picker, in first-seen order.
   const optgroups = $derived([...new Set(groups.map((g) => g.optgroup))]);
   // The fill-in-the-blank for 'cloze': { text, answer } or null.
@@ -53,7 +53,9 @@
   // cards. speakSilent flags a 'speak' reveal that produced no audio.
   let sessionPool = $state<Card[]>([]);
   let poolSize = $state(0);
-  let noCloze = $state(false);
+  // Why a filtered mode produced an empty queue: 'cloze' (no example sentences)
+  // or 'listen' (no sentence audio) — drives a clear done-screen message.
+  let filteredReason = $state<'none' | 'cloze' | 'listen'>('none');
   let speakSilent = $state(false);
 
   /** Restart the session, but if the learner is mid-round, confirm first and
@@ -86,9 +88,22 @@
     const raw = pool();
     sessionPool = raw; // cached for distractors (avoid re-filtering per card)
     poolSize = raw.length;
-    // Cloze can only use cards whose example sentence contains the headword.
-    const dc = direction === 'cloze' ? raw.filter((c) => clozeSentence(c) !== null) : raw;
-    noCloze = direction === 'cloze' && dc.length === 0 && raw.length > 0;
+    // Filtered modes: cloze needs the headword in the example; listen-sentence
+    // needs committed sentence audio.
+    const dc =
+      direction === 'cloze'
+        ? raw.filter((c) => clozeSentence(c) !== null)
+        : direction === 'listen-sentence'
+          ? raw.filter((c) => !!c.audioExample)
+          : raw;
+    filteredReason =
+      dc.length === 0 && raw.length > 0
+        ? direction === 'cloze'
+          ? 'cloze'
+          : direction === 'listen-sentence'
+            ? 'listen'
+            : 'none'
+        : 'none';
     if (free) return shuffle([...dc]);
     const settings = store.getSettings();
     const due: { c: Card; due: number }[] = [];
@@ -110,10 +125,12 @@
       if (ra !== rb) return ra - rb;
       return a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1;
     });
-    // Per-session caps: reviewPerDay bounds the due backlog so a big deck can't
-    // dump hundreds of reviews at once; newPerDay bounds fresh introductions.
+    // Caps: reviewPerDay bounds the due backlog per session; newPerDay is a true
+    // DAILY budget (shared across directions) — subtract cards already introduced
+    // today so multiple sessions can't silently pile up review debt.
     const dueCards = due.slice(0, settings.reviewPerDay).map((x) => x.c);
-    return shuffle([...dueCards, ...fresh.slice(0, settings.newPerDay)]);
+    const newBudget = Math.max(0, settings.newPerDay - store.newCardsToday(now()));
+    return shuffle([...dueCards, ...fresh.slice(0, newBudget)]);
   }
 
   // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
@@ -164,7 +181,21 @@
   function playPrompt() {
     if (direction === 'listen' && current) {
       void speak(current.danish, current.audio ? { audioUrl: withBase(current.audio) } : {});
+    } else if (direction === 'listen-sentence' && current?.exampleDa) {
+      // Play the example SENTENCE (text hidden) — connected-speech listening.
+      void speak(
+        current.exampleDa,
+        current.audioExample ? { audioUrl: withBase(current.audioExample) } : {},
+      );
     }
+  }
+
+  // 'listen-sentence': audio already played on prompt; reveal just shows the text
+  // for self-graded comprehension.
+  function revealSelf() {
+    if (phase !== 'prompt' || !current) return;
+    phase = 'revealed';
+    tick().then(() => container?.focus());
   }
 
   // 'speak': the learner says the word from the Swedish prompt, then reveals to
@@ -271,6 +302,13 @@
     const params = new URLSearchParams(location.search);
     tag = params.get('tag');
     fromLesson = params.get('from');
+    // Initial direction: a ?direction= deep-link (e.g. a lesson routing into
+    // speak/listen) wins; else the learner's saved default; else produce.
+    const urlDir = params.get('direction');
+    const defDir = store.getSettings().directions?.[0];
+    if (urlDir && (DIRECTIONS as string[]).includes(urlDir)) direction = urlDir as Direction;
+    else if (defDir && (DIRECTIONS as string[]).includes(defDir)) direction = defDir;
+    prevDirection = direction;
     ready = true;
     start();
   });
@@ -304,6 +342,7 @@
       <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
       <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
       <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
+      <label><input type="radio" name="dir" value="listen-sentence" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listenSentence}</label>
       <label><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.speak}</label>
       <label><input type="radio" name="dir" value="cloze" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.cloze}</label>
     </fieldset>
@@ -325,9 +364,12 @@
           <div class="grades">
             <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
           </div>
-        {:else if reviewed === 0 && noCloze}
+        {:else if reviewed === 0 && filteredReason === 'cloze'}
           <h2 tabindex="-1">{T.doneEmpty}</h2>
           <p>{T.noClozeCards}</p>
+        {:else if reviewed === 0 && filteredReason === 'listen'}
+          <h2 tabindex="-1">{T.doneEmpty}</h2>
+          <p>{T.noListenCards}</p>
         {:else}
           <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
@@ -345,6 +387,9 @@
       {#if direction === 'listen'}
         <p class="prompt-listen">{T.listenPrompt}</p>
         <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
+      {:else if direction === 'listen-sentence'}
+        <p class="prompt-listen">{T.listenSentencePrompt}</p>
+        {#if current.exampleDa}<SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.replay} />{/if}
       {:else if direction === 'cloze'}
         <p class="prompt-listen">{T.clozePrompt}</p>
         <p class="prompt" lang="da">{clozeText?.text}</p>
@@ -365,6 +410,10 @@
           <p class="prompt-listen">{T.speakPrompt}</p>
           <div class="grades">
             <button type="button" onclick={revealSpeak}>{T.speakReveal}</button>
+          </div>
+        {:else if direction === 'listen-sentence'}
+          <div class="grades">
+            <button type="button" onclick={revealSelf}>{T.listenSentenceReveal}</button>
           </div>
         {:else}
           <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -408,7 +457,7 @@
             <button onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.good} (3)</button>
             <button onclick={() => grade(4 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.easy} (4)</button>
           </div>
-          {#if selfGraded}<p class="hint">{T.selfGradeHint}</p>{:else if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
+          {#if direction === 'listen-sentence'}<p class="hint">{T.comprehendHint}</p>{:else if selfGraded}<p class="hint">{T.selfGradeHint}</p>{:else if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
         </div>
       {/if}
     {/if}

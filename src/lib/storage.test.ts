@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Store, memoryKV, DEFAULT_SETTINGS, type KV } from './storage.ts';
+import { Store, memoryKV, DEFAULT_SETTINGS, DIRECTIONS, type KV } from './storage.ts';
 import { Rating } from './srs.ts';
 import type { Card } from './vocab.ts';
 
@@ -73,6 +73,23 @@ describe('Store: settings + grading', () => {
     expect(s.getStreak(day(2026, 5, 25))).toBe(0); // stale -> broken
     s.grade('v1', 'produce', Rating.Good, day(2026, 5, 24)); // gap from last
     expect(s.getStreak(day(2026, 5, 24, 9))).toBe(1);
+  });
+
+  it('newCardsToday counts first introductions per local day, shared across directions', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    expect(s.newCardsToday(day(2026, 5, 21))).toBe(0);
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 21, 9)); // new -> 1
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 21, 10)); // same record, not new -> 1
+    s.grade('v1', 'speak', Rating.Good, day(2026, 5, 21, 11)); // new (other direction) -> 2
+    s.grade('v2', 'produce', Rating.Again, day(2026, 5, 21, 12)); // new -> 3
+    expect(s.newCardsToday(day(2026, 5, 21, 13))).toBe(3);
+    expect(s.newCardsToday(day(2026, 5, 22, 8))).toBe(0); // next day resets
+  });
+
+  it('DIRECTIONS lists all six review directions incl. listen-sentence', () => {
+    expect(DIRECTIONS).toContain('listen-sentence');
+    expect(DIRECTIONS.length).toBe(6);
   });
 });
 

@@ -11,6 +11,7 @@ objectives:
   - 'Undvika falska vänner som ferie, frist och fyre'
 prerequisites: ['02-falske-venner']
 vocabTags: ['arbejde']
+practiceDirection: 'listen-sentence'
 draft: false
 ---
 På danska arbetsplatser möter du många ord som ser svenska ut men som beter sig annorlunda. Här är de viktigaste – och de tre värsta fällorna.

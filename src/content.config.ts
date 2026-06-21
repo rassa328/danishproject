@@ -31,6 +31,12 @@ const lessons = defineCollection({
     // enforced by scripts/check-content.mjs (prebuild). Leave empty for
     // prose-only lessons with no deck yet.
     vocabTags: z.array(z.string()).default([]),
+    // Optional: which flashcard mode the lesson's "practice" CTA opens in, so a
+    // pronunciation/listening lesson routes straight into speaking/listening
+    // rather than the default typed mode. Omit for the default.
+    practiceDirection: z
+      .enum(['produce', 'recognize', 'listen', 'listen-sentence', 'speak', 'cloze'])
+      .optional(),
     // Optional end-of-lesson self-check: a few multiple-choice questions.
     // `answer` is the 0-based index of the correct option.
     checkpoint: z

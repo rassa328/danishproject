@@ -11,6 +11,7 @@ objectives:
   - 'Använda reseord som afgang och forsinkelse'
 prerequisites: []
 vocabTags: ['rejser']
+practiceDirection: 'listen-sentence'
 draft: false
 ---
 Att resa i Danmark går smidigt – men på stationen och i appen möter du danska ord som inte alltid är de du förväntar dig. Det mesta är begripligt, men uttalet och några små skillnader kan ställa till det.

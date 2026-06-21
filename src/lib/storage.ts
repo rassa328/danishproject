@@ -11,8 +11,26 @@ import { localDayIso, daysBetween } from './day.ts';
 // 'speak' (shadowing) is self-graded: the learner says the word aloud, hears the
 // native clip, and rates their own pronunciation — no typed answer to check.
 // 'cloze' tests a word inside its example sentence (fill in the blank); like
-// produce it is matchAnswer-graded.
-export type Direction = 'produce' | 'listen' | 'recognize' | 'speak' | 'cloze';
+// produce it is matchAnswer-graded. 'listen-sentence' plays the example sentence
+// audio (text hidden) and is self-graded for comprehension — connected-speech
+// listening, the core gap for a Swede.
+export type Direction =
+  | 'produce'
+  | 'listen'
+  | 'recognize'
+  | 'speak'
+  | 'cloze'
+  | 'listen-sentence';
+
+/** Runtime list (the union has no runtime form) — radio order + URL validation. */
+export const DIRECTIONS: Direction[] = [
+  'produce',
+  'recognize',
+  'listen',
+  'listen-sentence',
+  'speak',
+  'cloze',
+];
 
 /** ts-fsrs Card persisted verbatim (Dates as ISO) + our app-level flags. */
 export interface SrsRecord {
@@ -62,6 +80,9 @@ export interface SrsRoot {
   // defensively (?? / ??=) since older saved blobs won't have them.
   missionLog?: Record<string, boolean>; // YYYY-MM-DD -> done
   inputLog?: InputEntry[];
+  // Per-day new-card introductions (shared across directions) for a true daily
+  // budget — prevents review-debt blowup. Defensive-optional like the above.
+  newLog?: { day: string; count: number };
 }
 
 interface DecksRoot {
@@ -253,6 +274,7 @@ export class Store {
     const root = this.loadSrs();
     const key = this.recordKey(vocabId, direction);
     const prev = root.srs[key];
+    const isNew = !prev; // first time this (card, direction) is studied
     const card = prev ? toFsrs(prev) : newCard(now);
     const next = review(card, grade, now, root.settings.requestRetention);
     const rec = fromFsrs(next, prev);
@@ -261,8 +283,22 @@ export class Store {
       rec.suspended = true;
     }
     root.srs[key] = rec;
+    if (isNew) this.bumpNewCount(root, now);
     this.bumpStreak(root, now);
     return { record: rec, result: this.saveSrs() };
+  }
+
+  /** Count a new-card introduction toward today's shared budget. */
+  private bumpNewCount(root: SrsRoot, now: Date): void {
+    const today = localDayIso(now);
+    if (!root.newLog || root.newLog.day !== today) root.newLog = { day: today, count: 1 };
+    else root.newLog.count += 1;
+  }
+
+  /** New cards already introduced today (across all directions). */
+  newCardsToday(now: Date = new Date()): number {
+    const log = this.loadSrs().newLog;
+    return log && log.day === localDayIso(now) ? log.count : 0;
   }
 
   /** Advance the day-streak. Idempotent within a calendar day; consecutive days

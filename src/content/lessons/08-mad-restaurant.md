@@ -11,6 +11,7 @@ objectives:
   - 'Undvika måltidsfällan frokost = lunch'
 prerequisites: ['02-falske-venner']
 vocabTags: ['mad']
+practiceDirection: 'listen-sentence'
 checkpoint:
   - q: "På danska är 'frokost':"
     options: ['frukost', 'lunch', 'kvällsmat']

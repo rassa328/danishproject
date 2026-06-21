@@ -11,6 +11,7 @@ objectives:
   - 'Undvika stora falska vännen stue (inte stuga)'
 prerequisites: ['02-falske-venner']
 vocabTags: ['hjem']
+practiceDirection: 'listen-sentence'
 draft: false
 ---
 Som svensk läser du danska bostadsannonser nästan obehindrat – men just därför sätter de små glidningarna åt. Det farligaste ordet i hela temat är <span lang="da">stue</span>.

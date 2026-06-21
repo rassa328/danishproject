@@ -11,6 +11,7 @@ objectives:
   - 'Förstå idiom som inte går att översätta ord för ord'
 prerequisites: []
 vocabTags: ['fras']
+practiceDirection: 'speak'
 ---
 
 Det som får en att låta naturlig på danska är ofta de små orden och de fasta uttrycken – inte grammatiken.
