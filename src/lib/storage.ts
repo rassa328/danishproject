@@ -7,7 +7,9 @@
 import { newCard, review, Rating, type ReviewGrade, type FsrsCard } from './srs.ts';
 import type { Card } from './vocab.ts';
 
-export type Direction = 'produce' | 'listen' | 'recognize';
+// 'speak' (shadowing) is self-graded: the learner says the word aloud, hears the
+// native clip, and rates their own pronunciation — no typed answer to check.
+export type Direction = 'produce' | 'listen' | 'recognize' | 'speak';
 
 /** ts-fsrs Card persisted verbatim (Dates as ISO) + our app-level flags. */
 export interface SrsRecord {

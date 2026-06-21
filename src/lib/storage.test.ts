@@ -33,6 +33,16 @@ describe('Store: settings + grading', () => {
     expect(new Store(kv).getRecord('v1', 'produce')?.reps).toBe(1);
   });
 
+  it('grades speak independently from produce (per-direction SRS)', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    s.grade('v1', 'produce', Rating.Good, T0);
+    expect(s.getRecord('v1', 'speak')).toBeNull();
+    s.grade('v1', 'speak', Rating.Easy, T0);
+    expect(s.getRecord('v1', 'speak')?.reps).toBe(1);
+    expect(s.getRecord('v1', 'produce')?.reps).toBe(1); // untouched
+  });
+
   it('dueCount only counts records that are due and not suspended', () => {
     const kv = memoryKV();
     const s = new Store(kv);

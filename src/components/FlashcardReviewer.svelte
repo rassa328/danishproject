@@ -38,6 +38,9 @@
   // True when the current filter (tag or deck) contains no cards at all — lets
   // the done screen say "no match, clear filter" instead of "all caught up".
   const poolEmpty = $derived(ready && pool().length === 0);
+  // 'speak' mode has no typed answer: the learner rates their own pronunciation,
+  // so we skip the correct/incorrect verdict and never floor the grade to Again.
+  const selfGraded = $derived(direction === 'speak');
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -132,6 +135,18 @@
     }
   }
 
+  // 'speak': the learner says the word from the Swedish prompt, then reveals to
+  // hear the native clip and self-compare. Play the clip on reveal.
+  function revealSpeak() {
+    if (phase !== 'prompt' || !current) return;
+    phase = 'revealed';
+    tick().then(() => {
+      container?.focus();
+      if (current)
+        void speak(current.danish, current.audio ? { audioUrl: withBase(current.audio) } : {});
+    });
+  }
+
   function start(free = false) {
     queue = buildQueue(free);
     idx = 0;
@@ -162,7 +177,9 @@
     if (grading || phase !== 'revealed' || !current) return;
     grading = true;
     try {
-      const eff = clampForCorrectness(g, wasCorrect);
+      // Self-graded modes (speak) trust the learner's rating; typed modes floor a
+      // wrong answer to Again.
+      const eff = selfGraded ? g : clampForCorrectness(g, wasCorrect);
       const { result } = store.grade(current.id, direction, eff, now());
       if (!result.ok) warning = T.saveError;
       reviewed++;
@@ -240,6 +257,7 @@
       <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
       <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
       <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
+      <label><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.speak}</label>
     </fieldset>
   </div>
 
@@ -287,6 +305,11 @@
               <button type="button" class="choice" lang="da" onclick={() => choose(c)}>{c}</button>
             {/each}
           </div>
+        {:else if direction === 'speak'}
+          <p class="prompt-listen">{T.speakPrompt}</p>
+          <div class="grades">
+            <button type="button" onclick={revealSpeak}>{T.speakReveal}</button>
+          </div>
         {:else}
           <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
             <label class="vh" for="answer">{T.inputLabel}</label>
@@ -313,20 +336,22 @@
         {/if}
       {:else}
         <div class="answer" aria-live="polite">
-          <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
-            {wasCorrect ? T.correct : T.incorrect}
-          </p>
+          {#if !selfGraded}
+            <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
+              {wasCorrect ? T.correct : T.incorrect}
+            </p>
+          {/if}
           <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} /></p>
           <p class="sv">{current.swedish}</p>
           {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
           <div class="grades">
             <button onclick={() => grade(1 as ReviewGrade)}>{T.grades.again} (1)</button>
-            <button onclick={() => grade(2 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.hard} (2)</button>
-            <button onclick={() => grade(3 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.good} (3)</button>
-            <button onclick={() => grade(4 as ReviewGrade)} disabled={!wasCorrect}>{T.grades.easy} (4)</button>
+            <button onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.hard} (2)</button>
+            <button onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.good} (3)</button>
+            <button onclick={() => grade(4 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.easy} (4)</button>
           </div>
-          {#if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
+          {#if selfGraded}<p class="hint">{T.selfGradeHint}</p>{:else if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
         </div>
       {/if}
     {/if}
