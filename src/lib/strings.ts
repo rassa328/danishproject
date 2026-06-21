@@ -118,6 +118,48 @@ export const UI = {
     saved: 'Sparat — gäller nästa omgång.',
   },
 
+  // Daily output missions + input log — the bridge from the app to real Danish.
+  practice: {
+    heading: 'Daglig praktik',
+    intro:
+      'Du blir flytande av att använda språket. En liten taluppgift om dagen, och logga danskan du faktiskt möter.',
+    missionTitle: 'Dagens taluppgift',
+    missionDone: 'Klarad ✓',
+    missionMarkDone: 'Markera som klarad',
+    focusWords: 'Försök få med:',
+    // Picked deterministically by date — all about producing spoken Danish.
+    missions: [
+      'Beställ något (kaffe, mat, en biljett) på danska — högt, även om du är ensam.',
+      'Beskriv din morgon i tre danska meningar, högt.',
+      'Prata med någon och säg minst fem meningar på danska.',
+      'Berätta vad du ska göra i helgen — på danska, högt.',
+      'Sammanfatta en nyhet du läst eller hört, på danska.',
+      'Tänk högt på danska medan du lagar mat eller diskar.',
+      'Beskriv vägen hemifrån till närmaste affär, på danska.',
+      'Lyssna på en dansk podd eller TV i tio minuter och härma (shadowa) en mening.',
+      'Formulera tre frågor du skulle kunna ställa till en dansk — säg dem högt.',
+      'Berätta om något du nyss köpt och varför — på danska.',
+    ],
+    log: {
+      heading: 'Logga dansk input',
+      intro: 'Vad mötte du på danska i dag? Notera gärna nya ord du fångade upp.',
+      sourceLabel: 'Källa',
+      sources: {
+        tv: 'TV/film',
+        podcast: 'Podd/radio',
+        samtal: 'Samtal',
+        laesning: 'Läsning',
+        andet: 'Annat',
+      } as Record<string, string>,
+      noteLabel: 'Anteckning / nya ord',
+      notePlaceholder: 't.ex. "DR Nyheder — nya ord: forsinkelse, aflyst"',
+      add: 'Lägg till',
+      empty: 'Inget loggat än.',
+      remove: 'Ta bort',
+      wordsHint: 'Tips: nya ord du loggar kan senare bli en egen kortlek.',
+    },
+  },
+
   // Light, non-gamified progress (personal-tool scope).
   progress: {
     words: (started: number, total: number) => `${started} av ${total} ord påbörjade`,

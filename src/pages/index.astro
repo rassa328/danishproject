@@ -1,9 +1,14 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
-import { cardCount } from '../lib/decks.ts';
+import { allCards, cardCount } from '../lib/decks.ts';
 import { UI } from '../lib/strings.ts';
 import ProgressSummary from '../components/ProgressSummary.svelte';
+import DailyMission from '../components/DailyMission.svelte';
+import InputLog from '../components/InputLog.svelte';
+
+// Curated headwords the daily mission can weave in (small payload).
+const missionPool = allCards.map((c) => c.danish);
 ---
 
 <BaseLayout
@@ -39,6 +44,15 @@ import ProgressSummary from '../components/ProgressSummary.svelte';
     </a>
   </div>
 
+  <section class="practice">
+    <h2>{UI.practice.heading}</h2>
+    <p class="practice-intro">{UI.practice.intro}</p>
+    <div class="practice-grid">
+      <DailyMission client:idle pool={missionPool} />
+      <InputLog client:idle />
+    </div>
+  </section>
+
   <style>
     .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--muted); margin: 0 0 var(--sp-2); }
     h1 span[lang='da'] { color: var(--accent); }
@@ -50,5 +64,9 @@ import ProgressSummary from '../components/ProgressSummary.svelte';
     .card .step { position: absolute; top: var(--sp-4); right: var(--sp-4); width: 1.5em; height: 1.5em; display: grid; place-items: center; border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-contrast); font-size: var(--step--1); font-weight: 700; }
     .card h2 { margin: 0 0 var(--sp-2); color: var(--accent); }
     .card p { margin: 0; color: var(--muted); font-size: var(--step--1); }
+    .practice { margin-top: var(--sp-8); }
+    .practice > h2 { margin: 0 0 var(--sp-1); }
+    .practice-intro { color: var(--muted); margin: 0 0 var(--sp-4); }
+    .practice-grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: start; }
   </style>
 </BaseLayout>

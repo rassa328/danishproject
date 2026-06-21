@@ -142,6 +142,34 @@ describe('Store: non-destructive deck merge (the data-integrity contract)', () =
     expect(s.startedCount()).toBe(2);
   });
 
+  it('missions + input log: persist, prepend, cap-remove, tolerate old data', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    // missions
+    expect(s.isMissionDone('2026-06-21')).toBe(false);
+    s.setMissionDone('2026-06-21');
+    expect(new Store(kv).isMissionDone('2026-06-21')).toBe(true);
+    s.setMissionDone('2026-06-21', false);
+    expect(s.isMissionDone('2026-06-21')).toBe(false);
+    // input log (newest first, persists, remove)
+    s.addInputEntry({ at: 1, source: 'tv', note: 'a' });
+    s.addInputEntry({ at: 2, source: 'podcast', note: 'b' });
+    expect(s.getInputLog().map((e) => e.note)).toEqual(['b', 'a']);
+    expect(new Store(kv).getInputLog().length).toBe(2);
+    s.removeInputEntry(1);
+    expect(s.getInputLog().map((e) => e.note)).toEqual(['b']);
+  });
+
+  it('Phase 6 accessors tolerate older saved data without the new fields', () => {
+    const kv = memoryKV();
+    kv.setItem('dansk4svensk:srs:v1', JSON.stringify({ schemaVersion: 1, srs: {}, settings: {} }));
+    const s = new Store(kv);
+    expect(s.getInputLog()).toEqual([]);
+    expect(s.isMissionDone('2026-06-21')).toBe(false);
+    expect(() => s.addInputEntry({ at: 1, source: 'tv', note: 'x' })).not.toThrow();
+    expect(s.getInputLog().length).toBe(1);
+  });
+
   it('export/import backup round-trips', () => {
     const kv = memoryKV();
     const s = new Store(kv);

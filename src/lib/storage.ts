@@ -39,6 +39,14 @@ export interface Settings {
   theme: 'light' | 'dark' | 'system';
 }
 
+/** A logged piece of real Danish input (TV, podcast, conversation…) plus any
+ *  new words the learner noticed — the bridge between the app and immersion. */
+export interface InputEntry {
+  at: number;
+  source: string;
+  note: string;
+}
+
 export interface SrsRoot {
   schemaVersion: number;
   srs: Record<string, SrsRecord>;
@@ -48,6 +56,10 @@ export interface SrsRoot {
   firstRunAt: number | null;
   streak: { lastReviewIso: string; current: number } | null;
   settings: Settings;
+  // Phase 6 — added without a schema bump (would reset existing data); read
+  // defensively (?? / ??=) since older saved blobs won't have them.
+  missionLog?: Record<string, boolean>; // YYYY-MM-DD -> done
+  inputLog?: InputEntry[];
 }
 
 interface DecksRoot {
@@ -90,6 +102,8 @@ function defaultSrsRoot(): SrsRoot {
     firstRunAt: null,
     streak: null,
     settings: { ...DEFAULT_SETTINGS },
+    missionLog: {},
+    inputLog: [],
   };
 }
 
@@ -285,6 +299,34 @@ export class Store {
       if (r && !r.suspended && new Date(r.due) <= now) n++;
     }
     return n;
+  }
+
+  // ---- daily output missions (bridge to real speaking) ----
+  isMissionDone(dateIso: string): boolean {
+    return this.loadSrs().missionLog?.[dateIso] === true;
+  }
+  setMissionDone(dateIso: string, done = true): WriteResult {
+    const root = this.loadSrs();
+    (root.missionLog ??= {})[dateIso] = done;
+    return this.saveSrs();
+  }
+
+  // ---- input log (Danish media/conversations + noticed words) ----
+  getInputLog(): InputEntry[] {
+    return this.loadSrs().inputLog ?? [];
+  }
+  /** Prepend an entry (newest first); cap the log so the hot blob stays small. */
+  addInputEntry(entry: InputEntry): WriteResult {
+    const root = this.loadSrs();
+    const log = (root.inputLog ??= []);
+    log.unshift(entry);
+    root.inputLog = log.slice(0, 200);
+    return this.saveSrs();
+  }
+  removeInputEntry(at: number): WriteResult {
+    const root = this.loadSrs();
+    root.inputLog = (root.inputLog ?? []).filter((e) => e.at !== at);
+    return this.saveSrs();
   }
 
   markLessonComplete(slug: string, at: number): WriteResult {
