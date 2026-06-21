@@ -6,6 +6,7 @@
 // Backend is injectable => headless unit tests + SSR-safe (no top-level access).
 import { newCard, review, Rating, type ReviewGrade, type FsrsCard } from './srs.ts';
 import type { Card } from './vocab.ts';
+import { localDayIso, daysBetween } from './day.ts';
 
 // 'speak' (shadowing) is self-graded: the learner says the word aloud, hears the
 // native clip, and rates their own pronunciation — no typed answer to check.
@@ -42,6 +43,7 @@ export interface Settings {
 /** A logged piece of real Danish input (TV, podcast, conversation…) plus any
  *  new words the learner noticed — the bridge between the app and immersion. */
 export interface InputEntry {
+  id: string;
   at: number;
   source: string;
   note: string;
@@ -218,7 +220,14 @@ export class Store {
   }
 
   getSettings(): Settings {
-    return { ...this.loadSrs().settings };
+    // Merge over defaults (fills MISSING keys) and then coerce any non-finite
+    // numeric field back to its default — spread is null-blind, so a value an
+    // earlier bug poisoned to null (NaN serializes to null) would otherwise
+    // survive and empty sessions via slice(0, null).
+    const s = { ...DEFAULT_SETTINGS, ...this.loadSrs().settings };
+    const numKeys = ['newPerDay', 'reviewPerDay', 'requestRetention', 'leechThreshold'] as const;
+    for (const k of numKeys) if (!Number.isFinite(s[k])) s[k] = DEFAULT_SETTINGS[k];
+    return s;
   }
   setSettings(patch: Partial<Settings>): WriteResult {
     const root = this.loadSrs();
@@ -260,7 +269,7 @@ export class Store {
    *  increment, a gap of 2+ days resets to 1. Stores a date-only ISO string so
    *  comparison is timezone-stable within a session. Mutates root (no save). */
   private bumpStreak(root: SrsRoot, now: Date): void {
-    const today = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const today = localDayIso(now);
     const prev = root.streak;
     if (!prev) {
       root.streak = { lastReviewIso: today, current: 1 };
@@ -268,18 +277,16 @@ export class Store {
     }
     const last = prev.lastReviewIso.slice(0, 10);
     if (last === today) return; // already counted today
-    const diffDays = Math.round((Date.parse(today) - Date.parse(last)) / 86_400_000);
-    root.streak = { lastReviewIso: today, current: diffDays === 1 ? prev.current + 1 : 1 };
+    const diff = daysBetween(last, today);
+    root.streak = { lastReviewIso: today, current: diff === 1 ? prev.current + 1 : 1 };
   }
 
   /** Current consecutive-day study streak (0 if never studied or broken). */
   getStreak(now: Date = new Date()): number {
     const s = this.loadSrs().streak;
     if (!s) return 0;
-    const today = now.toISOString().slice(0, 10);
-    const diffDays = Math.round((Date.parse(today) - Date.parse(s.lastReviewIso.slice(0, 10))) / 86_400_000);
-    // A streak that wasn't continued today or yesterday is already broken.
-    return diffDays <= 1 ? s.current : 0;
+    // A streak not continued today or yesterday (local) is already broken.
+    return daysBetween(s.lastReviewIso.slice(0, 10), localDayIso(now)) <= 1 ? s.current : 0;
   }
 
   /** Distinct vocab cards the learner has started (any direction/state). */
@@ -313,7 +320,23 @@ export class Store {
 
   // ---- input log (Danish media/conversations + noticed words) ----
   getInputLog(): InputEntry[] {
-    return this.loadSrs().inputLog ?? [];
+    const root = this.loadSrs();
+    const log = root.inputLog ?? [];
+    // Backfill ids on entries persisted before `id` existed, so keyed lists are
+    // unique and remove-by-id targets a single entry (else legacy rows share an
+    // undefined key and one delete would drop them all).
+    let changed = false;
+    log.forEach((e, i) => {
+      if (!e.id) {
+        e.id = `legacy-${e.at}-${i}`;
+        changed = true;
+      }
+    });
+    if (changed) {
+      root.inputLog = log;
+      this.saveSrs();
+    }
+    return log;
   }
   /** Prepend an entry (newest first); cap the log so the hot blob stays small. */
   addInputEntry(entry: InputEntry): WriteResult {
@@ -323,9 +346,9 @@ export class Store {
     root.inputLog = log.slice(0, 200);
     return this.saveSrs();
   }
-  removeInputEntry(at: number): WriteResult {
+  removeInputEntry(id: string): WriteResult {
     const root = this.loadSrs();
-    root.inputLog = (root.inputLog ?? []).filter((e) => e.at !== at);
+    root.inputLog = (root.inputLog ?? []).filter((e) => e.id !== id);
     return this.saveSrs();
   }
 

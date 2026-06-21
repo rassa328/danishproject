@@ -37,13 +37,34 @@ const argVal = (name: string): string => {
   return a ? a.slice(name.length + 1) : '';
 };
 
+// Parse a non-negative integer arg; reject garbage rather than silently treating
+// it as 0 (= no cap), which would defeat the gate.
+const intArg = (name: string): number => {
+  const raw = argVal(name);
+  if (!raw) return 0; // not provided -> no cap
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) {
+    console.error(`Invalid ${name}=${raw} (expected a non-negative integer).`);
+    process.exit(1);
+  }
+  return n;
+};
+
 const KEY = process.env.AZURE_SPEECH_KEY;
 const REGION = process.env.AZURE_SPEECH_REGION;
 const VOICE = process.env.AZURE_SPEECH_VOICE || 'da-DK-ChristelNeural';
 const FORCE = process.argv.includes('--force');
+const ALL_CLIPS = process.argv.includes('--all-clips'); // opt in to voicing a whole big deck
 const DECK_SEL = argVal('--deck') || 'starter'; // 'starter' | 'praksis' | 'all'
-const LIMIT = Number(argVal('--limit')) || 0; // cap clips per deck (0 = no cap)
-const MAX_RANK = Number(argVal('--max-rank')) || 0; // only rank <= N (0 = all)
+const LIMIT = intArg('--limit'); // cap clips per deck (0 = no cap)
+const MAX_RANK = intArg('--max-rank'); // only ranked rows with rank <= N (0 = all)
+
+// Frequency rank of a row, or Infinity when unranked (Number(0) is finite, so
+// `|| Infinity` would wrongly bucket rank 0; check explicitly).
+const rankOf = (r: Record<string, string>): number => {
+  const n = Number(r.rank);
+  return Number.isFinite(n) && n > 0 ? n : Infinity;
+};
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -173,18 +194,17 @@ async function processDeck(csvPath: string): Promise<Stats> {
   const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true });
   const rows = parsed.data;
 
-  // Pick which rows get clips. Order by rank so --limit keeps the most frequent.
+  // Pick which rows get clips. With --max-rank, keep ONLY ranked rows within
+  // range (unranked are excluded — they have unknown frequency, so a rank gate
+  // on an unranked deck correctly yields nothing rather than everything). Order
+  // by rank so --limit keeps the most frequent.
   let eligible = rows.filter((r) => nfc(r.danish));
-  if (MAX_RANK > 0) {
-    eligible = eligible.filter((r) => {
-      const rk = Number(r.rank);
-      return !Number.isFinite(rk) || rk <= MAX_RANK; // unranked still allowed
-    });
-  }
-  eligible = [...eligible].sort(
-    (a, b) => (Number(a.rank) || Infinity) - (Number(b.rank) || Infinity),
-  );
+  if (MAX_RANK > 0) eligible = eligible.filter((r) => rankOf(r) <= MAX_RANK);
+  eligible = [...eligible].sort((a, b) => rankOf(a) - rankOf(b));
   if (LIMIT > 0) eligible = eligible.slice(0, LIMIT);
+  if (eligible.length === 0) {
+    console.warn(`  (no eligible rows — is the deck unranked? rank-deck.ts populates ranks)`);
+  }
 
   // A word clip per card, plus an example clip when the card has a Danish
   // example sentence. Filenames use the same id the app derives.
@@ -198,9 +218,11 @@ async function processDeck(csvPath: string): Promise<Stats> {
   }
   const stats = await generateClips(clips);
 
-  // Rewrite ALL rows so each column reflects disk (a failed/missing/ungated clip
-  // leaves its cell empty and the app falls back to Web Speech).
-  for (const row of rows) {
+  // Reconcile audio columns for the rows we actually PROCESSED this run (reflect
+  // disk: a failed clip clears its cell). Rows gated out by --limit/--max-rank
+  // are left untouched, so a partial/gated run never blanks committed audio for
+  // words it didn't attempt.
+  for (const row of eligible) {
     const danish = nfc(row.danish);
     if (!danish) continue;
     const id = deriveId(danish, row.pos ?? '');
@@ -243,6 +265,16 @@ async function main() {
     process.exit(1);
   }
   await mkdir(AUDIO_DIR, { recursive: true });
+
+  // Guard against accidentally voicing the entire 5000-word praksis deck
+  // (~75–125 MB of mp3s committed). Require an explicit gate or opt-in.
+  if ((DECK_SEL === 'praksis' || DECK_SEL === 'all') && !LIMIT && !MAX_RANK && !ALL_CLIPS) {
+    console.error(
+      'Refusing to voice the full praksis deck (~5000 clips). ' +
+        'Pass --max-rank=N or --limit=N to gate, or --all-clips to override.',
+    );
+    process.exit(1);
+  }
 
   const decks = DECK_SEL === 'all' ? ['starter', 'praksis'] : [DECK_SEL];
   let failed = 0;

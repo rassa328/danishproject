@@ -6,7 +6,7 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
-  import { matchAnswer, clozeSentence, type Card } from '../lib/vocab.ts';
+  import { matchAnswer, normalizeAnswer, clozeSentence, type Card } from '../lib/vocab.ts';
   import { matchesGroup, type StudyGroup } from '../lib/deck-groups.ts';
   import { UI } from '../lib/strings.ts';
 
@@ -39,16 +39,22 @@
   const now = () => new Date();
   const current = $derived(queue[idx]);
   const remaining = $derived(Math.max(0, queue.length - idx));
-  // True when the current filter (tag or deck) contains no cards at all — lets
-  // the done screen say "no match, clear filter" instead of "all caught up".
-  const poolEmpty = $derived(ready && pool().length === 0);
   // 'speak' mode has no typed answer: the learner rates their own pronunciation,
   // so we skip the correct/incorrect verdict and never floor the grade to Again.
   const selfGraded = $derived(direction === 'speak');
   // Optgroup headers for the picker, in first-seen order.
   const optgroups = $derived([...new Set(groups.map((g) => g.optgroup))]);
-  // The fill-in-the-blank sentence for 'cloze' (null when the card has none).
+  // The fill-in-the-blank for 'cloze': { text, answer } or null.
   const clozeText = $derived(direction === 'cloze' && current ? clozeSentence(current) : null);
+
+  // Session state set by buildQueue, so we don't re-filter the 5000+ card union
+  // on every render/card: the raw active pool (distractor source), its size (for
+  // the empty-state message), and whether cloze was picked but has no eligible
+  // cards. speakSilent flags a 'speak' reveal that produced no audio.
+  let sessionPool = $state<Card[]>([]);
+  let poolSize = $state(0);
+  let noCloze = $state(false);
+  let speakSilent = $state(false);
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -77,18 +83,24 @@
   }
 
   function buildQueue(free: boolean): Card[] {
-    let dc = pool();
+    const raw = pool();
+    sessionPool = raw; // cached for distractors (avoid re-filtering per card)
+    poolSize = raw.length;
     // Cloze can only use cards whose example sentence contains the headword.
-    if (direction === 'cloze') dc = dc.filter((c) => clozeSentence(c) !== null);
+    const dc = direction === 'cloze' ? raw.filter((c) => clozeSentence(c) !== null) : raw;
+    noCloze = direction === 'cloze' && dc.length === 0 && raw.length > 0;
     if (free) return shuffle([...dc]);
     const settings = store.getSettings();
-    const due: Card[] = [];
+    const due: { c: Card; due: number }[] = [];
     const fresh: Card[] = [];
     for (const c of dc) {
       const r = store.getRecord(c.id, direction);
       if (!r) fresh.push(c);
-      else if (!r.suspended && new Date(r.due) <= now()) due.push(c);
+      else if (!r.suspended && new Date(r.due) <= now()) due.push({ c, due: new Date(r.due).getTime() });
     }
+    // Cap the due backlog MOST-OVERDUE first (not deck order), so badly overdue
+    // cards aren't starved when there are more due than the cap.
+    due.sort((a, b) => a.due - b.due);
     // Introduce new cards most-useful-first: by frequency rank when present,
     // else by level (B1 before B2 — a coarse frequency proxy). The queue is
     // shuffled below, so this changes WHICH fresh cards enter, not their order.
@@ -100,7 +112,8 @@
     });
     // Per-session caps: reviewPerDay bounds the due backlog so a big deck can't
     // dump hundreds of reviews at once; newPerDay bounds fresh introductions.
-    return shuffle([...due.slice(0, settings.reviewPerDay), ...fresh.slice(0, settings.newPerDay)]);
+    const dueCards = due.slice(0, settings.reviewPerDay).map((x) => x.c);
+    return shuffle([...dueCards, ...fresh.slice(0, settings.newPerDay)]);
   }
 
   // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
@@ -116,8 +129,7 @@
     }
     const correct = current.danish;
     const uniq = (cs: Card[]) => [...new Set(cs.map((c) => c.danish))].filter((d) => d !== correct);
-    const poolCards = pool();
-    const base = poolCards.length >= 8 ? poolCards : cards;
+    const base = sessionPool.length >= 8 ? sessionPool : cards;
     const samePos = shuffle(uniq(base.filter((c) => c.pos === current.pos)));
     const anyPos = shuffle(uniq(base));
     const distractors = [...new Set([...samePos, ...anyPos])].slice(0, 3);
@@ -160,10 +172,15 @@
   function revealSpeak() {
     if (phase !== 'prompt' || !current) return;
     phase = 'revealed';
-    tick().then(() => {
+    speakSilent = false;
+    tick().then(async () => {
       container?.focus();
-      if (current)
-        void speak(current.danish, current.audio ? { audioUrl: withBase(current.audio) } : {});
+      if (!current) return;
+      const outcome = await speak(
+        current.danish,
+        current.audio ? { audioUrl: withBase(current.audio) } : {},
+      );
+      speakSilent = outcome === 'none'; // no clip + no da-DK voice → tell the user
     });
   }
 
@@ -178,6 +195,7 @@
   }
 
   function afterPrompt() {
+    speakSilent = false;
     buildChoices();
     tick().then(() => {
       input?.focus();
@@ -187,7 +205,12 @@
 
   async function submit() {
     if (phase !== 'prompt' || !current) return;
-    wasCorrect = matchAnswer(typed, current);
+    // Cloze requires the exact in-context form that was blanked (not just the
+    // lemma); other typed modes accept any accepted form.
+    wasCorrect =
+      direction === 'cloze' && clozeText
+        ? normalizeAnswer(typed) === normalizeAnswer(clozeText.answer)
+        : matchAnswer(typed, current);
     phase = 'revealed';
     await tick();
     container?.focus();
@@ -296,12 +319,15 @@
   >
     {#if phase === 'done'}
       <div class="done">
-        {#if reviewed === 0 && tag && poolEmpty}
+        {#if reviewed === 0 && tag && poolSize === 0}
           <h2 tabindex="-1">{T.doneEmpty}</h2>
           <p>{T.noTagMatch}</p>
           <div class="grades">
             <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
           </div>
+        {:else if reviewed === 0 && noCloze}
+          <h2 tabindex="-1">{T.doneEmpty}</h2>
+          <p>{T.noClozeCards}</p>
         {:else}
           <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
@@ -321,7 +347,7 @@
         <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
       {:else if direction === 'cloze'}
         <p class="prompt-listen">{T.clozePrompt}</p>
-        <p class="prompt" lang="da">{clozeText}</p>
+        <p class="prompt" lang="da">{clozeText?.text}</p>
         <p class="hint">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
       {:else}
         <p class="prompt">{current.swedish}</p>
@@ -375,6 +401,7 @@
           <p class="sv">{current.swedish}</p>
           {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
+          {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
           <div class="grades">
             <button onclick={() => grade(1 as ReviewGrade)}>{T.grades.again} (1)</button>
             <button onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.hard} (2)</button>
@@ -389,7 +416,9 @@
     {#if warning}<p class="warning" role="alert">{warning}</p>{/if}
   </section>
 
-  <SettingsPanel {store} onSaved={() => start()} />
+  <!-- Apply saved settings only when between rounds; mid-round we keep the
+       current queue and they take effect next round (matches the panel copy). -->
+  <SettingsPanel {store} onSaved={() => { if (phase === 'done') start(); }} />
 
   <details class="backup">
     <summary>{T.backup.summary}</summary>

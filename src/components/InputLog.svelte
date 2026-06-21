@@ -20,16 +20,21 @@
     ready = true;
   });
 
+  const newId = (): string =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   function add() {
     const text = note.trim();
     if (!text) return;
-    store.addInputEntry({ at: Date.now(), source, note: text });
+    store.addInputEntry({ id: newId(), at: Date.now(), source, note: text });
     entries = store.getInputLog();
     note = '';
   }
 
-  function remove(at: number) {
-    store.removeInputEntry(at);
+  function remove(id: string) {
+    store.removeInputEntry(id);
     entries = store.getInputLog();
   }
 
@@ -58,11 +63,11 @@
       <p class="empty">{T.empty}</p>
     {:else}
       <ul>
-        {#each entries as e (e.at)}
+        {#each entries as e (e.id)}
           <li>
             <span class="meta">{fmtDate(e.at)} · {sourceLabel(e.source)}</span>
             <span class="note">{e.note}</span>
-            <button type="button" class="rm" onclick={() => remove(e.at)} aria-label={T.remove}>×</button>
+            <button type="button" class="rm" onclick={() => remove(e.id)} aria-label={T.remove}>×</button>
           </li>
         {/each}
       </ul>

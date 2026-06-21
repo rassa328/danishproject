@@ -2,6 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
 import { allCards, cardCount } from '../lib/decks.ts';
+import { praksisCount } from '../lib/praksis.ts';
 import { UI } from '../lib/strings.ts';
 import ProgressSummary from '../components/ProgressSummary.svelte';
 import DailyMission from '../components/DailyMission.svelte';
@@ -9,6 +10,9 @@ import InputLog from '../components/InputLog.svelte';
 
 // Curated headwords the daily mission can weave in (small payload).
 const missionPool = allCards.map((c) => c.danish);
+// startedCount() spans starter ∪ praksis (both are studyable), so the progress
+// denominator must too — else it can read "N av 187" with N > 187.
+const totalWords = cardCount + praksisCount;
 ---
 
 <BaseLayout
@@ -24,7 +28,7 @@ const missionPool = allCards.map((c) => c.danish);
   </p>
 
   <p class="path-hint">{UI.progress.homeHint}</p>
-  <ProgressSummary client:idle total={cardCount} />
+  <ProgressSummary client:idle total={totalWords} />
 
   <div class="cards">
     <a class="card" href={withBase('lektioner')}>

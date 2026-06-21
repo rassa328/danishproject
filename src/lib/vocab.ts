@@ -69,19 +69,25 @@ const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$
 
 /** A fill-in-the-blank version of the card's Danish example: the first occurrence
  *  of the headword (or an accepted form, longest first so phrases win) replaced
- *  with "____". Returns null if there's no example or no form is found in it —
- *  the caller then excludes the card from cloze practice. \p{L} boundaries keep
- *  æ/ø/å intact; matching is case-insensitive against the original sentence. */
-export function clozeSentence(card: Pick<Card, 'danish' | 'accepted' | 'exampleDa'>): string | null {
+ *  with "____". Returns the clozed `text` plus the exact `answer` surface form
+ *  that was removed (so grading can require the in-context form, not just the
+ *  lemma), or null if there's no example or no form is found — the caller then
+ *  excludes the card from cloze practice. Boundaries use letters AND digits so a
+ *  numeric form can't blank mid-token ("25" inside "250"); matching is
+ *  case-insensitive and keeps æ/ø/å significant. */
+export function clozeSentence(
+  card: Pick<Card, 'danish' | 'accepted' | 'exampleDa'>,
+): { text: string; answer: string } | null {
   const ex = card.exampleDa;
   if (!ex) return null;
   const forms = [...new Set(acceptedAnswers(card))].filter(Boolean).sort((a, b) => b.length - a.length);
   for (const f of forms) {
-    const re = new RegExp(`(^|[^\\p{L}])(${escapeRegex(f)})(?![\\p{L}])`, 'iu');
+    const re = new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRegex(f)})(?![\\p{L}\\p{N}])`, 'iu');
     const m = re.exec(ex);
     if (m) {
       const start = m.index + (m[1] as string).length;
-      return ex.slice(0, start) + '____' + ex.slice(start + (m[2] as string).length);
+      const answer = m[2] as string;
+      return { text: ex.slice(0, start) + '____' + ex.slice(start + answer.length), answer };
     }
   }
   return null;

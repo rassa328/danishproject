@@ -38,7 +38,10 @@ const rankByWord = new Map<string, number>();
 const freqLines = readFileSync(freqPath, 'utf8').split('\n');
 let rank = 0;
 for (const line of freqLines) {
-  const word = line.trim().split(/[\s,;\t]+/)[0]?.toLowerCase();
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) continue; // skip blanks/comments
+  // NFC-normalize to match the deck's headwords (vocab.ts stores NFC).
+  const word = trimmed.split(/[\s,;\t]+/)[0]?.normalize('NFC').toLowerCase();
   if (!word) continue;
   rank++;
   if (!rankByWord.has(word)) rankByWord.set(word, rank);
@@ -51,7 +54,7 @@ if (!fields.includes('rank')) fields.push('rank');
 
 let matched = 0;
 for (const row of parsed.data) {
-  const head = (row.danish ?? '').toLowerCase().split('/')[0]?.trim() ?? '';
+  const head = (row.danish ?? '').normalize('NFC').toLowerCase().split('/')[0]?.trim() ?? '';
   const r = rankByWord.get(head);
   if (r !== undefined) {
     row.rank = String(r);

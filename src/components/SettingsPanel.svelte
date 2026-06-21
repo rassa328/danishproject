@@ -16,12 +16,16 @@
   let saved = $state(false);
 
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
+  // A cleared/invalid number input binds as NaN; fall back to the current value
+  // instead of persisting NaN (which serializes to null and empties sessions).
+  const num = (v: number, fallback: number) => (Number.isFinite(v) ? v : fallback);
 
   function save() {
+    const cur = store.getSettings();
     store.setSettings({
-      newPerDay: clamp(Math.round(newPerDay), 0, 100),
-      reviewPerDay: clamp(Math.round(reviewPerDay), 1, 1000),
-      requestRetention: clamp(retentionPct, 70, 97) / 100,
+      newPerDay: clamp(Math.round(num(newPerDay, cur.newPerDay)), 0, 100),
+      reviewPerDay: clamp(Math.round(num(reviewPerDay, cur.reviewPerDay)), 1, 1000),
+      requestRetention: clamp(num(retentionPct, cur.requestRetention * 100), 70, 97) / 100,
     });
     saved = true;
     onSaved();

@@ -31,22 +31,36 @@ describe('clozeSentence', () => {
   const c = (over: Partial<Parameters<typeof clozeSentence>[0]>) =>
     ({ danish: 'løbe', accepted: [], exampleDa: '', ...over }) as Parameters<typeof clozeSentence>[0];
 
-  it('blanks the exact headword form in the example', () => {
-    expect(clozeSentence(c({ danish: 'løbe', exampleDa: 'Jeg kan lide at løbe.' }))).toBe('Jeg kan lide at ____.');
+  it('blanks the exact form and returns it as the answer', () => {
+    expect(clozeSentence(c({ danish: 'løbe', exampleDa: 'Jeg kan lide at løbe.' }))).toEqual({
+      text: 'Jeg kan lide at ____.',
+      answer: 'løbe',
+    });
   });
 
   it('matches case-insensitively and keeps æ/ø/å boundaries', () => {
-    expect(clozeSentence(c({ danish: 'øl', exampleDa: 'Øl smager godt.' }))).toBe('____ smager godt.');
+    expect(clozeSentence(c({ danish: 'øl', exampleDa: 'Øl smager godt.' }))).toEqual({
+      text: '____ smager godt.',
+      answer: 'Øl',
+    });
   });
 
   it('blanks a multi-word phrase (longest form wins)', () => {
-    const r = clozeSentence(c({ danish: 'ved siden af', exampleDa: 'Han sad ved siden af mig.' }));
-    expect(r).toBe('Han sad ____ mig.');
+    expect(clozeSentence(c({ danish: 'ved siden af', exampleDa: 'Han sad ved siden af mig.' }))).toEqual({
+      text: 'Han sad ____ mig.',
+      answer: 'ved siden af',
+    });
   });
 
-  it('matches an accepted inflected form when listed', () => {
-    const r = clozeSentence(c({ danish: 'løbe', accepted: ['løber'], exampleDa: 'Jeg løber hver dag.' }));
-    expect(r).toBe('Jeg ____ hver dag.');
+  it('matches an accepted inflected form when listed, answer = that form', () => {
+    expect(clozeSentence(c({ danish: 'løbe', accepted: ['løber'], exampleDa: 'Jeg løber hver dag.' }))).toEqual({
+      text: 'Jeg ____ hver dag.',
+      answer: 'løber',
+    });
+  });
+
+  it('does not blank a numeric form inside a larger number (digit boundary)', () => {
+    expect(clozeSentence(c({ danish: '25', exampleDa: 'Jeg er 250 cm.' }))).toBeNull();
   });
 
   it('returns null with no example, or when no form occurs as a whole word', () => {

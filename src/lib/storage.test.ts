@@ -51,25 +51,28 @@ describe('Store: settings + grading', () => {
     expect(s.dueCount(new Date(T0.getTime() + 5 * 60_000))).toBe(1);
   });
 
+  // Local-date construction (new Date(y, m, d, h)) so the streak's local-day
+  // logic is TZ-independent in CI.
+  const day = (y: number, m: number, d: number, h = 8) => new Date(y, m, d, h);
+
   it('streak: starts at 1, increments on consecutive days, no double-count same day', () => {
     const kv = memoryKV();
     const s = new Store(kv);
-    const d = (iso: string) => new Date(iso);
-    s.grade('v1', 'produce', Rating.Good, d('2026-06-20T08:00:00Z'));
-    expect(s.getStreak(d('2026-06-20T20:00:00Z'))).toBe(1);
-    s.grade('v1', 'produce', Rating.Good, d('2026-06-21T08:00:00Z'));
-    expect(s.getStreak(d('2026-06-21T09:00:00Z'))).toBe(2);
-    s.grade('v2', 'produce', Rating.Good, d('2026-06-21T18:00:00Z')); // same day
-    expect(s.getStreak(d('2026-06-21T19:00:00Z'))).toBe(2);
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 20, 8));
+    expect(s.getStreak(day(2026, 5, 20, 20))).toBe(1);
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 21, 8));
+    expect(s.getStreak(day(2026, 5, 21, 9))).toBe(2);
+    s.grade('v2', 'produce', Rating.Good, day(2026, 5, 21, 18)); // same local day
+    expect(s.getStreak(day(2026, 5, 21, 19))).toBe(2);
   });
 
   it('streak: a 2+ day gap resets to 1, and reads as broken when stale', () => {
     const kv = memoryKV();
     const s = new Store(kv);
-    s.grade('v1', 'produce', Rating.Good, new Date('2026-06-20T08:00:00Z'));
-    expect(s.getStreak(new Date('2026-06-25T08:00:00Z'))).toBe(0); // stale -> broken
-    s.grade('v1', 'produce', Rating.Good, new Date('2026-06-24T08:00:00Z')); // gap
-    expect(s.getStreak(new Date('2026-06-24T09:00:00Z'))).toBe(1);
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 20));
+    expect(s.getStreak(day(2026, 5, 25))).toBe(0); // stale -> broken
+    s.grade('v1', 'produce', Rating.Good, day(2026, 5, 24)); // gap from last
+    expect(s.getStreak(day(2026, 5, 24, 9))).toBe(1);
   });
 });
 
@@ -88,6 +91,39 @@ describe('Store: resilience', () => {
       JSON.stringify({ schemaVersion: 0, settings: { newPerDay: 999 } }),
     );
     expect(new Store(kv).getSettings()).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('getSettings heals a null-poisoned numeric setting back to its default', () => {
+    const kv = memoryKV();
+    kv.setItem(
+      'dansk4svensk:srs:v1',
+      JSON.stringify({ schemaVersion: 1, srs: {}, settings: { newPerDay: null, reviewPerDay: null } }),
+    );
+    const s = new Store(kv).getSettings();
+    expect(s.newPerDay).toBe(DEFAULT_SETTINGS.newPerDay);
+    expect(s.reviewPerDay).toBe(DEFAULT_SETTINGS.reviewPerDay);
+  });
+
+  it('getInputLog backfills ids on legacy entries (unique keys; remove targets one)', () => {
+    const kv = memoryKV();
+    kv.setItem(
+      'dansk4svensk:srs:v1',
+      JSON.stringify({
+        schemaVersion: 1,
+        srs: {},
+        settings: {},
+        inputLog: [
+          { at: 1, source: 'tv', note: 'a' },
+          { at: 2, source: 'tv', note: 'b' },
+        ],
+      }),
+    );
+    const s = new Store(kv);
+    const log = s.getInputLog();
+    expect(log.every((e) => !!e.id)).toBe(true);
+    expect(new Set(log.map((e) => e.id)).size).toBe(2);
+    s.removeInputEntry(log[0]!.id);
+    expect(s.getInputLog().map((e) => e.note)).toEqual(['b']); // only one removed
   });
 
   it('QuotaExceededError surfaces via WriteResult, never throws', () => {
@@ -151,12 +187,12 @@ describe('Store: non-destructive deck merge (the data-integrity contract)', () =
     expect(new Store(kv).isMissionDone('2026-06-21')).toBe(true);
     s.setMissionDone('2026-06-21', false);
     expect(s.isMissionDone('2026-06-21')).toBe(false);
-    // input log (newest first, persists, remove)
-    s.addInputEntry({ at: 1, source: 'tv', note: 'a' });
-    s.addInputEntry({ at: 2, source: 'podcast', note: 'b' });
+    // input log (newest first, persists, remove by id)
+    s.addInputEntry({ id: 'x', at: 1, source: 'tv', note: 'a' });
+    s.addInputEntry({ id: 'y', at: 2, source: 'podcast', note: 'b' });
     expect(s.getInputLog().map((e) => e.note)).toEqual(['b', 'a']);
     expect(new Store(kv).getInputLog().length).toBe(2);
-    s.removeInputEntry(1);
+    s.removeInputEntry('x');
     expect(s.getInputLog().map((e) => e.note)).toEqual(['b']);
   });
 
@@ -166,7 +202,7 @@ describe('Store: non-destructive deck merge (the data-integrity contract)', () =
     const s = new Store(kv);
     expect(s.getInputLog()).toEqual([]);
     expect(s.isMissionDone('2026-06-21')).toBe(false);
-    expect(() => s.addInputEntry({ at: 1, source: 'tv', note: 'x' })).not.toThrow();
+    expect(() => s.addInputEntry({ id: 'a', at: 1, source: 'tv', note: 'x' })).not.toThrow();
     expect(s.getInputLog().length).toBe(1);
   });
 

@@ -4,6 +4,7 @@
   // they're stable through the day and rotate tomorrow; completion is persisted.
   import { onMount } from 'svelte';
   import { Store } from '../lib/storage.ts';
+  import { localDayIso, dayNumber } from '../lib/day.ts';
   import { UI } from '../lib/strings.ts';
 
   // A pool of Danish headwords to optionally weave into the task.
@@ -25,8 +26,8 @@
   onMount(() => {
     store = new Store();
     const now = new Date();
-    today = now.toISOString().slice(0, 10);
-    const dayNum = Math.floor(Date.parse(today) / 86_400_000);
+    today = localDayIso(now);
+    const dayNum = dayNumber(now);
     mission = pick(T.missions as unknown as string[], dayNum, 1)[0] ?? '';
     if (pool.length) words = pick([...new Set(pool)], dayNum * 3, 3);
     done = store.isMissionDone(today);
