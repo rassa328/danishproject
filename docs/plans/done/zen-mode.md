@@ -145,3 +145,15 @@ warmer, more yellow dot". Applied:
   blandat stays free/ungraded; tal ungraded (no number SRS in v1).
 - Light-theme glow: Dannebrog red → warm amber #c99b3f (dark's gold stays).
 - Prefs bumped to zen.prefs.v2 (mode/direction/source/level).
+
+## Round 4 (2026-07-11 22:10)
+
+"all tal 0–100, no stora tal, no level menus — tal covers all of them."
+Level step removed entirely: källa 'tal' → Begynd. One pool 0–100 (ALL_TAL);
+years/prices (stora tal) gone from zen. lyssna draws ONLY from values whose
+every clip is committed (playableTal — 12 values today: 20,27,30,40,42,50,
+60,68,70,80,90,99), widening automatically as recordings land; never TTS.
+översätt uses the whole 0–100. NUMBER_LEVELS stays untouched (/tal page
+still uses it). Prefs shed the level field (same v2 key; extra field
+ignored). svelte-check is now part of the manual gate after the round-3
+begin() escape (astro check does not type-check .svelte script blocks).

@@ -234,7 +234,7 @@ export const UI = {
   // /zen — the full-screen "Fokus" practice presentation (designs: Tal Fokus
   // v2 = dark, Tal Fokus - Morgendis v2 = light). Flow (user feedback
   // 2026-07-11): läge → riktning (översätt) → källa (repetera · blandat ·
-  // tal · flashcard-sets) → nivå (tal). Lower-case labels are deliberate —
+  // tal 0–100 · flashcard-sets). Lower-case labels are deliberate —
   // the screen is typography, not chrome; 'Begynd' is Danish on purpose.
   zen: {
     title: 'Zen',
@@ -250,13 +250,7 @@ export const UI = {
       'da-sv': { label: 'danska → svenska', sub: 'ser danska · skriver svenska' },
     },
     sources: { repetera: 'repetera', blandat: 'blandat', tal: 'tal' },
-    talNote: 'siffror · årtal · priser',
-    levels: {
-      '0-20': '0–20',
-      'tiotal': 'tiotal',
-      '0-99': '0–99',
-      'stora-tal': 'stora tal',
-    },
+    talNote: '0–100',
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
     freeNote: 'utan schema',

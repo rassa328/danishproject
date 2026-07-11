@@ -33,7 +33,6 @@
     isReady,
     itemDirection,
     itemInputKind,
-    LEVEL_IDS,
     parsePrefs,
     pick as flowPick,
     PREFS_KEY,
@@ -45,6 +44,8 @@
     sourceQueue,
     stepOptions,
     talAvailable,
+    ALL_TAL,
+    playableTal,
     wordDirections,
     wordSessionId,
     wrapIndex,
@@ -58,7 +59,6 @@
   } from '../lib/zen.ts';
   import {
     createNumberAudioPlayer,
-    levelAvailable,
     type NumberAudioManifest,
     type NumberAudioPlayer,
   } from '../lib/number-audio.ts';
@@ -78,7 +78,7 @@
     cards?: Card[];
     /** The flashcards' study groups — zen's källa sets (due-all excluded). */
     groups?: StudyGroup[];
-    /** Number-clip manifest — gates which tal-lyssna levels are offered. */
+    /** Number-clip manifest — decides which numbers lyssna can draw. */
     manifest?: NumberAudioManifest | null;
     /** Faint off-center Dannebrog cross over the whole screen. */
     dannebrogCross?: boolean;
@@ -88,9 +88,8 @@
     sessionLength?: number;
   } = $props();
 
-  const coverage = Object.fromEntries(
-    LEVEL_IDS.map((id) => [id, manifest ? levelAvailable(id, manifest) : false]),
-  ) as ZenContext['coverage'];
+  /** 0–100 values lyssna can compose from committed clips (never TTS). */
+  const talPlayable = playableTal(manifest);
   const sets = zenSets(groups);
   const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
 
@@ -141,7 +140,7 @@
     // same pool, or 'repetera' could gate open onto an empty session.
     const pool = flow.mode === 'lyssna' ? knownCards.filter((c) => !!c.audio) : knownCards;
     return {
-      coverage,
+      talPlayable,
       hasDue: dirs.length > 0 && s !== undefined && anyDue(pool, s, dirs, new Date()),
       sets,
     };
@@ -170,14 +169,6 @@
       note: talOk ? T.talNote : T.missingNote,
     },
   ]);
-  const levelRows = $derived(
-    LEVEL_IDS.map((id) => ({
-      id: id as string,
-      label: T.levels[id],
-      disabled: flow.mode === 'lyssna' && !coverage[id],
-      note: flow.mode === 'lyssna' && !coverage[id] ? T.missingNote : '',
-    })),
-  );
   const sourceLabel = $derived.by(() => {
     if (flow.source === null) return null;
     if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
@@ -190,7 +181,6 @@
       flow.mode ? T.modes[flow.mode].label : null,
       flow.mode === 'översätt' && flow.direction ? T.directions[flow.direction].label : null,
       sourceLabel,
-      flow.source === SOURCE_TAL && flow.level ? T.levels[flow.level] : null,
     ]
       .filter(Boolean)
       .join(' · '),
@@ -292,7 +282,6 @@
           mode: flow.mode,
           direction: flow.direction,
           source: flow.source,
-          level: flow.level,
         }),
       );
     } catch {
@@ -336,9 +325,11 @@
     stageOpacity = 0; // the fade masks a praksis fetch still in flight
     let session: ZenItem[] = [];
     let starterOnly = false;
-    if (built.source === SOURCE_TAL && built.level) {
-      session = buildNumberSession(built.level, sessionLength, Math.random);
-    } else if (built.source !== null && built.source !== SOURCE_TAL) {
+    if (built.source === SOURCE_TAL) {
+      // lyssna draws only clip-complete values; översätt uses the whole pool.
+      const pool = built.mode === 'lyssna' ? talPlayable : ALL_TAL;
+      if (pool.length > 0) session = buildNumberSession(pool, sessionLength, Math.random);
+    } else if (built.source !== null) {
       // Bounded wait: a praksis fetch that hangs must not park the fade at
       // opacity 0 forever — after the race the session builds from whatever
       // knownCards holds (starter-only at worst, disclosed via runHint).
@@ -747,22 +738,6 @@
               {/each}
             </div>
           {/if}
-        </div>
-      {:else if flow.step === 'level'}
-        <div class="source-col rise">
-          {#each levelRows as row (row.id)}
-            <button
-              type="button"
-              class="src"
-              class:hot={!row.disabled && hotId === row.id}
-              disabled={row.disabled}
-              onclick={() => pickId(row.id)}
-              onfocus={() => (hot = row.id)}
-            >
-              <span>{row.label}</span>
-              {#if row.note}<span class="src-note">{row.note}</span>{/if}
-            </button>
-          {/each}
         </div>
       {:else}
         <div class="begin-step rise-slow">

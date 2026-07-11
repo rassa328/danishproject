@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_TAL,
   anyDue,
   back,
   buildNumberSession,
@@ -13,12 +14,12 @@ import {
   isReady,
   itemDirection,
   itemInputKind,
-  LEVEL_IDS,
   parsePrefs,
   pick,
   setForSource,
   sourceIsGraded,
   sourceQueue,
+  playableTal,
   stepOptions,
   wordDirections,
   wordSessionId,
@@ -43,9 +44,9 @@ const SETS: ZenSet[] = [
   { id: 'falska', label: 'Falska vänner', match: { kind: 'decks', decks: ['falska-venner'] } },
 ];
 
-/** Today's real coverage shape: only tiotal fully recorded. */
+/** Today's real shape: a handful of 0–100 values fully recorded. */
 const ctx = (over: Partial<ZenContext> = {}): ZenContext => ({
-  coverage: { '0-20': false, 'tiotal': true, '0-99': false, 'stora-tal': false },
+  talPlayable: [20, 27, 30, 42],
   hasDue: true,
   sets: SETS,
   ...over,
@@ -102,13 +103,11 @@ describe('start flow', () => {
     expect(g).toMatchObject({ step: 'begin', direction: 'da-sv', source: 'set:vardag' });
   });
 
-  it('routes tal through the level step', () => {
+  it('tal goes straight to Begynd — no level step', () => {
     let f = pick(initialFlow(), ctx(), 'översätt');
     f = pick(f, ctx(), 'sv-da');
     f = pick(f, ctx(), 'tal');
-    expect(f.step).toBe('level');
-    f = pick(f, ctx(), 'stora-tal');
-    expect(f).toMatchObject({ step: 'begin', source: 'tal', level: 'stora-tal' });
+    expect(f).toMatchObject({ step: 'begin', source: 'tal' });
   });
 
   it('offers källa in order — repetera gated on dueness, tal on lyssna coverage', () => {
@@ -125,15 +124,10 @@ describe('start flow', () => {
       'set:vardag',
       'set:falska',
     ]);
-    // No covered level at all → lyssna hides tal; översätt keeps it.
-    const noCoverage = ctx({
-      coverage: { '0-20': false, 'tiotal': false, '0-99': false, 'stora-tal': false },
-    });
-    expect(stepOptions(flow({ step: 'source', mode: 'lyssna' }), noCoverage)).not.toContain('tal');
-    expect(stepOptions(flow({ step: 'source', mode: 'översätt' }), noCoverage)).toContain('tal');
-    // Level step: lyssna filters uncovered levels.
-    expect(stepOptions(flow({ step: 'level', mode: 'lyssna' }), ctx())).toEqual(['tiotal']);
-    expect(stepOptions(flow({ step: 'level', mode: 'översätt' }), ctx())).toEqual([...LEVEL_IDS]);
+    // No playable number at all → lyssna hides tal; översätt keeps it.
+    const noClips = ctx({ talPlayable: [] });
+    expect(stepOptions(flow({ step: 'source', mode: 'lyssna' }), noClips)).not.toContain('tal');
+    expect(stepOptions(flow({ step: 'source', mode: 'översätt' }), noClips)).toContain('tal');
   });
 
   it('ignores unknown ids and gated picks (same object back)', () => {
@@ -142,14 +136,11 @@ describe('start flow', () => {
     const atSource = flow({ step: 'source', mode: 'lyssna' });
     expect(pick(atSource, ctx({ hasDue: false }), 'repetera')).toBe(atSource);
     expect(pick(atSource, ctx(), 'set:okänd')).toBe(atSource);
-    const atLevel = flow({ step: 'level', mode: 'lyssna' });
-    expect(pick(atLevel, ctx(), '0-99')).toBe(atLevel);
   });
 
   it('backs up one step, entering only the steps that were shown', () => {
-    expect(back(flow({ step: 'begin', source: 'tal' })).step).toBe('level');
+    expect(back(flow({ step: 'begin', source: 'tal' })).step).toBe('source');
     expect(back(flow({ step: 'begin', source: 'blandat' })).step).toBe('source');
-    expect(back(flow({ step: 'level' })).step).toBe('source');
     expect(back(flow({ step: 'source', mode: 'översätt' })).step).toBe('direction');
     expect(back(flow({ step: 'source', mode: 'lyssna' })).step).toBe('mode');
     expect(back(flow({ step: 'direction' })).step).toBe('mode');
@@ -168,9 +159,6 @@ describe('start flow', () => {
     expect(
       highlightIndex(flow({ step: 'source', mode: 'lyssna', source: 'repetera' }), ctx({ hasDue: false })),
     ).toBe(0);
-    expect(
-      highlightIndex(flow({ step: 'level', mode: 'lyssna', level: '0-99' }), ctx()),
-    ).toBe(0);
   });
 
   it('wraps arrow-key movement in both directions', () => {
@@ -184,8 +172,7 @@ describe('start flow', () => {
     expect(isReady(flow({ mode: 'lyssna' }))).toBe(false);
     expect(isReady(flow({ mode: 'översätt', source: 'blandat' }))).toBe(false);
     expect(isReady(flow({ mode: 'översätt', direction: 'sv-da', source: 'blandat' }))).toBe(true);
-    expect(isReady(flow({ mode: 'lyssna', source: 'tal' }))).toBe(false);
-    expect(isReady(flow({ mode: 'lyssna', source: 'tal', level: 'tiotal' }))).toBe(true);
+    expect(isReady(flow({ mode: 'lyssna', source: 'tal' }))).toBe(true);
   });
 
   it('grades repetera and set sessions, never blandat or tal', () => {
@@ -311,18 +298,37 @@ describe('flow → session shape', () => {
 });
 
 describe('sessions', () => {
-  it('builds n number items from the level generator, no adjacent repeats', () => {
-    const items = buildNumberSession('0-99', 20, seqRng(0.5, 0.5, 0.9, 0.1, 0.5));
+  it('builds n number items from the 0–100 pool, no adjacent repeats', () => {
+    const items = buildNumberSession(ALL_TAL, 20, seqRng(0.5, 0.5, 0.9, 0.1, 0.5));
     expect(items).toHaveLength(20);
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       expect(it?.type).toBe('tal');
-      if (it?.type === 'tal') expect(it.tokens).toEqual(numberToTokens(it.value));
+      if (it?.type === 'tal') {
+        expect(it.value).toBeGreaterThanOrEqual(0);
+        expect(it.value).toBeLessThanOrEqual(100);
+        expect(it.tokens).toEqual(numberToTokens(it.value));
+      }
       if (i > 0 && it?.type === 'tal' && items[i - 1]?.type === 'tal') {
         expect(it.value).not.toBe((items[i - 1] as { value: number }).value);
       }
     }
-    expect(() => buildNumberSession('nope' as never, 5, seqRng(0.5))).toThrow(RangeError);
+    // A restricted pool (lyssna's playable subset) only draws its own values.
+    const restricted = buildNumberSession([20, 42], 10, seqRng(0.1, 0.7, 0.3, 0.9));
+    expect(restricted.every((z) => z.type === 'tal' && [20, 42].includes(z.value))).toBe(true);
+    expect(() => buildNumberSession([], 5, seqRng(0.5))).toThrow(RangeError);
+  });
+
+  it('derives the playable pool from the manifest (never TTS)', () => {
+    expect(playableTal(null)).toEqual([]);
+    const manifest = {
+      atoms: {
+        tyve: { id: 'x-tyve', file: 'f', present: true },
+        toogfyrre: { id: 'x-42', file: 'f', present: true },
+        fyrre: { id: 'x-40', file: 'f', present: false },
+      },
+    };
+    expect(playableTal(manifest)).toEqual([20, 42]); // 40 lacks its clip
   });
 
   it('builds directional word sessions per källa', () => {
@@ -518,19 +524,17 @@ describe('parsePrefs', () => {
       mode: 'översätt',
       direction: 'da-sv',
       source: 'set:vardag',
-      level: 'stora-tal',
     });
     expect(parsePrefs(raw)).toEqual({
       mode: 'översätt',
       direction: 'da-sv',
       source: 'set:vardag',
-      level: 'stora-tal',
     });
-    const none = { mode: null, direction: null, source: null, level: null };
+    const none = { mode: null, direction: null, source: null };
     expect(parsePrefs(null)).toEqual(none);
     expect(parsePrefs('not json')).toEqual(none);
     expect(parsePrefs('"str"')).toEqual(none);
-    expect(parsePrefs(JSON.stringify({ mode: 'skriv', source: 'okänd', level: 42 }))).toEqual(none);
+    expect(parsePrefs(JSON.stringify({ mode: 'skriv', source: 'okänd' }))).toEqual(none);
     expect(parsePrefs(JSON.stringify({ mode: 'lyssna', source: 'tal' }))).toEqual({
       ...none,
       mode: 'lyssna',

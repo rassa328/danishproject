@@ -2,7 +2,7 @@
 // (designs: Tal Fokus v2 = dark, Tal Fokus - Morgendis v2 = light). One quiet
 // loop; the start flow (user feedback 2026-07-11) is mode → riktning
 // (översätt only) → källa (repetera · blandat · tal · the flashcard sets) →
-// nivå (tal only) → Begynd. The Svelte island (Zen.svelte) only wires DOM,
+// Begynd. tal has no levels (round 4): one pool of 0–100. The Svelte island (Zen.svelte) only wires DOM,
 // audio and timers — every decision that can be unit-tested lives here (the
 // same split as drill-engine/drill-modes).
 //
@@ -12,13 +12,8 @@
 // session.ts buildQueue (due-only 'repetera' via match {kind:'all'}, free
 // 'blandat', scheduled set sessions via the set's own match).
 
-import {
-  NUMBER_LEVELS,
-  normalizeDigits,
-  numberToTokens,
-  type NumberKind,
-  type NumberLevelId,
-} from './danish-numbers.ts';
+import { normalizeDigits, numberToTokens, type NumberKind } from './danish-numbers.ts';
+import { planClips, type NumberAudioManifest } from './number-audio.ts';
 import {
   DRILL_SESSIONS,
   subConfigOf,
@@ -37,11 +32,23 @@ export type ZenMode = 'lyssna' | 'översätt';
 /** Riktning (översätt only): which side is SHOWN → which side is typed.
  *  For tal, sv-da means "ser siffror · skriver danska" and vice versa. */
 export type ZenDirection = 'sv-da' | 'da-sv';
-export type ZenStep = 'mode' | 'direction' | 'source' | 'level' | 'begin';
+export type ZenStep = 'mode' | 'direction' | 'source' | 'begin';
 
 export const MODE_IDS: readonly ZenMode[] = ['lyssna', 'översätt'];
 export const DIRECTION_IDS: readonly ZenDirection[] = ['sv-da', 'da-sv'];
-export const LEVEL_IDS: readonly NumberLevelId[] = NUMBER_LEVELS.map((l) => l.id);
+/** tal is ONE pool: 0–100 (user decision round 4 — no levels, no stora tal). */
+export const TAL_MAX = 100;
+export const ALL_TAL: readonly number[] = Object.freeze(
+  Array.from({ length: TAL_MAX + 1 }, (_, v) => v),
+);
+
+/** The 0–100 values every clip of which is committed — lyssna's pool. Grows
+ *  automatically as recordings land (real recordings only, never TTS; a
+ *  value with any missing atom is never drawn, so nothing goes silent). */
+export function playableTal(manifest: NumberAudioManifest | null): number[] {
+  if (!manifest) return [];
+  return ALL_TAL.filter((v) => planClips(numberToTokens(v), manifest) !== null);
+}
 /** Fixed källa ids; sets are appended as `set:<group.id>`. */
 export const SOURCE_REPETERA = 'repetera';
 export const SOURCE_BLANDAT = 'blandat';
@@ -70,11 +77,11 @@ export function setForSource(source: string | null, sets: ZenSet[]): ZenSet | nu
   return sets.find((s) => s.id === id) ?? null;
 }
 
-/** Everything the source/level steps gate on at runtime. */
+/** Everything the source step gates on at runtime. */
 export interface ZenContext {
-  /** Which number levels have FULL clip coverage (a partial level would go
-   *  silent mid-session — real recordings only, never TTS). */
-  coverage: Record<NumberLevelId, boolean>;
+  /** The 0–100 values lyssna can compose from committed clips (playableTal).
+   *  Empty → tal is hidden in lyssna; översätt never needs clips. */
+  talPlayable: readonly number[];
   /** Anything due for the flow's direction — gates 'repetera'. */
   hasDue: boolean;
   sets: ZenSet[];
@@ -88,8 +95,6 @@ export interface ZenFlow {
   direction: ZenDirection | null;
   /** 'repetera' | 'blandat' | 'tal' | `set:<id>`. */
   source: string | null;
-  /** tal's level pick. */
-  level: NumberLevelId | null;
 }
 
 export const initialFlow = (): ZenFlow => ({
@@ -97,14 +102,13 @@ export const initialFlow = (): ZenFlow => ({
   mode: null,
   direction: null,
   source: null,
-  level: null,
 });
 
-/** tal is offered in lyssna only while at least one level is fully clip-
+/** tal is offered in lyssna only while at least one number is fully clip-
  *  covered; in översätt it is always available. */
 export function talAvailable(flow: ZenFlow, ctx: ZenContext): boolean {
   if (flow.mode !== 'lyssna') return true;
-  return LEVEL_IDS.some((id) => ctx.coverage[id]);
+  return ctx.talPlayable.length > 0;
 }
 
 /** The ids the highlight can land on for the current step (arrow keys).
@@ -123,8 +127,6 @@ export function stepOptions(flow: ZenFlow, ctx: ZenContext): string[] {
       ids.push(...ctx.sets.map(setSourceId));
       return ids;
     }
-    case 'level':
-      return LEVEL_IDS.filter((id) => !(flow.mode === 'lyssna' && !ctx.coverage[id]));
     case 'begin':
       return [];
   }
@@ -146,11 +148,7 @@ export function pick(flow: ZenFlow, ctx: ZenContext, id: string): ZenFlow {
     }
     case 'source': {
       if (!stepOptions(flow, ctx).includes(id)) return flow;
-      return { ...flow, source: id, step: id === SOURCE_TAL ? 'level' : 'begin' };
-    }
-    case 'level': {
-      if (!stepOptions(flow, ctx).includes(id)) return flow;
-      return { ...flow, level: id as NumberLevelId, step: 'begin' };
+      return { ...flow, source: id, step: 'begin' };
     }
     case 'begin':
       return flow;
@@ -162,8 +160,6 @@ export function pick(flow: ZenFlow, ctx: ZenContext, id: string): ZenFlow {
 export function back(flow: ZenFlow): ZenFlow {
   switch (flow.step) {
     case 'begin':
-      return { ...flow, step: flow.source === SOURCE_TAL ? 'level' : 'source' };
-    case 'level':
       return { ...flow, step: 'source' };
     case 'source':
       return { ...flow, step: flow.mode === 'översätt' ? 'direction' : 'mode' };
@@ -182,9 +178,7 @@ export function highlightIndex(flow: ZenFlow, ctx: ZenContext): number {
       ? flow.mode
       : flow.step === 'direction'
         ? flow.direction
-        : flow.step === 'source'
-          ? flow.source
-          : flow.level;
+        : flow.source;
   const i = selected === null ? -1 : stepOptions(flow, ctx).indexOf(selected);
   return i >= 0 ? i : 0;
 }
@@ -202,8 +196,7 @@ export interface ReadyZenFlow extends ZenFlow {
 /** Begynd is allowed once every step the picks need has one. */
 export function isReady(flow: ZenFlow): flow is ReadyZenFlow {
   if (flow.mode === null || flow.source === null) return false;
-  if (flow.mode === 'översätt' && flow.direction === null) return false;
-  return flow.source !== SOURCE_TAL || flow.level !== null;
+  return !(flow.mode === 'översätt' && flow.direction === null);
 }
 
 /** repetera and set sessions grade (one dueness per card+skill, shared with
@@ -272,21 +265,21 @@ export type ZenItem =
 
 export type TalItem = Extract<ZenItem, { type: 'tal' }>;
 
-/** n draws from the number level's generator, rerolling up to 8× so the same
- *  value never lands twice in a row (small pools like tiotal may still
- *  repeat later in the session — design parity). */
-export function buildNumberSession(level: NumberLevelId, n: number, rng: Rng): ZenItem[] {
-  const lvl = NUMBER_LEVELS.find((l) => l.id === level);
-  if (!lvl) throw new RangeError(`unknown number level: ${level}`);
+/** n uniform draws from the given value pool (ALL_TAL for översätt, the
+ *  clip-playable subset for lyssna), rerolling up to 8× so the same value
+ *  never lands twice in a row (tiny pools may still repeat later). */
+export function buildNumberSession(pool: readonly number[], n: number, rng: Rng): ZenItem[] {
+  if (pool.length === 0) throw new RangeError('empty tal pool');
+  const draw = (): number => pool[Math.floor(rng() * pool.length)] ?? 0;
   const items: ZenItem[] = [];
   let prev: number | null = null;
   for (let i = 0; i < n; i++) {
-    let item = lvl.gen(rng);
-    for (let tries = 0; tries < 8 && prev !== null && item.value === prev; tries++) {
-      item = lvl.gen(rng);
+    let value = draw();
+    for (let tries = 0; tries < 8 && prev !== null && value === prev; tries++) {
+      value = draw();
     }
-    prev = item.value;
-    items.push({ type: 'tal', ...item });
+    prev = value;
+    items.push({ type: 'tal', value, tokens: numberToTokens(value), kind: 'number' });
   }
   return items;
 }
@@ -427,7 +420,6 @@ export interface ZenPrefs {
   mode: ZenMode | null;
   direction: ZenDirection | null;
   source: string | null;
-  level: NumberLevelId | null;
 }
 
 /** Parse a stored prefs blob; anything unknown or malformed becomes null so
@@ -435,7 +427,7 @@ export interface ZenPrefs {
  *  are shape-checked here and existence-checked against the live set list at
  *  pick time (stepOptions filters them). */
 export function parsePrefs(raw: string | null): ZenPrefs {
-  const none: ZenPrefs = { mode: null, direction: null, source: null, level: null };
+  const none: ZenPrefs = { mode: null, direction: null, source: null };
   if (raw === null) return none;
   let data: unknown;
   try {
@@ -456,6 +448,5 @@ export function parsePrefs(raw: string | null): ZenPrefs {
     mode: valid(MODE_IDS, o.mode),
     direction: valid(DIRECTION_IDS, o.direction),
     source,
-    level: valid(LEVEL_IDS, o.level),
   };
 }
