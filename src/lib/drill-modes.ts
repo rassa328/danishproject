@@ -75,6 +75,9 @@ export interface DrillBuildDeps {
   tag?: string | null;
   /** Study-group descriptor; {kind:'all'} = due-only, most-overdue-first. */
   match?: GroupMatch | null;
+  /** Free practice (buildQueue semantics): everything eligible, shuffled, no
+   *  SRS filtering — zen's 'blandat' source. Callers then skip SRS writes. */
+  free?: boolean;
   size: number;
   numberLevel?: NumberLevelId;
   /** When given, an unplayable number level yields no items (UI gates too). */
@@ -144,6 +147,7 @@ function buildWordCards(
     now: deps.now,
     limits: deps.limits,
     ...(deps.rng !== undefined ? { rng: deps.rng } : {}),
+    ...(deps.free !== undefined ? { free: deps.free } : {}),
   });
   return queue.slice(0, deps.size);
 }

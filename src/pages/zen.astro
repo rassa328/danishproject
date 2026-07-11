@@ -1,0 +1,29 @@
+---
+import FocusLayout from '../layouts/FocusLayout.astro';
+import Zen from '../components/Zen.svelte';
+import manifest from '../data/number-audio.json';
+import { allCards } from '../lib/decks.ts';
+import { UI } from '../lib/strings.ts';
+
+// The zen practice presentation (designs: Tal Fokus v2 dark / Morgendis v2
+// light) — one full-screen loop over ord (starter deck as props, praksis
+// fetched lazily) and tal (clip-composed numbers; lyssna levels gated on
+// full clip coverage — real recordings only, never TTS). client:load: the
+// island IS the page.
+---
+
+<FocusLayout title={UI.zen.title} description={UI.zen.description}>
+  <h1 class="vh">{UI.zen.title}</h1>
+  <Zen client:load cards={allCards} manifest={manifest} />
+</FocusLayout>
+
+<style>
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>

@@ -23,6 +23,7 @@ export const UI = {
     wordlist: 'Ordlista',
     write: 'Skriv',
     numbers: 'Tal',
+    zen: 'Zen',
   },
 
   home: {
@@ -203,6 +204,63 @@ export const UI = {
       noLevels:
         'Sifferdiktatet spelar bara riktiga inspelningar — ingen talsyntes — och klippen är inte inspelade ännu. Titta in igen snart.',
     },
+  },
+
+  // /zen — the full-screen "Fokus" practice presentation (designs: Tal Fokus
+  // v2 = dark, Tal Fokus - Morgendis v2 = light). One quiet loop over BOTH
+  // subjects (ord & tal). Lower-case labels are deliberate — the screen is
+  // typography, not chrome; 'Begynd' is Danish on purpose (the one Danish
+  // word in the UI).
+  zen: {
+    title: 'Zen',
+    description:
+      'Öva i fokusläge — lyssna eller översätt, ord eller tal, ett i taget utan något runtomkring.',
+    subjects: {
+      ord: { label: 'ord', sub: 'ditt ordförråd' },
+      tal: { label: 'tal', sub: 'siffror · årtal · priser' },
+    },
+    modes: { lyssna: 'lyssna', översätt: 'översätt' },
+    modeSubs: {
+      ord: { lyssna: 'hör danska · skriv danska', översätt: 'se · översätt' },
+      tal: { lyssna: 'hör danska · skriv siffror', översätt: 'se · översätt' },
+    },
+    langHeading: 'visas på',
+    langs: { danska: 'danska', svenska: 'svenska' },
+    langSubs: {
+      ord: { danska: 'ser danska · skriver svenska', svenska: 'ser svenska · skriver danska' },
+      tal: { danska: 'ser danska · skriver siffror', svenska: 'ser siffror · skriver danska' },
+    },
+    levels: {
+      '0-20': '0–20',
+      'tiotal': 'tiotal',
+      '0-99': '0–99',
+      'stora-tal': 'stora tal',
+    },
+    wordSources: { repetera: 'repetera', blandat: 'blandat' },
+    missingNote: 'saknar inspelningar',
+    noDueNote: 'inget förfallet',
+    freeNote: 'utan schema',
+    begin: 'Begynd',
+    back: 'tillbaka',
+    enterKey: 'enter',
+    escKey: 'esc',
+    keyHintPick: 'pilar väljer · enter',
+    keyHintBegin: 'enter börjar',
+    runHintListen: 'r spelar igen · esc paus',
+    runHintListenOrd: 'enter spelar igen · esc paus',
+    runHint: 'esc paus',
+    saveError: 'kunde inte spara framsteg',
+    audioBlockedHint: 'klicka på glöden för ljud',
+    replayTitle: 'spela igen',
+    youWrote: 'du skrev',
+    inputDigits: 'Skriv talet med siffror',
+    inputDanish: 'Skriv på danska',
+    inputSwedish: 'Skriv på svenska',
+    done: (n: number, subject: string) => `${n} ${subject}. Vi ses i morgon.`,
+    resume: 'fortsätt',
+    quit: 'avsluta',
+    year: (y: number) => `år ${y}`,
+    kronor: (v: number) => `${v} kronor`,
   },
 
   wordlist: {

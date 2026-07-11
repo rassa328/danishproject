@@ -1,0 +1,48 @@
+---
+// Chrome-less shell for full-viewport take-over pages (/zen): the same head
+// as BaseLayout but no nav, skip-link or footer — the island owns the screen.
+import '../styles/global.css';
+import { withBase } from '../lib/url.ts';
+import { UI } from '../lib/strings.ts';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
+---
+
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
+    <meta name="generator" content={Astro.generator} />
+    {description && <meta name="description" content={description} />}
+    <title>{fullTitle}</title>
+  </head>
+  <body>
+    <main id="main">
+      <slot />
+    </main>
+    <style>
+      /* Match the island's fixed palettes (Morgendis light / Fokus dark) so
+         there is no background flash before hydration, and no main gutter. */
+      body {
+        background: #f7f5f1;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #18140f;
+        }
+      }
+      main {
+        max-width: none;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+  </body>
+</html>

@@ -10,6 +10,7 @@ const links = [
   { href: withBase('ordlista'), label: UI.nav.wordlist, match: 'prefix' as const },
   { href: withBase('skriv'), label: UI.nav.write, match: 'prefix' as const },
   { href: withBase('tal'), label: UI.nav.numbers, match: 'prefix' as const },
+  { href: withBase('zen'), label: UI.nav.zen, match: 'prefix' as const },
 ];
 const norm = (href: string) => href.replace(/\/$/, '');
 const isActive = (l: (typeof links)[number]) =>
