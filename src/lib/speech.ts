@@ -167,6 +167,14 @@ export async function speak(
   }
 }
 
+/** Stop the current clip/TTS and cancel any in-flight speak() (it resolves
+ *  'cancelled' instead of starting late). For surfaces with a hard silence
+ *  point — zen's pause/quit — where superseding via a new speak() is wrong. */
+export function stopSpeech(): void {
+  speakSeq++;
+  stopCurrent();
+}
+
 /** Warm the browser cache for a clip that will play soon (the drill preloads
  *  the next card's audio while the current card is active). Best-effort
  *  fire-and-forget: no handle is kept, playback still goes through speak().

@@ -6,9 +6,14 @@
   // never TTS for numbers); ord items/grading/audio come from the DRILL_MODES
   // registry, and 'repetera' sessions write the same SRS records the
   // flashcards read — 'blandat' is free practice and never grades.
-  import { onDestroy, onMount } from 'svelte';
+  //
+  // Transition rule (review-hardened): while a stage fade is running
+  // (stageOpacity === 0) every user intent — keys, option clicks, Begynd —
+  // is ignored. That single gate makes begin/advance/quit non-reentrant and
+  // keeps the flow from being edited under a pending phase swap.
+  import { onDestroy, onMount, tick } from 'svelte';
   import { Store } from '../lib/storage.ts';
-  import { preloadClip, speak } from '../lib/speech.ts';
+  import { preloadClip, speak, stopSpeech } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import type { Card } from '../lib/vocab.ts';
   import type { SrsView } from '../lib/session.ts';
@@ -16,12 +21,6 @@
   import { recordOutcome } from '../lib/drill-srs.ts';
   import { remapWithCaret } from '../lib/char-map.ts';
   import { getAudioContext } from '../lib/webaudio.ts';
-  import {
-    createNumberAudioPlayer,
-    levelAvailable,
-    type NumberAudioManifest,
-    type NumberAudioPlayer,
-  } from '../lib/number-audio.ts';
   import {
     anyDue,
     back as flowBack,
@@ -48,6 +47,12 @@
     type ZenItem,
     type ZenReveal,
   } from '../lib/zen.ts';
+  import {
+    createNumberAudioPlayer,
+    levelAvailable,
+    type NumberAudioManifest,
+    type NumberAudioPlayer,
+  } from '../lib/number-audio.ts';
   import { UI } from '../lib/strings.ts';
 
   const T = UI.zen;
@@ -67,7 +72,7 @@
     dannebrogCross?: boolean;
     /** How long the reveal stays before auto-advancing (on top of the fade). */
     holdMs?: number;
-    /** Items per session. */
+    /** Items per session (word sessions may build shorter — small due backlog). */
     sessionLength?: number;
   } = $props();
 
@@ -78,36 +83,55 @@
 
   let phase = $state<'start' | 'run' | 'done'>('start');
   let flow = $state<ZenFlow>(initialFlow());
-  let hi = $state(0);
+  /** The flow that BUILT the running session — the run loop reads this, never
+   *  the live flow, so no start-screen state can leak into grading. */
+  let sessionFlow = $state<ZenFlow | null>(null);
+  /** Highlight, tracked BY ID: async gate changes (the praksis fetch enabling
+   *  'repetera') may insert/remove options, and an index would silently
+   *  retarget the selection under the user's Enter. */
+  let hot = $state<string | null>(null);
   let paused = $state(false);
   let items = $state<ZenItem[]>([]);
   let idx = $state(0);
   let typed = $state('');
   let reveal = $state<ZenReveal | null>(null);
   let stageOpacity = $state(1);
-  // Playback needed a gesture ('blocked') or a composed clip failed to load
-  // ('missing'); both recover the same way — clicking the glow retries inside
-  // a gesture (number-audio evicts failed buffers, so the retry re-fetches).
+  // Playback needed a gesture ('blocked'), a clip failed ('missing') or no
+  // voice/clip could sound at all ('none'); all recover the same way —
+  // clicking the glow retries inside a fresh gesture.
   let audioNeedsClick = $state(false);
+  // A word prompt fell back to talsyntes — disclose it (repo convention).
+  let ttsHeard = $state(false);
   let saveWarning = $state(false);
+  let deckFailed = $state(false);
   let ready = $state(false);
   let store = $state<Store | undefined>();
   let knownCards = $state<Card[]>(cards);
+  let rootEl = $state<HTMLElement>();
   let inputEl = $state<HTMLInputElement>();
+  let resumeBtn = $state<HTMLButtonElement>();
+  let doneBackBtn = $state<HTMLButtonElement>();
 
-  const isListen = $derived(flow.mode === 'lyssna');
-  const kind = $derived(inputKind(flow));
+  /** Live flow on the start screen, the session snapshot everywhere else. */
+  const activeFlow = $derived(phase === 'start' ? flow : (sessionFlow ?? flow));
+  const isListen = $derived(activeFlow.mode === 'lyssna');
+  const kind = $derived(inputKind(activeFlow));
   const current = $derived(phase === 'run' ? items[idx] : undefined);
   const gates = $derived.by<ZenGates>(() => {
     const dir = ready ? wordDirection(flow) : null;
     const s = store;
+    // Dictation only ever queues clip-backed cards — dueness must look at the
+    // same pool, or 'repetera' could gate open onto an empty session.
+    const pool =
+      wordModeId(flow) === 'da-dictation' ? knownCards.filter((c) => !!c.audio) : knownCards;
     return {
       coverage,
-      hasDue: dir !== null && s !== undefined && anyDue(knownCards, s, dir, new Date()),
+      hasDue: dir !== null && s !== undefined && anyDue(pool, s, dir, new Date()),
     };
   });
   const options = $derived(stepOptions(flow, gates));
-  const hotId = $derived(options[hi]);
+  /** hot, validated against the CURRENT options — never silently remapped. */
+  const hotId = $derived(hot !== null && options.includes(hot) ? hot : null);
   const sourceRows = $derived.by(() => {
     if (flow.subject === 'tal') {
       return LEVEL_IDS.map((id) => ({
@@ -121,7 +145,14 @@
       id: id as string,
       label: T.wordSources[id],
       disabled: id === 'repetera' && !gates.hasDue,
-      note: id === 'repetera' && !gates.hasDue ? T.noDueNote : id === 'blandat' ? T.freeNote : '',
+      note:
+        id === 'repetera' && !gates.hasDue
+          ? T.noDueNote
+          : id === 'blandat'
+            ? deckFailed
+              ? T.starterOnlyNote
+              : T.freeNote
+            : '',
     }));
   });
   const summaryText = $derived(
@@ -136,12 +167,16 @@
       .filter(Boolean)
       .join(' · '),
   );
-  const prompt = $derived(current ? zenPrompt(current, flow) : null);
+  const prompt = $derived(current ? zenPrompt(current, activeFlow) : null);
   const runHint = $derived.by(() => {
     if (saveWarning) return T.saveError;
     if (audioNeedsClick && isListen && !reveal) return T.audioBlockedHint;
-    if (isListen) return flow.subject === 'tal' ? T.runHintListen : T.runHintListenOrd;
-    return T.runHint;
+    const base = isListen
+      ? activeFlow.subject === 'tal'
+        ? T.runHintListen
+        : T.runHintListenOrd
+      : T.runHint;
+    return ttsHeard && isListen ? `${T.ttsNote} · ${base}` : base;
   });
 
   let player: NumberAudioPlayer | undefined;
@@ -156,36 +191,59 @@
     timers.forEach(clearTimeout);
     timers = [];
   }
+  /** A stage fade is in flight — user intents are ignored until it lands. */
+  const inTransition = () => stageOpacity === 0;
 
   function focusInput() {
     inputEl?.focus();
   }
+  /** Move DOM focus to the highlighted option (or Begynd on the last step)
+   *  so keyboard focus, the visual highlight and the screen reader all track
+   *  ONE cursor. */
+  function focusHot() {
+    void tick().then(() => {
+      const target =
+        rootEl?.querySelector<HTMLButtonElement>('button.hot') ??
+        rootEl?.querySelector<HTMLButtonElement>('button.begin');
+      target?.focus();
+    });
+  }
 
   // ---- start flow ----------------------------------------------------------
+  function syncHot() {
+    hot = stepOptions(flow, gates)[highlightIndex(flow, gates)] ?? null;
+  }
   function moveHi(delta: number) {
-    if (options.length > 0) hi = wrapIndex(hi, delta, options.length);
+    if (options.length === 0) return;
+    const at = hotId !== null ? options.indexOf(hotId) : -1;
+    hot = options[at === -1 ? 0 : wrapIndex(at, delta, options.length)] ?? null;
+    focusHot();
   }
   function pickId(id: string) {
+    if (inTransition()) return;
     const next = flowPick(flow, gates, id);
     if (next === flow) return;
     flow = next;
-    hi = highlightIndex(flow, gates);
+    syncHot();
+    focusHot();
     // Picking 'ord' signals intent — warm the praksis deck while the user
     // walks the remaining steps (cached; begin() awaits the same promise).
     if (id === 'ord') void ensureWordDeck();
   }
   function stepBack() {
+    if (inTransition()) return;
     const prev = flowBack(flow);
     if (prev === flow) return;
     flow = prev;
-    hi = highlightIndex(flow, gates);
+    syncHot();
+    focusHot();
   }
   function stepForward() {
     if (flow.step === 'begin') {
       void begin();
       return;
     }
-    if (hotId) pickId(hotId);
+    if (hotId !== null) pickId(hotId);
   }
 
   function savePrefs() {
@@ -211,13 +269,16 @@
       const cached = praksisCache();
       if (cached) {
         if (knownCards.length === cards.length) knownCards = [...cards, ...cached];
+        deckFailed = false;
         return;
       }
       try {
         const praksis = await fetchPraksis();
         knownCards = [...cards, ...praksis];
+        deckFailed = false;
       } catch {
-        // Starter-only, silently — and allow a later Begynd to retry.
+        // Starter-only: say so on the source step, and let a later Begynd retry.
+        deckFailed = true;
         deckPromise = null;
       }
     })();
@@ -226,26 +287,27 @@
 
   // ---- session -------------------------------------------------------------
   async function begin() {
-    if (!isReady(flow)) return;
+    if (inTransition() || !isReady(flow)) return;
     // Resume the shared AudioContext inside the Begynd gesture — one resume
     // unlocks every composed clip that follows.
     void getAudioContext()
       ?.resume()
       .catch(() => undefined);
     savePrefs();
+    const built = { ...flow };
     const fadeStart = Date.now();
     stageOpacity = 0; // the fade masks a praksis fetch still in flight
-    let built: ZenItem[] = [];
-    if (flow.subject === 'tal' && flow.level) {
-      built = buildNumberSession(flow.level, sessionLength, Math.random);
-    } else if (flow.wordSource) {
+    let session: ZenItem[] = [];
+    if (built.subject === 'tal' && built.level) {
+      session = buildNumberSession(built.level, sessionLength, Math.random);
+    } else if (built.wordSource) {
       await ensureWordDeck();
-      const modeId = wordModeId(flow);
+      const modeId = wordModeId(built);
       const s = store;
       if (modeId) {
-        built = buildWordSession({
+        session = buildWordSession({
           modeId,
-          source: flow.wordSource,
+          source: built.wordSource,
           cards: knownCards,
           srs: s ?? noSrs,
           now: new Date(),
@@ -254,26 +316,28 @@
         });
       }
     }
-    if (built.length === 0) {
+    if (session.length === 0) {
       // 'repetera' raced to empty (graded elsewhere meanwhile) — surface the
       // source step again; the gates now reflect reality.
       flow = { ...flow, step: 'source', wordSource: null };
-      hi = highlightIndex(flow, gates);
+      syncHot();
       stageOpacity = 1;
       return;
     }
-    preloadItem(built[0]);
+    sessionFlow = built;
+    preloadItem(session[0]);
     const swapIn = Math.max(0, 500 - (Date.now() - fadeStart));
     delay(() => {
-      items = built;
+      items = session;
       idx = 0;
       typed = '';
       reveal = null;
       saveWarning = false;
+      ttsHeard = false;
       phase = 'run';
       delay(() => (stageOpacity = 1), 40);
       delay(focusInput, 120);
-      if (isListen) delay(() => void playCurrent(), 650);
+      if (built.mode === 'lyssna') delay(() => void playCurrent(), 650);
     }, swapIn);
   }
 
@@ -289,7 +353,7 @@
 
   async function playCurrent() {
     const zi = items[idx];
-    if (!zi || !isListen) return;
+    if (!zi || !isListen || reveal) return;
     if (zi.type === 'tal') {
       if (!player) return;
       const out = await player.play(zi.tokens);
@@ -299,10 +363,12 @@
       const a = zi.item.audio;
       const out = await speak(a.text, a.url ? { audioUrl: withBase(a.url) } : {});
       if (out === 'cancelled') return;
-      audioNeedsClick = out === 'blocked';
+      audioNeedsClick = out === 'blocked' || out === 'none';
+      ttsHeard = out === 'tts';
     }
   }
   function replay() {
+    if (inTransition()) return;
     if (!reveal) void playCurrent();
   }
 
@@ -315,10 +381,14 @@
     const a = zi.item.audio;
     void speak(a.text, a.url ? { audioUrl: withBase(a.url) } : {});
   }
+  function stopAllAudio() {
+    player?.stop();
+    stopSpeech();
+  }
 
   // ---- run loop --------------------------------------------------------------
   function submitOrAdvance() {
-    if (phase !== 'run') return;
+    if (phase !== 'run' || inTransition()) return;
     if (reveal) {
       advance();
       return;
@@ -330,20 +400,27 @@
       if (isListen) replay();
       return;
     }
-    player?.stop();
-    const correct = gradeZen(typed, zi, flow);
+    stopAllAudio();
+    const correct = gradeZen(typed, zi, activeFlow);
     // One SRS write per graded attempt — 'repetera' only ('blandat' is free
-    // practice, same contract as the flashcards' "Öva fritt").
-    const dir = wordDirection(flow);
+    // practice, same contract as the flashcards' "Öva fritt"). Reads the
+    // session snapshot: the live flow cannot re-label a free session.
+    const dir = wordDirection(activeFlow);
     const s = store;
     if (
       zi.type === 'ord' &&
-      flow.wordSource === 'repetera' &&
+      activeFlow.wordSource === 'repetera' &&
       zi.item.sourceCardId &&
       dir &&
       s
     ) {
-      const result = recordOutcome(s, zi.item.sourceCardId, dir, correct ? 'correct' : 'wrong', new Date());
+      const result = recordOutcome(
+        s,
+        zi.item.sourceCardId,
+        dir,
+        correct ? 'correct' : 'wrong',
+        new Date(),
+      );
       if (!result.ok) saveWarning = true;
     }
     reveal = zenReveal(zi, typed, correct);
@@ -355,14 +432,16 @@
   }
 
   function advance() {
-    if (!reveal) return;
+    if (!reveal || inTransition()) return;
     clearTimers();
+    stopSpeech(); // a reveal clip must not trail into the next item
     stageOpacity = 0;
     if (idx >= items.length - 1) {
       delay(() => {
         phase = 'done';
         reveal = null;
         delay(() => (stageOpacity = 1), 40);
+        void tick().then(() => doneBackBtn?.focus());
       }, 550);
       return;
     }
@@ -370,6 +449,7 @@
       idx += 1;
       typed = '';
       reveal = null;
+      ttsHeard = false;
       delay(() => (stageOpacity = 1), 40);
       delay(focusInput, 120);
       if (isListen) delay(() => void playCurrent(), 500);
@@ -377,9 +457,10 @@
   }
 
   function pause() {
-    player?.stop();
+    stopAllAudio();
     clearTimers();
     paused = true;
+    void tick().then(() => resumeBtn?.focus());
   }
   function resume() {
     paused = false;
@@ -393,28 +474,33 @@
     }
   }
   function quit() {
-    player?.stop();
+    stopAllAudio();
     clearTimers();
     paused = false;
     stageOpacity = 0;
     delay(() => {
       phase = 'start'; // flow stays on Begynd — Enter restarts, Esc adjusts
+      sessionFlow = null;
       reveal = null;
       typed = '';
       items = [];
       idx = 0;
       delay(() => (stageOpacity = 1), 40);
+      focusHot();
     }, 400);
   }
   function backToStart() {
+    if (inTransition()) return;
     stageOpacity = 0;
     delay(() => {
       phase = 'start';
+      sessionFlow = null;
       reveal = null;
       typed = '';
       items = [];
       idx = 0;
       delay(() => (stageOpacity = 1), 40);
+      focusHot();
     }, 550);
   }
 
@@ -422,6 +508,11 @@
   function onInput(e: Event) {
     const el = e.currentTarget as HTMLInputElement;
     if (kind === 'digits') {
+      // Never rewrite mid-IME-composition — that breaks the composition.
+      if ((e as InputEvent).isComposing) {
+        typed = el.value;
+        return;
+      }
       const cleaned = el.value.replace(/[^0-9\s]/gu, '');
       if (cleaned !== el.value) el.value = cleaned;
       typed = cleaned;
@@ -441,8 +532,11 @@
 
   // ---- keys ----------------------------------------------------------------
   function onKey(e: KeyboardEvent) {
-    // Never swallow browser/OS shortcuts (Cmd/Ctrl+R must stay a reload).
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // Never swallow browser/OS shortcuts (Cmd/Ctrl+R must stay a reload),
+    // IME composition commits, or Enter meant for a FOCUSED button (Tab
+    // users: the button's own activation must win over the global handler).
+    if (e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+    if (e.key === 'Enter' && (e.target as HTMLElement | null)?.tagName === 'BUTTON') return;
     if (paused) {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -453,6 +547,7 @@
       }
       return;
     }
+    if (inTransition()) return; // a fade is landing — ignore intents
     if (phase === 'start') {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -492,7 +587,7 @@
 
   /** Click anywhere on the run screen re-focuses the answer input. */
   function onRootClick() {
-    if (phase === 'run' && !paused) focusInput();
+    if (phase === 'run' && !paused && !inTransition()) focusInput();
   }
 
   onMount(() => {
@@ -509,19 +604,20 @@
     const prefs = parsePrefs(raw);
     flow = { ...flow, ...prefs };
     ready = true;
-    hi = highlightIndex(flow, gates);
+    syncHot();
     if (prefs.subject === 'ord') void ensureWordDeck();
   });
 
   onDestroy(() => {
     clearTimers();
     player?.stop();
+    stopSpeech();
   });
 </script>
 
 <svelte:window onkeydown={onKey} onclick={onRootClick} />
 
-<div class="zen">
+<div class="zen" bind:this={rootEl}>
   {#if dannebrogCross}
     <div class="cross-v" aria-hidden="true"></div>
     <div class="cross-h" aria-hidden="true"></div>
@@ -532,7 +628,13 @@
       {#if flow.step === 'subject'}
         <div class="opt-row rise">
           {#each ['ord', 'tal'] as const as id (id)}
-            <button type="button" class="opt" class:hot={hotId === id} onclick={() => pickId(id)}>
+            <button
+              type="button"
+              class="opt"
+              class:hot={hotId === id}
+              onclick={() => pickId(id)}
+              onfocus={() => (hot = id)}
+            >
               <span class="opt-label">{T.subjects[id].label}</span>
               <span class="opt-sub">{T.subjects[id].sub}</span>
             </button>
@@ -541,7 +643,13 @@
       {:else if flow.step === 'mode'}
         <div class="opt-row rise">
           {#each ['lyssna', 'översätt'] as const as id (id)}
-            <button type="button" class="opt" class:hot={hotId === id} onclick={() => pickId(id)}>
+            <button
+              type="button"
+              class="opt"
+              class:hot={hotId === id}
+              onclick={() => pickId(id)}
+              onfocus={() => (hot = id)}
+            >
               <span class="opt-label">{T.modes[id]}</span>
               <span class="opt-sub">{flow.subject ? T.modeSubs[flow.subject][id] : ''}</span>
             </button>
@@ -557,6 +665,7 @@
                 class="opt small"
                 class:hot={hotId === id}
                 onclick={() => pickId(id)}
+                onfocus={() => (hot = id)}
               >
                 <span class="opt-label">{T.langs[id]}</span>
                 <span class="opt-sub">{flow.subject ? T.langSubs[flow.subject][id] : ''}</span>
@@ -573,6 +682,7 @@
               class:hot={!row.disabled && hotId === row.id}
               disabled={row.disabled}
               onclick={() => pickId(row.id)}
+              onfocus={() => (hot = row.id)}
             >
               <span>{row.label}</span>
               {#if row.note}<span class="src-note">{row.note}</span>{/if}
@@ -606,8 +716,8 @@
       <div class="prompt-wrap">
         <div
           class="layer"
+          inert={reveal !== null}
           style:opacity={reveal ? 0 : 1}
-          style:pointer-events={reveal ? 'none' : 'auto'}
         >
           {#if current && prompt === null}
             <button
@@ -618,7 +728,9 @@
               onclick={replay}
             ></button>
           {:else if current && prompt}
-            <div class="prompt-text" lang={prompt.lang ?? undefined}>{prompt.text}</div>
+            <div class="prompt-text" lang={prompt.lang ?? undefined} aria-live="polite">
+              {prompt.text}
+            </div>
           {/if}
         </div>
         <div class="layer reveal-layer" style:opacity={reveal ? 1 : 0} aria-live="polite">
@@ -635,6 +747,7 @@
         oninput={onInput}
         lang={kind === 'danish' ? 'da' : undefined}
         inputmode={kind === 'digits' ? 'numeric' : 'text'}
+        pattern={kind === 'digits' ? '[0-9]*' : undefined}
         autocomplete="off"
         autocapitalize="none"
         autocorrect="off"
@@ -645,6 +758,13 @@
         style:opacity={reveal ? 0.18 : 1}
       />
 
+      <!-- Touch affordances: iOS numeric keypads lack a return key, and touch
+           users have no Esc — quiet buttons, coarse pointers only. -->
+      <div class="touch-row">
+        <button type="button" class="touch-btn" onclick={submitOrAdvance}>{T.submit}</button>
+        <button type="button" class="touch-btn" onclick={pause}>{T.pauseShort}</button>
+      </div>
+
       <div class="footer"><span class="key" role="status">{runHint}</span></div>
     </div>
   {/if}
@@ -652,9 +772,9 @@
   {#if phase === 'done'}
     <div class="stage done" style:opacity={stageOpacity}>
       <div class="done-text" role="status">
-        {T.done(sessionLength, flow.subject ? T.subjects[flow.subject].label : '')}
+        {T.done(items.length, activeFlow.subject ? T.subjects[activeFlow.subject].label : '')}
       </div>
-      <button type="button" class="back" onclick={backToStart}>
+      <button type="button" class="back" onclick={backToStart} bind:this={doneBackBtn}>
         <span class="back-word">{T.back}</span>
       </button>
     </div>
@@ -662,7 +782,7 @@
 
   {#if paused}
     <div class="pause">
-      <button type="button" class="pause-opt" onclick={resume}>
+      <button type="button" class="pause-opt" onclick={resume} bind:this={resumeBtn}>
         <span class="pause-label">{T.resume}</span>
         <span class="key">{T.enterKey}</span>
       </button>
@@ -678,14 +798,17 @@
 <style>
   /* Two design-fixed palettes, keyed to the viewer's scheme like the rest of
      the site: light = Tal Fokus - Morgendis v2 (warm paper, Dannebrog glow),
-     dark = Tal Fokus v2 (near-black, gold glow). */
+     dark = Tal Fokus v2 (near-black, gold glow). --z-dim/--z-sub are lifted
+     from the .dc values just enough to clear contrast floors (dim ≥3:1 for
+     option labels, sub ≥4.5:1 for answer-carrying text) — a deliberate,
+     minimal a11y deviation; the decorative key hints keep the design tones. */
   .zen {
     --z-bg: #f7f5f1;
     --z-text: #26211b;
-    --z-dim: #b9b2a6;
+    --z-dim: #89816f;
     --z-key: #c4bdb0;
     --z-faint: #d0cabe;
-    --z-sub: #8f887c;
+    --z-sub: #746c5e;
     --z-ok: #41724b;
     --z-glow: #c8102e;
     --z-glow-box: 0 0 22px 6px rgba(200, 16, 46, 0.25);
@@ -706,10 +829,10 @@
     .zen {
       --z-bg: #18140f;
       --z-text: #ece5d8;
-      --z-dim: #57503f;
+      --z-dim: #80775f;
       --z-key: #4c4536;
       --z-faint: #3a3428;
-      --z-sub: #6b6455;
+      --z-sub: #948a72;
       --z-ok: #a9c8a2;
       --z-glow: #c9a86a;
       --z-glow-box: 0 0 18px 4px rgba(201, 168, 106, 0.18);
@@ -799,10 +922,11 @@
   }
   .src.hot { color: var(--z-text); }
   .src:disabled { color: var(--z-faint); cursor: default; }
-  .src-note { font-size: 10px; color: var(--z-faint); }
+  .src-note { font-size: 10px; color: var(--z-sub); }
+  .src:disabled .src-note { color: var(--z-sub); }
 
   .begin-step { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-  .summary { font-size: 12px; letter-spacing: 0.06em; color: var(--z-dim); }
+  .summary { font-size: 12px; letter-spacing: 0.06em; color: var(--z-sub); }
   .begin { display: flex; align-items: baseline; gap: 14px; }
   .begin-word { font-size: 34px; font-weight: 200; letter-spacing: 0.07em; }
 
@@ -882,6 +1006,20 @@
   }
   .answer.wide { width: min(60vw, 440px); }
   .answer:focus { border-bottom-color: var(--z-input-line-focus); }
+
+  /* Touch-only controls (no Esc, iOS numeric keypad has no return key). */
+  .touch-row { display: none; }
+  @media (pointer: coarse) {
+    .touch-row { display: flex; gap: 32px; }
+    .touch-btn {
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--z-dim);
+      border-bottom: 1px solid var(--z-back-line);
+      padding: 6px 2px;
+      min-height: var(--min-tap);
+    }
+  }
 
   /* ---- done ---- */
   .stage.done { gap: 30px; transition-duration: 600ms; }

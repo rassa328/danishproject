@@ -21,6 +21,7 @@ import {
   wrapIndex,
   zenPrompt,
   zenReveal,
+  type TalItem,
   type ZenFlow,
   type ZenGates,
   type ZenItem,
@@ -282,26 +283,26 @@ describe('sessions', () => {
 });
 
 describe('grading', () => {
-  const n27: ZenItem = { type: 'tal', value: 27, tokens: numberToTokens(27), kind: 'number' };
-  const y1994: ZenItem = { type: 'tal', value: 1994, tokens: yearToTokens(1994), kind: 'year' };
-  const kr42: ZenItem = { type: 'tal', value: 42, tokens: priceToTokens(42), kind: 'price' };
+  const n27: TalItem = { type: 'tal', value: 27, tokens: numberToTokens(27), kind: 'number' };
+  const y1994: TalItem = { type: 'tal', value: 1994, tokens: yearToTokens(1994), kind: 'year' };
+  const kr42: TalItem = { type: 'tal', value: 42, tokens: priceToTokens(42), kind: 'price' };
   const talListen = flow({ subject: 'tal', mode: 'lyssna' });
   const talWrite = flow({ subject: 'tal', mode: 'översätt', dispLang: 'svenska' });
 
   it('grades digits on exact value, ignoring thousands spaces', () => {
-    expect(gradeDigits('27', n27 as never)).toBe(true);
-    expect(gradeDigits(' 2 7 ', n27 as never)).toBe(true);
-    expect(gradeDigits('1 994', y1994 as never)).toBe(true);
-    expect(gradeDigits('28', n27 as never)).toBe(false);
-    expect(gradeDigits('', n27 as never)).toBe(false);
-    expect(gradeDigits('   ', n27 as never)).toBe(false);
+    expect(gradeDigits('27', n27)).toBe(true);
+    expect(gradeDigits(' 2 7 ', n27)).toBe(true);
+    expect(gradeDigits('1 994', y1994)).toBe(true);
+    expect(gradeDigits('28', n27)).toBe(false);
+    expect(gradeDigits('', n27)).toBe(false);
+    expect(gradeDigits('   ', n27)).toBe(false);
   });
 
   it('grades Danish number readings ignoring case and ALL spacing', () => {
-    expect(gradeDanishNumber('syvogtyve', n27 as never)).toBe(true);
-    expect(gradeDanishNumber('  Syv og Tyve ', n27 as never)).toBe(true);
-    expect(gradeDanishNumber('seksogtyve', n27 as never)).toBe(false);
-    expect(gradeDanishNumber('', n27 as never)).toBe(false);
+    expect(gradeDanishNumber('syvogtyve', n27)).toBe(true);
+    expect(gradeDanishNumber('  Syv og Tyve ', n27)).toBe(true);
+    expect(gradeDanishNumber('seksogtyve', n27)).toBe(false);
+    expect(gradeDanishNumber('', n27)).toBe(false);
   });
 
   it('accepts both year readings and bare-cardinal prices', () => {
@@ -328,9 +329,9 @@ describe('grading', () => {
 });
 
 describe('display', () => {
-  const y1994: ZenItem = { type: 'tal', value: 1994, tokens: yearToTokens(1994), kind: 'year' };
-  const kr42: ZenItem = { type: 'tal', value: 42, tokens: priceToTokens(42), kind: 'price' };
-  const n7: ZenItem = { type: 'tal', value: 7, tokens: numberToTokens(7), kind: 'number' };
+  const y1994: TalItem = { type: 'tal', value: 1994, tokens: yearToTokens(1994), kind: 'year' };
+  const kr42: TalItem = { type: 'tal', value: 42, tokens: priceToTokens(42), kind: 'price' };
+  const n7: TalItem = { type: 'tal', value: 7, tokens: numberToTokens(7), kind: 'number' };
   const ordItem: ZenItem = {
     type: 'ord',
     item: {
@@ -375,9 +376,9 @@ describe('display', () => {
   });
 
   it('labels reveal digits, with kr only for prices', () => {
-    expect(digitsLabel(n7 as never)).toBe('7');
-    expect(digitsLabel(y1994 as never)).toBe('1994');
-    expect(digitsLabel(kr42 as never)).toBe('42 kr');
+    expect(digitsLabel(n7)).toBe('7');
+    expect(digitsLabel(y1994)).toBe('1994');
+    expect(digitsLabel(kr42)).toBe('42 kr');
   });
 });
 

@@ -287,7 +287,7 @@ const fold = (s: string): string =>
 /** Spacing between number tokens is never graded: 'syv og tyve' ≡ 'syvogtyve'. */
 const squash = (s: string): string => s.replaceAll(' ', '');
 
-type TalItem = Extract<ZenItem, { type: 'tal' }>;
+export type TalItem = Extract<ZenItem, { type: 'tal' }>;
 
 /** Digit answers: thousands spaces stripped, then an exact value match. */
 export function gradeDigits(typed: string, item: TalItem): boolean {
