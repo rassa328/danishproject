@@ -79,11 +79,25 @@ export interface SessionQueue {
   filteredReason: FilteredReason;
 }
 
+/** The subset of a pool a direction can actually present: cloze needs an
+ *  accepted form present in the example, listen-sentence needs committed
+ *  sentence audio + text; every other direction takes the pool as-is. Also
+ *  used by the reviewer to gate mode radios per group (cheap pure call). */
+export function eligibleForDirection(pool: Card[], direction: Direction): Card[] {
+  if (direction === 'cloze') return pool.filter((c) => clozeSentence(c) !== null);
+  if (direction === 'listen-sentence')
+    return pool.filter((c) => !!c.audioExample && !!c.exampleDa);
+  return pool;
+}
+
 /** Assemble a review session:
  *  - pool = tag match (wins when set) else group match, else empty;
- *  - direction eligibility: cloze needs an accepted form present in the example,
- *    listen-sentence needs committed sentence audio;
- *  - free practice returns everything eligible, shuffled (no SRS filtering);
+ *  - direction eligibility via eligibleForDirection();
+ *  - free practice returns everything eligible, shuffled (no SRS filtering) —
+ *    this wins even for the 'all' group (free roaming over the whole union);
+ *  - a group match of kind 'all' (the "Att repetera (alla)" picker entry) is
+ *    DUE-ONLY: no new cards, and the queue is presented most-overdue-first
+ *    (unshuffled) so the cross-deck backlog drains oldest-first;
  *  - scheduled: due records (not suspended) capped MOST-OVERDUE first so badly
  *    overdue cards aren't starved, plus fresh cards under the shared daily new
  *    budget, introduced most-useful-first (rank, then B1 before B2). */
@@ -106,12 +120,7 @@ export function buildQueue(opts: {
     : match
       ? cards.filter((c) => matchesGroup(c, match))
       : [];
-  const dc =
-    direction === 'cloze'
-      ? pool.filter((c) => clozeSentence(c) !== null)
-      : direction === 'listen-sentence'
-        ? pool.filter((c) => !!c.audioExample && !!c.exampleDa)
-        : pool;
+  const dc = eligibleForDirection(pool, direction);
   const filteredReason: FilteredReason =
     dc.length === 0 && pool.length > 0
       ? direction === 'cloze'
@@ -132,6 +141,10 @@ export function buildQueue(opts: {
   }
   // Cap the due backlog MOST-OVERDUE first (not deck order).
   due.sort((a, b) => a.due - b.due);
+  const dueCards = due.slice(0, limits.reviewPerDay).map((x) => x.c);
+  // The 'all' group is a pure backlog-clearing session: only due records, kept
+  // in most-overdue-first order (a tag deep-link restores normal scheduling).
+  if (!tag && match?.kind === 'all') return { queue: dueCards, pool, filteredReason };
   // Introduce new cards most-useful-first: by frequency rank when present, else
   // by level (B1 before B2 — a coarse frequency proxy). The queue is shuffled
   // below, so this changes WHICH fresh cards enter, not their order.
@@ -141,9 +154,30 @@ export function buildQueue(opts: {
     if (ra !== rb) return ra - rb;
     return a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1;
   });
-  const dueCards = due.slice(0, limits.reviewPerDay).map((x) => x.c);
   const newBudget = Math.max(0, limits.newPerDay - srs.newCardsToday(now));
   return { queue: shuffle([...dueCards, ...fresh.slice(0, newBudget)], rng), pool, filteredReason };
+}
+
+/** Per-direction due counts over a pool (suspended and direction-ineligible
+ *  cards excluded), in the given direction order, zero-count entries dropped.
+ *  Drives the done screen's "3 kvar i Lyssna (mening)" next-step links. */
+export function dueByDirection(opts: {
+  pool: Card[];
+  directions: readonly Direction[];
+  srs: SrsView;
+  now: Date;
+}): { direction: Direction; count: number }[] {
+  const { pool, directions, srs, now } = opts;
+  const out: { direction: Direction; count: number }[] = [];
+  for (const d of directions) {
+    let count = 0;
+    for (const c of eligibleForDirection(pool, d)) {
+      const r = srs.getRecord(c.id, d);
+      if (r && !r.suspended && new Date(r.due) <= now) count++;
+    }
+    if (count > 0) out.push({ direction: d, count });
+  }
+  return out;
 }
 
 // ---- recognize-mode distractors ----

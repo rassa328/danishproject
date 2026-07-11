@@ -24,6 +24,15 @@
   let retentionPct = $state(Math.round(s.requestRetention * 100));
   let defaultMode = $state<Direction>((s.directions?.[0] as Direction) ?? 'produce');
   let saved = $state(false);
+  // Leech-suspended words (refreshed when the panel opens, so mid-session
+  // suspensions show up without a reload).
+  let suspendedCount = $state(store.suspendedCount());
+
+  function resumeAll() {
+    store.resumeAllSuspended();
+    suspendedCount = store.suspendedCount();
+    onSaved();
+  }
 
   const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
   // A cleared/invalid number input binds as NaN; fall back to the current value
@@ -43,7 +52,7 @@
   }
 </script>
 
-<details class="settings">
+<details class="settings" ontoggle={() => (suspendedCount = store.suspendedCount())}>
   <summary>{T.summary}</summary>
   <div class="grid">
     <label>{T.newPerDay}
@@ -65,6 +74,12 @@
   </div>
   <button type="button" onclick={save}>{T.save}</button>
   {#if saved}<span class="ok" role="status">{T.saved}</span>{/if}
+  {#if suspendedCount > 0}
+    <p class="suspended" title={T.suspendedHint}>
+      {T.suspendedCount(suspendedCount)}
+      <button type="button" onclick={resumeAll}>{T.resumeAll}</button>
+    </p>
+  {/if}
 </details>
 
 <style>
@@ -76,4 +91,6 @@
   .grid select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); max-width: 14rem; }
   .hint { color: var(--muted); }
   .ok { color: var(--correct); margin-left: var(--sp-3); }
+  .suspended { margin: var(--sp-3) 0 0; }
+  .suspended button { margin-left: var(--sp-2); }
 </style>

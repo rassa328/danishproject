@@ -53,6 +53,16 @@ export const UI = {
     showAllDecks: 'Visa alla kortlekar',
     listenPrompt: '🎧 Lyssna och skriv ordet du hör:',
     replay: 'Spela igen',
+    // Autoplay was blocked (no user gesture yet) — an explicit play button
+    // starts the clip and the session continues normally.
+    play: '▶ Spela',
+    noPromptAudio: 'Ingen dansk röst i den här webbläsaren — ljudet kan inte spelas.',
+    skipCard: 'Hoppa över (utan att gradera)',
+    slowReplay: 'Långsammare (0,75×)',
+    // Same wording as SpeakButton's fallback marker, for the plain replay control.
+    ttsHint: 'talsyntes',
+    ttsHintTitle:
+      'Spelades med webbläsarens talsyntes — inspelat klipp saknas eller kunde inte spelas',
     hear: 'Lyssna',
     placeholder: 'Skriv på danska…',
     inputLabel: 'Skriv ordet på danska',
@@ -65,9 +75,19 @@ export const UI = {
     saveError: 'Kunde inte spara framsteg — din lagring kan vara full.',
     doneTitle: 'Klart för nu!',
     doneEmpty: 'Inga kort att repetera just nu',
+    dueAllEmpty: 'Inget förfallet just nu — allt är repeterat.',
+    stillDue: (n: number, mode: string) => `${n} kvar i ${mode} →`,
+    toLessons: 'Läs en lektion →',
     repeatDue: 'Repetera förfallna',
     practiceFree: 'Öva fritt (påverkar inte schemat)',
     noTagMatch: 'Inga kort matchar den här taggen.',
+    // Mode-radio gating: why a direction is disabled for the selected deck.
+    clozeUnavailable: 'Inga kort med exempelmeningar i den här kortleken.',
+    listenSentenceUnavailable: 'Inga kort med inspelade meningar i den här kortleken.',
+    // Subtle keyboard hints (title attributes on the controls).
+    chooseKeyTitle: (n: number) => `Tangent ${n}`,
+    revealKeyTitle: 'Enter eller mellanslag',
+    replayKeyTitle: 'Tangent R',
     confirmRestart: 'Du är mitt i en omgång. Vill du börja om?',
     progress: (i: number, total: number, remaining: number) => `Kort ${i} av ${total} · ${remaining} kvar`,
     reviewedCount: (n: number) => `Du repeterade ${n} kort.`,
@@ -125,6 +145,9 @@ export const UI = {
     defaultModeHint: 'Som svensk tjänar du mest på att lyssna och säga, inte skriva.',
     save: 'Spara',
     saved: 'Sparat — gäller nästa omgång.',
+    suspendedCount: (n: number) => `Pausade ord: ${n}`,
+    suspendedHint: 'Pausade automatiskt efter många misslyckanden. Bra/Lätt i fri övning återupptar ett ord.',
+    resumeAll: 'Återuppta alla',
   },
 
   // Daily output missions + input log — the bridge from the app to real Danish.

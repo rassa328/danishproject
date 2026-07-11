@@ -56,6 +56,9 @@ export interface Settings {
   leechThreshold: number;
   ttsEnabled: boolean;
   theme: 'light' | 'dark' | 'system';
+  /** Last picked reviewer study group ('' = never picked — the reviewer applies
+   *  its own default). Additive: old blobs get '' via the getSettings merge. */
+  selectedGroupId: string;
 }
 
 /** A logged piece of real Danish input (TV, podcast, conversation…) plus any
@@ -120,6 +123,7 @@ export const DEFAULT_SETTINGS: Settings = {
   leechThreshold: 8,
   ttsEnabled: true,
   theme: 'system',
+  selectedGroupId: '',
 };
 
 function defaultSrsRoot(): SrsRoot {
@@ -302,6 +306,12 @@ export class Store {
     const card = prev ? toFsrs(prev) : newCard(now);
     const next = review(card, grade, now, root.settings.requestRetention);
     const rec = fromFsrs(next, prev);
+    // A suspended (leeched) card the learner now recalls well — Good or Easy,
+    // e.g. in free practice — resumes scheduled review. `leech` stays for
+    // history; only the suspension is lifted.
+    if (prev?.suspended && (grade === Rating.Good || grade === Rating.Easy)) {
+      delete rec.suspended;
+    }
     if (grade === Rating.Again && rec.lapses >= root.settings.leechThreshold) {
       rec.leech = true;
       rec.suspended = true;
@@ -355,6 +365,28 @@ export class Store {
     const ids = new Set<string>();
     for (const k of Object.keys(srs)) ids.add(k.split('::')[0] as string);
     return ids.size;
+  }
+
+  /** Distinct vocab cards with at least one suspended (leeched) record —
+   *  drives the "Pausade ord: N" line in settings. */
+  suspendedCount(): number {
+    const srs = this.loadSrs().srs;
+    const ids = new Set<string>();
+    for (const k of Object.keys(srs)) {
+      if (srs[k]?.suspended) ids.add(k.split('::')[0] as string);
+    }
+    return ids.size;
+  }
+
+  /** Lift every suspension (all cards re-enter scheduled review). The `leech`
+   *  flags are kept as history. */
+  resumeAllSuspended(): WriteResult {
+    const root = this.loadSrs();
+    for (const k of Object.keys(root.srs)) {
+      const r = root.srs[k];
+      if (r?.suspended) delete r.suspended;
+    }
+    return this.saveSrs();
   }
 
   /** Count of records due now (+ new cards are handled by the reviewer queue). */

@@ -46,6 +46,7 @@ export const themeLabel = (key: string): string => THEME_LABELS[key] ?? humanize
 // ---- reviewer study-group descriptors ----
 
 export type GroupMatch =
+  | { kind: 'all' } // every card (starter ∪ praksis) — the due-only review group
   | { kind: 'decks'; decks: string[] } // a starter theme = a set of deck names
   | { kind: 'praksisAll' } // the whole 5000-word deck (frequency-ordered)
   | { kind: 'praksisPos'; pos: Pos }; // one part-of-speech slice of the deck
@@ -53,6 +54,7 @@ export type GroupMatch =
 export interface StudyGroup {
   id: string;
   label: string;
+  /** '' = top-level picker entry (rendered before the optgroups). */
   optgroup: string;
   match: GroupMatch;
 }
@@ -60,11 +62,19 @@ export interface StudyGroup {
 export const OPTGROUP_STARTER = 'Utvalda';
 export const OPTGROUP_PRAKSIS = 'Praksis (5000 ord)';
 
+/** The synthetic first picker entry: everything DUE across all decks for the
+ *  current direction, no new cards (buildQueue treats kind 'all' as due-only).
+ *  Exported so deep links (?group=due-all) can be built outside the reviewer. */
+export const DUE_ALL_GROUP_ID = 'due-all';
+const DUE_ALL_LABEL = 'Att repetera (alla)';
+
 const isPraksis = (c: Card): boolean => c.deck.startsWith('praksis-');
 
 /** Does a card belong to a study group? Pure, derives everything from `deck`. */
 export function matchesGroup(c: Card, m: GroupMatch): boolean {
   switch (m.kind) {
+    case 'all':
+      return true;
     case 'decks':
       return m.decks.includes(c.deck);
     case 'praksisAll':
@@ -86,8 +96,10 @@ const POS_LABEL: Record<Pos, string> = {
 // Pickable POS order (most useful for speaking first).
 const POS_ORDER: Pos[] = ['verb', 'noun', 'adj', 'adv', 'phrase', 'num', 'other'];
 
-/** Build the reviewer's picker: starter themes (biggest first) + the praksis
- *  frequency pool and its non-empty part-of-speech slices. */
+/** Build the reviewer's picker: the due-only "everything" group FIRST (top
+ *  level, no optgroup), then starter themes (biggest first, labels carry counts
+ *  like the praksis ones) + the praksis frequency pool and its non-empty
+ *  part-of-speech slices. */
 export function buildStudyGroups(starter: Card[], praksis: Card[]): StudyGroup[] {
   // Starter themes, biggest first (mirrors ordlista ordering).
   const byTheme = new Map<string, { decks: Set<string>; count: number }>();
@@ -102,7 +114,7 @@ export function buildStudyGroups(starter: Card[], praksis: Card[]): StudyGroup[]
     .sort((a, b) => b[1].count - a[1].count || themeLabel(a[0]).localeCompare(themeLabel(b[0]), 'sv'))
     .map(([key, e]) => ({
       id: `starter:${key}`,
-      label: themeLabel(key),
+      label: `${themeLabel(key)} (${e.count})`,
       optgroup: OPTGROUP_STARTER,
       match: { kind: 'decks', decks: [...e.decks] },
     }));
@@ -125,5 +137,11 @@ export function buildStudyGroups(starter: Card[], praksis: Card[]): StudyGroup[]
     })),
   ];
 
-  return [...starterGroups, ...praksisGroups];
+  const dueAll: StudyGroup = {
+    id: DUE_ALL_GROUP_ID,
+    label: DUE_ALL_LABEL,
+    optgroup: '',
+    match: { kind: 'all' },
+  };
+  return [dueAll, ...starterGroups, ...praksisGroups];
 }

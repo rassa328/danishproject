@@ -7,18 +7,30 @@
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
-  import type { StudyGroup } from '../lib/deck-groups.ts';
+  import { DUE_ALL_GROUP_ID, type StudyGroup } from '../lib/deck-groups.ts';
   import {
     buildQueue,
     buildChoices,
     matchTyped,
     matchCloze,
     reinsertAgain,
+    eligibleForDirection,
+    dueByDirection,
     type FilteredReason,
   } from '../lib/session.ts';
   import { UI } from '../lib/strings.ts';
 
   const T = UI.flashcards;
+  // Mode labels for the done screen's "N kvar i {läge}" links (same mapping as
+  // SettingsPanel's default-mode picker).
+  const MODE_LABEL: Record<Direction, string> = {
+    produce: T.write,
+    recognize: T.recognize,
+    listen: T.listen,
+    'listen-sentence': T.listenSentence,
+    speak: T.speak,
+    cloze: T.cloze,
+  };
 
   // `cards` is the full studyable set (starter ∪ praksis), serialized once.
   // `groups` are lightweight picker descriptors that resolve to subsets of it.
@@ -50,10 +62,13 @@
   // Self-graded modes have no typed answer (speak: rate your pronunciation;
   // listen-sentence: rate your comprehension) — skip the verdict, never floor.
   const selfGraded = $derived(direction === 'speak' || direction === 'listen-sentence');
-  // Optgroup headers for the picker, in first-seen order.
-  const optgroups = $derived([...new Set(groups.map((g) => g.optgroup))]);
+  // Optgroup headers for the picker, in first-seen order. '' marks top-level
+  // entries (the due-all group), rendered before the optgroups.
+  const optgroups = $derived([...new Set(groups.map((g) => g.optgroup).filter(Boolean))]);
   // The fill-in-the-blank for 'cloze': { text, answer } or null.
   const clozeText = $derived(direction === 'cloze' && current ? clozeSentence(current) : null);
+  // Is the due-only cross-deck group selected? (Drives its plain empty state.)
+  const isDueAll = $derived(groups.find((g) => g.id === selectedGroupId)?.match.kind === 'all');
 
   // Session state set by start(), so we don't re-filter the 5000+ card union
   // on every render/card: the raw active pool (distractor source), its size (for
@@ -63,9 +78,26 @@
   let poolSize = $state(0);
   let filteredReason = $state<FilteredReason>('none');
   let speakSilent = $state(false);
+  // Outcome of the PROMPT audio in listen modes: 'none' shows a Swedish notice
+  // (+ skip), 'blocked' swaps in an explicit play button (autoplay denied until
+  // a user gesture), 'tts' shows the talsyntes marker by the replay control.
+  let promptAudioState = $state<'ok' | 'tts' | 'none' | 'blocked'>('ok');
   // Times each card re-entered THIS session after an Again grade (caps the
   // reinsertAgain loop). Session-only — never persisted, not rendered.
   let againReentries = new Map<string, number>();
+
+  // Mode gating: eligible-card counts for the filtered directions, recomputed
+  // when the pool changes (group/tag change) — cheap pure session.ts calls.
+  // A 0 disables the radio so deck×mode dead ends are visible BEFORE selection.
+  const clozeCount = $derived(eligibleForDirection(sessionPool, 'cloze').length);
+  const listenSentenceCount = $derived(
+    eligibleForDirection(sessionPool, 'listen-sentence').length,
+  );
+  // Done screen: what's still due in this pool, per direction (one-click switch).
+  const doneDue = $derived.by(() => {
+    if (!ready || phase !== 'done') return [];
+    return dueByDirection({ pool: sessionPool, directions: DIRECTIONS, srs: store, now: now() });
+  });
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -76,6 +108,8 @@
     }
     prevGroup = selectedGroupId;
     prevDirection = direction;
+    // Remember the picked deck so the next visit resumes it (not always Vardag).
+    store.setSettings({ selectedGroupId });
     start();
   }
 
@@ -114,16 +148,55 @@
     });
   }
 
-  function playPrompt() {
-    if (direction === 'listen' && current) {
-      void speak(current.danish, current.audio ? { audioUrl: withBase(current.audio) } : {});
-    } else if (direction === 'listen-sentence' && current?.exampleDa) {
+  /** Play the prompt audio in listen modes and CAPTURE the outcome so silence
+   *  is never mute-with-no-message: 'none'/'blocked'/'tts' drive visible UI
+   *  (see promptAudioState); 'cancelled' (superseded by a newer play) is
+   *  ignored. `rate` enables the slow replay (0.75×). */
+  async function playPrompt(rate?: number) {
+    if (!current) return;
+    let text: string | undefined;
+    let audio: string | undefined;
+    if (direction === 'listen') {
+      text = current.danish;
+      audio = current.audio;
+    } else if (direction === 'listen-sentence' && current.exampleDa) {
       // Play the example SENTENCE (text hidden) — connected-speech listening.
-      void speak(
-        current.exampleDa,
-        current.audioExample ? { audioUrl: withBase(current.audioExample) } : {},
-      );
+      text = current.exampleDa;
+      audio = current.audioExample;
     }
+    if (!text) return;
+    const opts: { audioUrl?: string; rate?: number } = {};
+    if (audio) opts.audioUrl = withBase(audio);
+    if (rate !== undefined) opts.rate = rate;
+    const outcome = await speak(text, opts);
+    if (outcome === 'cancelled') return;
+    promptAudioState = outcome === 'audio' ? 'ok' : outcome;
+  }
+
+  // Slow replay of the revealed word in 'speak' mode (compare against your own
+  // pronunciation at 0.75×).
+  function playSlowWord() {
+    if (!current) return;
+    const opts: { audioUrl?: string; rate: number } = { rate: 0.75 };
+    if (current.audio) opts.audioUrl = withBase(current.audio);
+    void speak(current.danish, opts);
+  }
+
+  /** Advance past an unplayable listen card WITHOUT grading it (no forced
+   *  "Again" on a card the learner never got to hear). */
+  function skipCard() {
+    if (phase !== 'prompt') return;
+    idx++;
+    typed = '';
+    if (idx >= queue.length) phase = 'done';
+    else afterPrompt();
+  }
+
+  /** Done-screen next step: jump straight into another direction's backlog. */
+  function switchDirection(d: Direction) {
+    direction = d;
+    prevDirection = d;
+    start();
   }
 
   // 'listen-sentence': audio already played on prompt; reveal just shows the text
@@ -181,10 +254,14 @@
 
   function afterPrompt() {
     speakSilent = false;
+    promptAudioState = 'ok';
     refreshChoices();
     tick().then(() => {
-      input?.focus();
-      playPrompt();
+      // Non-typed modes have no input — focus the container so the keyboard
+      // shortcuts (digits, Enter/Space, R) work without a pointer trip.
+      if (input) input.focus();
+      else container?.focus();
+      void playPrompt();
     });
   }
 
@@ -236,10 +313,41 @@
   }
 
   function onContainerKey(e: KeyboardEvent) {
-    if (phase !== 'revealed') return;
-    if (e.key >= '1' && e.key <= '4') {
+    // Never hijack typing: the answer input handles its own keys (Enter submits
+    // via the form; letters/digits are text).
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    if (phase === 'revealed') {
+      if (e.key >= '1' && e.key <= '4') {
+        e.preventDefault();
+        grade(Number(e.key) as ReviewGrade);
+      }
+      return;
+    }
+    if (phase !== 'prompt') return;
+    // Prompt phase (desktop): digits pick a recognize choice, Enter/Space
+    // reveals in the self-graded modes, R replays the prompt audio.
+    if (direction === 'recognize' && e.key >= '1' && e.key <= '4') {
+      const c = choices[Number(e.key) - 1];
+      if (c !== undefined) {
+        e.preventDefault();
+        choose(c);
+      }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (direction === 'speak') {
+        e.preventDefault();
+        revealSpeak();
+      } else if (direction === 'listen-sentence') {
+        e.preventDefault();
+        revealSelf();
+      }
+      return;
+    }
+    if ((direction === 'listen' || direction === 'listen-sentence') && e.key.toLowerCase() === 'r') {
       e.preventDefault();
-      grade(Number(e.key) as ReviewGrade);
+      void playPrompt();
     }
   }
 
@@ -275,6 +383,21 @@
     if (urlDir && (DIRECTIONS as string[]).includes(urlDir)) direction = urlDir as Direction;
     else if (defDir && (DIRECTIONS as string[]).includes(defDir)) direction = defDir;
     prevDirection = direction;
+    // Initial group: a valid ?group= deep-link wins (?tag has priority anyway —
+    // buildQueue ignores the group while a tag is set); else the saved pick; a
+    // saved id that no longer exists falls back to the due-all group. With no
+    // history at all: due-all when a backlog exists, else the first real deck
+    // (a fresh browser still gets its immediate new-card session).
+    const urlGroup = params.get('group');
+    const savedGroup = store.getSettings().selectedGroupId;
+    const validGroup = (id: string | null): id is string =>
+      !!id && groups.some((g) => g.id === id);
+    if (validGroup(urlGroup)) selectedGroupId = urlGroup;
+    else if (validGroup(savedGroup)) selectedGroupId = savedGroup;
+    else if (savedGroup) selectedGroupId = DUE_ALL_GROUP_ID;
+    else if (store.dueCount() > 0) selectedGroupId = DUE_ALL_GROUP_ID;
+    else selectedGroupId = groups.find((g) => g.match.kind !== 'all')?.id ?? groups[0]?.id ?? '';
+    prevGroup = selectedGroupId;
     ready = true;
     start();
   });
@@ -294,6 +417,7 @@
       <label>
         {T.deckLabel}
         <select bind:value={selectedGroupId} onchange={() => restartGuarded(() => (selectedGroupId = prevGroup))}>
+          {#each groups.filter((g) => !g.optgroup) as g}<option value={g.id}>{g.label}</option>{/each}
           {#each optgroups as og}
             <optgroup label={og}>
               {#each groups.filter((g) => g.optgroup === og) as g}<option value={g.id}>{g.label}</option>{/each}
@@ -308,9 +432,12 @@
       <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
       <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
       <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
-      <label><input type="radio" name="dir" value="listen-sentence" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listenSentence}</label>
+      <!-- Cloze/listen-sentence are gated per deck: a pool with 0 eligible cards
+           disables the radio (with the reason as a tooltip) instead of letting
+           the learner discover an empty session after selecting. -->
+      <label title={listenSentenceCount === 0 ? T.listenSentenceUnavailable : undefined}><input type="radio" name="dir" value="listen-sentence" bind:group={direction} disabled={listenSentenceCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listenSentence}{#if listenSentenceCount === 0}&nbsp;(0){/if}</label>
       <label><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.speak}</label>
-      <label><input type="radio" name="dir" value="cloze" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.cloze}</label>
+      <label title={clozeCount === 0 ? T.clozeUnavailable : undefined}><input type="radio" name="dir" value="cloze" bind:group={direction} disabled={clozeCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.cloze}{#if clozeCount === 0}&nbsp;(0){/if}</label>
     </fieldset>
   </div>
 
@@ -337,10 +464,21 @@
           <h2 tabindex="-1">{T.doneEmpty}</h2>
           <p>{T.noListenCards}</p>
         {:else}
-          <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : T.doneEmpty}</h2>
+          <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : isDueAll ? T.dueAllEmpty : T.doneEmpty}</h2>
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
           <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
           {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
+          <!-- Contextual next steps: what's still due in this deck per mode
+               (one click switches), or a calm pointer to the lessons. -->
+          {#if doneDue.length > 0}
+            <ul class="next-due">
+              {#each doneDue as d (d.direction)}
+                <li><button type="button" class="linklike" onclick={() => switchDirection(d.direction)}>{T.stillDue(d.count, MODE_LABEL[d.direction])}</button></li>
+              {/each}
+            </ul>
+          {:else}
+            <p class="started"><a href={withBase('lektioner')}>{T.toLessons}</a></p>
+          {/if}
           <div class="grades">
             <button onclick={() => start(false)}>{T.repeatDue}</button>
             <button onclick={() => start(true)}>{T.practiceFree}</button>
@@ -350,17 +488,29 @@
     {:else if current}
       <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
 
-      {#if direction === 'listen'}
-        <p class="prompt-listen">{T.listenPrompt}</p>
-        <SpeakButton text={current.danish} audio={current.audio} label={T.replay} />
-      {:else if direction === 'listen-sentence'}
-        <p class="prompt-listen">{T.listenSentencePrompt}</p>
+      {#if direction === 'listen' || direction === 'listen-sentence'}
+        <p class="prompt-listen">{direction === 'listen' ? T.listenPrompt : T.listenSentencePrompt}</p>
         <!-- Plain replay (not SpeakButton): its aria-label must NOT contain the
-             sentence text, or a screen reader would announce the answer before
-             the learner attempts to comprehend the audio. -->
-        <button type="button" class="replay" onclick={playPrompt} aria-label={T.replay}>
-          <span aria-hidden="true">🔊</span> {T.replay}
-        </button>
+             Danish text, or a screen reader would announce the answer before
+             the learner attempts the exercise. -->
+        {#if promptAudioState === 'none'}
+          <p class="hint" role="status">{T.noPromptAudio}</p>
+          {#if phase === 'prompt'}
+            <button type="button" onclick={skipCard}>{T.skipCard}</button>
+          {/if}
+        {:else if promptAudioState === 'blocked'}
+          <!-- Autoplay denied (no user gesture yet): an explicit play instead of
+               pretending the clip was heard. The click is the gesture. -->
+          <button type="button" class="replay" onclick={() => playPrompt()}>{T.play}</button>
+        {:else}
+          <button type="button" class="replay" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
+            <span aria-hidden="true">🔊</span> {T.replay}
+          </button>
+          {#if direction === 'listen-sentence'}
+            <button type="button" class="replay" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
+          {/if}
+          {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
+        {/if}
       {:else if direction === 'cloze'}
         <p class="prompt-listen">{T.clozePrompt}</p>
         <p class="prompt" lang="da">{clozeText?.text}</p>
@@ -373,18 +523,18 @@
       {#if phase === 'prompt'}
         {#if direction === 'recognize'}
           <div class="choices" role="group" aria-label={T.choosePrompt}>
-            {#each choices as c}
-              <button type="button" class="choice" lang="da" onclick={() => choose(c)}>{c}</button>
+            {#each choices as c, i}
+              <button type="button" class="choice" lang="da" title={T.chooseKeyTitle(i + 1)} onclick={() => choose(c)}>{c}</button>
             {/each}
           </div>
         {:else if direction === 'speak'}
           <p class="prompt-listen">{T.speakPrompt}</p>
           <div class="grades">
-            <button type="button" onclick={revealSpeak}>{T.speakReveal}</button>
+            <button type="button" title={T.revealKeyTitle} onclick={revealSpeak}>{T.speakReveal}</button>
           </div>
         {:else if direction === 'listen-sentence'}
           <div class="grades">
-            <button type="button" onclick={revealSelf}>{T.listenSentenceReveal}</button>
+            <button type="button" title={T.revealKeyTitle} onclick={revealSelf}>{T.listenSentenceReveal}</button>
           </div>
         {:else}
           <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -417,7 +567,7 @@
               {wasCorrect ? T.correct : T.incorrect}
             </p>
           {/if}
-          <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} /></p>
+          <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
           <p class="sv">{current.swedish}</p>
           {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
           {#if current.note}<p class="callout">{current.note}</p>{/if}
@@ -477,6 +627,11 @@
   .ex { color: var(--muted); margin: 0 0 var(--sp-2); }
   .grades { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
   .warning { color: var(--accent); margin-top: var(--sp-4); }
+  .replay + .replay { margin-left: var(--sp-2); }
+  .slow { font-size: var(--step--1); }
+  .tts-hint { color: var(--muted); font-size: var(--step--1); font-style: italic; margin-left: 0.35em; cursor: help; }
+  .next-due { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-1); justify-items: start; }
+  .linklike { background: none; border: none; padding: 0; font: inherit; font-size: var(--step--1); color: var(--accent); text-decoration: underline; cursor: pointer; }
   .backup { margin-top: var(--sp-6); color: var(--muted); font-size: var(--step--1); }
   .backup summary { cursor: pointer; }
   .backup button, .backup .import { margin-right: var(--sp-3); }

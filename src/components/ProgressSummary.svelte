@@ -4,7 +4,12 @@
   // gamification — just a quiet sense of progress.
   import { onMount } from 'svelte';
   import { Store } from '../lib/storage.ts';
+  import { DUE_ALL_GROUP_ID } from '../lib/deck-groups.ts';
+  import { withBase } from '../lib/url.ts';
   import { UI } from '../lib/strings.ts';
+
+  // One click from "N ord att repetera" straight into the cross-deck due queue.
+  const dueHref = withBase(`flashcards?group=${DUE_ALL_GROUP_ID}`);
 
   let { total }: { total: number } = $props();
 
@@ -26,7 +31,7 @@
   <p class="progress-summary">
     {UI.progress.words(started, total)}
     <span class="sep">·</span>
-    {due > 0 ? UI.progress.due(due) : UI.progress.dueNone}
+    {#if due > 0}<a href={dueHref}>{UI.progress.due(due)}</a>{:else}{UI.progress.dueNone}{/if}
     {#if streak > 0}<span class="sep">·</span>{UI.progress.streak(streak)}{/if}
   </p>
 {/if}

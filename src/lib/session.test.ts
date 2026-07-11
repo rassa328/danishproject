@@ -6,6 +6,8 @@ import {
   matchCloze,
   normalizeTyped,
   reinsertAgain,
+  eligibleForDirection,
+  dueByDirection,
   AGAIN_MAX_REENTRIES,
   type SrsView,
 } from './session.ts';
@@ -169,6 +171,116 @@ describe('buildQueue: pool selection + direction filters', () => {
     const empty = build([cards[1] as Card, cards[2] as Card], { direction: 'listen-sentence' });
     expect(empty.queue).toEqual([]);
     expect(empty.filteredReason).toBe('listen');
+  });
+});
+
+describe('buildQueue: due-all group (match kind "all")', () => {
+  // Cards across DIFFERENT decks — the 'all' match spans starter ∪ praksis.
+  const cards = [
+    card('s1', { deck: 'hverdag-b1' }),
+    card('s2', { deck: 'verber-b1' }),
+    card('p1', { deck: 'praksis-verber-b1' }),
+    card('p2', { deck: 'praksis-substantiver-b2' }),
+  ];
+
+  it('collects ONLY due records across all decks — never new cards', () => {
+    const srs = srsView({
+      's1::produce': rec(daysAgo(1)),
+      'p1::produce': rec(daysAgo(2)),
+      // s2, p2 are fresh — must NOT enter despite the new-card budget.
+    });
+    const { queue, pool } = build(cards, { match: { kind: 'all' }, srs });
+    expect(ids(pool)).toEqual(['s1', 's2', 'p1', 'p2']); // pool = everything
+    expect(ids(queue)).toEqual(['p1', 's1']); // due only, most-overdue first
+  });
+
+  it('presents the backlog most-overdue-first (unshuffled) and honors the due cap', () => {
+    const srs = srsView({
+      's1::produce': rec(daysAgo(1)),
+      's2::produce': rec(daysAgo(4)),
+      'p1::produce': rec(daysAgo(3)),
+      'p2::produce': rec(daysAgo(2)),
+    });
+    // rng () => 0 WOULD visibly permute via Fisher–Yates if a shuffle ran, so
+    // this asserts the due-all queue really is presented in overdue order.
+    const { queue } = build(cards, {
+      match: { kind: 'all' },
+      srs,
+      rng: () => 0,
+      limits: { newPerDay: 10, reviewPerDay: 3 },
+    });
+    expect(ids(queue)).toEqual(['s2', 'p1', 'p2']); // 4d, 3d, 2d; 1d capped out
+  });
+
+  it('skips suspended and not-yet-due records, and respects direction filters', () => {
+    const srs = srsView({
+      's1::produce': rec(daysAgo(2), { suspended: true }),
+      's2::produce': rec(new Date(T0.getTime() + 3_600_000)), // due in 1h
+      'p1::produce': rec(daysAgo(1)),
+      'p1::listen': rec(daysAgo(5)), // other direction — must not leak in
+    });
+    expect(ids(build(cards, { match: { kind: 'all' }, srs }).queue)).toEqual(['p1']);
+  });
+
+  it('free practice wins over due-only (roam the whole union, shuffled)', () => {
+    const srs = srsView({ 's1::produce': rec(daysAgo(1)) });
+    const { queue } = build(cards, { match: { kind: 'all' }, srs, free: true });
+    expect(ids(queue).sort()).toEqual(['p1', 'p2', 's1', 's2']);
+  });
+
+  it('a tag deep-link restores normal scheduling (new cards allowed again)', () => {
+    const tagged = [card('t1', { tags: ['greet'] }), card('t2', { tags: ['greet'] })];
+    const { queue } = build(tagged, { match: { kind: 'all' }, tag: 'greet' });
+    expect(queue).toHaveLength(2); // fresh cards enter under the daily budget
+  });
+});
+
+describe('eligibleForDirection', () => {
+  const cards = [
+    card('c1', { danish: 'løbe', exampleDa: 'Jeg kan lide at løbe.', audioExample: 'audio/a.mp3' }),
+    card('c2', { danish: 'hund', exampleDa: 'Katten sover.' }), // headword absent, no audio
+    card('c3', { danish: 'kat' }), // bare card
+  ];
+
+  it('filters per direction and passes everything else through', () => {
+    expect(ids(eligibleForDirection(cards, 'cloze'))).toEqual(['c1']);
+    expect(ids(eligibleForDirection(cards, 'listen-sentence'))).toEqual(['c1']);
+    for (const d of ['produce', 'recognize', 'listen', 'speak'] as const) {
+      expect(eligibleForDirection(cards, d)).toHaveLength(3);
+    }
+  });
+});
+
+describe('dueByDirection: done-screen split', () => {
+  it('counts due records per direction over the pool, dropping zero entries', () => {
+    const pool = [
+      card('c1', { exampleDa: 'c1 er her.', audioExample: 'audio/c1.mp3' }),
+      card('c2'),
+    ];
+    const srs = srsView({
+      'c1::produce': rec(daysAgo(1)),
+      'c2::produce': rec(daysAgo(2)),
+      'c1::listen-sentence': rec(daysAgo(1)),
+      'c2::listen-sentence': rec(daysAgo(1)), // ineligible (no example audio) — dropped
+      'c1::speak': rec(new Date(T0.getTime() + 3_600_000)), // not yet due
+      'c2::listen': rec(daysAgo(3), { suspended: true }), // suspended — dropped
+    });
+    const split = dueByDirection({
+      pool,
+      directions: ['produce', 'recognize', 'listen', 'listen-sentence', 'speak', 'cloze'],
+      srs,
+      now: T0,
+    });
+    expect(split).toEqual([
+      { direction: 'produce', count: 2 },
+      { direction: 'listen-sentence', count: 1 },
+    ]);
+  });
+
+  it('only counts cards inside the pool', () => {
+    const srs = srsView({ 'in::produce': rec(daysAgo(1)), 'out::produce': rec(daysAgo(1)) });
+    const split = dueByDirection({ pool: [card('in')], directions: ['produce'], srs, now: T0 });
+    expect(split).toEqual([{ direction: 'produce', count: 1 }]);
   });
 });
 

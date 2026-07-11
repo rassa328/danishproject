@@ -91,6 +91,71 @@ describe('Store: settings + grading', () => {
     expect(DIRECTIONS).toContain('listen-sentence');
     expect(DIRECTIONS.length).toBe(6);
   });
+
+  it('selectedGroupId persists, and older blobs without it read as "" (unset)', () => {
+    const kv = memoryKV();
+    new Store(kv).setSettings({ selectedGroupId: 'due-all' });
+    expect(new Store(kv).getSettings().selectedGroupId).toBe('due-all');
+    // A pre-existing blob saved before the field existed:
+    const old = memoryKV();
+    old.setItem(
+      'dansk4svensk:srs:v1',
+      JSON.stringify({ schemaVersion: 1, srs: {}, settings: { newPerDay: 5 } }),
+    );
+    const s = new Store(old).getSettings();
+    expect(s.selectedGroupId).toBe('');
+    expect(s.newPerDay).toBe(5); // rest of the settings untouched
+  });
+});
+
+describe('Store: leech suspension lifecycle', () => {
+  // leechThreshold 0 makes the FIRST Again grade suspend — no need to simulate
+  // eight real lapses.
+  const suspend = (s: Store, id: string, dir: 'produce' | 'listen' = 'produce') => {
+    s.setSettings({ leechThreshold: 0 });
+    s.grade(id, dir, Rating.Again, T0);
+  };
+
+  it('suspends + flags at the threshold, and Good RESUMES the card (leech kept)', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    suspend(s, 'v1');
+    expect(s.getRecord('v1', 'produce')?.suspended).toBe(true);
+    expect(s.getRecord('v1', 'produce')?.leech).toBe(true);
+    s.grade('v1', 'produce', Rating.Good, new Date(T0.getTime() + 60_000));
+    const rec = new Store(kv).getRecord('v1', 'produce'); // persisted, not just in-memory
+    expect(rec?.suspended).toBeUndefined();
+    expect(rec?.leech).toBe(true); // history stays
+  });
+
+  it('Easy also resumes; Hard and Again do NOT', () => {
+    const s = new Store(memoryKV());
+    suspend(s, 'v1');
+    s.grade('v1', 'produce', Rating.Hard, T0);
+    expect(s.getRecord('v1', 'produce')?.suspended).toBe(true);
+    s.grade('v1', 'produce', Rating.Easy, T0);
+    expect(s.getRecord('v1', 'produce')?.suspended).toBeUndefined();
+
+    const s2 = new Store(memoryKV());
+    suspend(s2, 'v2');
+    s2.setSettings({ leechThreshold: 99 }); // an Again must not resume either
+    s2.grade('v2', 'produce', Rating.Again, T0);
+    expect(s2.getRecord('v2', 'produce')?.suspended).toBe(true);
+  });
+
+  it('suspendedCount counts distinct WORDS; resumeAllSuspended lifts every suspension', () => {
+    const kv = memoryKV();
+    const s = new Store(kv);
+    suspend(s, 'v1', 'produce');
+    suspend(s, 'v1', 'listen'); // same word, second direction — still 1 word
+    suspend(s, 'v2', 'produce');
+    expect(s.suspendedCount()).toBe(2);
+    expect(s.resumeAllSuspended().ok).toBe(true);
+    expect(s.suspendedCount()).toBe(0);
+    const rec = new Store(kv).getRecord('v1', 'listen');
+    expect(rec?.suspended).toBeUndefined();
+    expect(rec?.leech).toBe(true); // resume-all also keeps history
+  });
 });
 
 describe('Store: resilience', () => {
