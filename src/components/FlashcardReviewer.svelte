@@ -1,13 +1,21 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import { Store, DIRECTIONS, type Direction } from '../lib/storage.ts';
-  import { clampForCorrectness, type ReviewGrade } from '../lib/srs.ts';
+  import { clampForCorrectness, Rating, type ReviewGrade } from '../lib/srs.ts';
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
-  import { matchAnswer, normalizeAnswer, clozeSentence, type Card } from '../lib/vocab.ts';
-  import { matchesGroup, type StudyGroup } from '../lib/deck-groups.ts';
+  import { clozeSentence, type Card } from '../lib/vocab.ts';
+  import type { StudyGroup } from '../lib/deck-groups.ts';
+  import {
+    buildQueue,
+    buildChoices,
+    matchTyped,
+    matchCloze,
+    reinsertAgain,
+    type FilteredReason,
+  } from '../lib/session.ts';
   import { UI } from '../lib/strings.ts';
 
   const T = UI.flashcards;
@@ -47,16 +55,17 @@
   // The fill-in-the-blank for 'cloze': { text, answer } or null.
   const clozeText = $derived(direction === 'cloze' && current ? clozeSentence(current) : null);
 
-  // Session state set by buildQueue, so we don't re-filter the 5000+ card union
+  // Session state set by start(), so we don't re-filter the 5000+ card union
   // on every render/card: the raw active pool (distractor source), its size (for
   // the empty-state message), and whether cloze was picked but has no eligible
   // cards. speakSilent flags a 'speak' reveal that produced no audio.
   let sessionPool = $state<Card[]>([]);
   let poolSize = $state(0);
-  // Why a filtered mode produced an empty queue: 'cloze' (no example sentences)
-  // or 'listen' (no sentence audio) — drives a clear done-screen message.
-  let filteredReason = $state<'none' | 'cloze' | 'listen'>('none');
+  let filteredReason = $state<FilteredReason>('none');
   let speakSilent = $state(false);
+  // Times each card re-entered THIS session after an Again grade (caps the
+  // reinsertAgain loop). Session-only — never persisted, not rendered.
+  let againReentries = new Map<string, number>();
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -70,87 +79,14 @@
     start();
   }
 
-  function shuffle<T>(a: T[]): T[] {
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j] as T, a[i] as T];
-    }
-    return a;
-  }
-
-  function pool(): Card[] {
-    if (tag) return cards.filter((c) => c.tags.includes(tag as string));
-    const g = groups.find((x) => x.id === selectedGroupId);
-    return g ? cards.filter((c) => matchesGroup(c, g.match)) : [];
-  }
-
-  function buildQueue(free: boolean): Card[] {
-    const raw = pool();
-    sessionPool = raw; // cached for distractors (avoid re-filtering per card)
-    poolSize = raw.length;
-    // Filtered modes: cloze needs the headword in the example; listen-sentence
-    // needs committed sentence audio.
-    const dc =
-      direction === 'cloze'
-        ? raw.filter((c) => clozeSentence(c) !== null)
-        : direction === 'listen-sentence'
-          ? raw.filter((c) => !!c.audioExample && !!c.exampleDa)
-          : raw;
-    filteredReason =
-      dc.length === 0 && raw.length > 0
-        ? direction === 'cloze'
-          ? 'cloze'
-          : direction === 'listen-sentence'
-            ? 'listen'
-            : 'none'
-        : 'none';
-    if (free) return shuffle([...dc]);
-    const settings = store.getSettings();
-    const due: { c: Card; due: number }[] = [];
-    const fresh: Card[] = [];
-    for (const c of dc) {
-      const r = store.getRecord(c.id, direction);
-      if (!r) fresh.push(c);
-      else if (!r.suspended && new Date(r.due) <= now()) due.push({ c, due: new Date(r.due).getTime() });
-    }
-    // Cap the due backlog MOST-OVERDUE first (not deck order), so badly overdue
-    // cards aren't starved when there are more due than the cap.
-    due.sort((a, b) => a.due - b.due);
-    // Introduce new cards most-useful-first: by frequency rank when present,
-    // else by level (B1 before B2 — a coarse frequency proxy). The queue is
-    // shuffled below, so this changes WHICH fresh cards enter, not their order.
-    fresh.sort((a, b) => {
-      const ra = a.rank ?? Infinity;
-      const rb = b.rank ?? Infinity;
-      if (ra !== rb) return ra - rb;
-      return a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1;
-    });
-    // Caps: reviewPerDay bounds the due backlog per session; newPerDay is a true
-    // DAILY budget (shared across directions) — subtract cards already introduced
-    // today so multiple sessions can't silently pile up review debt.
-    const dueCards = due.slice(0, settings.reviewPerDay).map((x) => x.c);
-    const newBudget = Math.max(0, settings.newPerDay - store.newCardsToday(now()));
-    return shuffle([...dueCards, ...fresh.slice(0, newBudget)]);
-  }
-
-  // Multiple-choice options for 'recognize' mode: the answer + 3 distractors.
-  // Distractors are drawn from the ACTIVE pool so they stay in-domain (a 5000-word
-  // "all" pool would otherwise pair an emotion word with a cycling-part); for a
-  // tiny pool we fall back to the whole set so options still fill. Same
-  // part-of-speech is preferred for plausibility. Rebuilt on each new card.
+  // Multiple-choice options for 'recognize' mode (see lib/session.ts for the
+  // distractor policy). Rebuilt on each new card.
   let choices = $state<string[]>([]);
-  function buildChoices() {
-    if (direction !== 'recognize' || !current) {
-      choices = [];
-      return;
-    }
-    const correct = current.danish;
-    const uniq = (cs: Card[]) => [...new Set(cs.map((c) => c.danish))].filter((d) => d !== correct);
-    const base = sessionPool.length >= 8 ? sessionPool : cards;
-    const samePos = shuffle(uniq(base.filter((c) => c.pos === current.pos)));
-    const anyPos = shuffle(uniq(base));
-    const distractors = [...new Set([...samePos, ...anyPos])].slice(0, 3);
-    choices = shuffle([correct, ...distractors]);
+  function refreshChoices() {
+    choices =
+      direction === 'recognize' && current
+        ? buildChoices({ card: current, pool: sessionPool, allCards: cards })
+        : [];
   }
 
   function choose(option: string) {
@@ -216,7 +152,25 @@
   }
 
   function start(free = false) {
-    queue = buildQueue(free);
+    // Scheduling lives in lib/session.ts (pure + unit-tested); the component
+    // just supplies the store, clock and current picker state. Store satisfies
+    // SrsView structurally; Settings carries the newPerDay/reviewPerDay limits.
+    const g = groups.find((x) => x.id === selectedGroupId);
+    const built = buildQueue({
+      cards,
+      tag,
+      match: g?.match ?? null,
+      direction,
+      free,
+      srs: store,
+      now: now(),
+      limits: store.getSettings(),
+    });
+    sessionPool = built.pool; // cached for distractors (avoid re-filtering per card)
+    poolSize = built.pool.length;
+    filteredReason = built.filteredReason;
+    againReentries = new Map();
+    queue = built.queue;
     idx = 0;
     reviewed = 0;
     typed = '';
@@ -227,7 +181,7 @@
 
   function afterPrompt() {
     speakSilent = false;
-    buildChoices();
+    refreshChoices();
     tick().then(() => {
       input?.focus();
       playPrompt();
@@ -237,11 +191,12 @@
   async function submit() {
     if (phase !== 'prompt' || !current) return;
     // Cloze requires the exact in-context form that was blanked (not just the
-    // lemma); other typed modes accept any accepted form.
+    // lemma); other typed modes accept any accepted form. Both tolerate edge
+    // punctuation ("løbe." for "løbe") but never fold æ/ø/å — see session.ts.
     wasCorrect =
       direction === 'cloze' && clozeText
-        ? normalizeAnswer(typed) === normalizeAnswer(clozeText.answer)
-        : matchAnswer(typed, current);
+        ? matchCloze(typed, clozeText.answer)
+        : matchTyped(typed, current);
     phase = 'revealed';
     await tick();
     container?.focus();
@@ -256,6 +211,17 @@
       const eff = selfGraded ? g : clampForCorrectness(g, wasCorrect);
       const { result } = store.grade(current.id, direction, eff, now());
       if (!result.ok) warning = T.saveError;
+      // A failed card re-enters this session a few positions ahead (capped per
+      // card), so FSRS's minutes-scale relearning step gets a real same-session
+      // retrieval attempt instead of waiting a day.
+      if (eff === Rating.Again) {
+        const n = againReentries.get(current.id) ?? 0;
+        const requeued = reinsertAgain(queue, idx, n);
+        if (requeued) {
+          againReentries.set(current.id, n + 1);
+          queue = requeued;
+        }
+      }
       reviewed++;
       idx++;
       typed = '';
