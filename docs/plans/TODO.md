@@ -17,8 +17,13 @@ Recorded 2026-07-11 from a live review of the deployed site.
   this. Add a short always-visible note (or first-session hint) under the
   grade row, roughly: "Igen = fel, kortet kommer snart tillbaka · Svårt/Bra/
   Lätt = rätt, styr hur länge kortet vilar" — user picks final wording.
-  Still wanted from the original complaint: **Enter in the revealed phase
-  should grade Bra and advance** (today Enter does nothing after reveal).
+  Still wanted from the original complaint, refined 2026-07-11: **Enter in
+  the revealed phase should advance WITHOUT grading** — "I just wanted to
+  look at it." No SRS write; the card simply stays due and comes back next
+  session. (Today Enter does nothing after reveal.) The existing `skipCard`
+  (`FlashcardReviewer.svelte:215`) is the right semantics but is
+  prompt-phase-only — needs a revealed-phase variant. Like skip, it must NOT
+  set `celebrate` and should probably not count toward `reviewed`.
   ⚠ Note text lives in `strings.ts` — inside the drill-engine plan's
   write_set; sequence or coordinate.
 - [x] **Typed answers: map Swedish letters to Danish.** DONE 2026-07-11
