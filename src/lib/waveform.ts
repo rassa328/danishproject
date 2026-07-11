@@ -41,17 +41,12 @@ const SIZES: Record<WaveformSize, { count: number; gapLength: number }> = {
   divider: { count: 36, gapLength: 3 },
 };
 
-export function waveformSpec(size: WaveformSize): WaveformSpec {
-  const { count, gapLength } = SIZES[size];
-  const gapStart = Math.floor((count - gapLength) / 2);
-  const bars: WaveformBar[] = [];
-  for (let i = 0; i < count; i += 1) {
-    const gap = i >= gapStart && i < gapStart + gapLength;
-    const unit = gap ? GAP_HEIGHT : (HEIGHTS[i % HEIGHTS.length] ?? GAP_HEIGHT);
-    const height = unit * BAR_MAX;
-    bars.push({ x: i * PITCH, y: (VIEW_H - height) / 2, height, gap });
-  }
-  const width = (count - 1) * PITCH + BAR_W;
+function buildSpec(units: { h: number; gap: boolean }[], gapStart: number, gapLength: number): WaveformSpec {
+  const bars: WaveformBar[] = units.map((u, i) => {
+    const height = u.h * BAR_MAX;
+    return { x: i * PITCH, y: (VIEW_H - height) / 2, height, gap: u.gap };
+  });
+  const width = (units.length - 1) * PITCH + BAR_W;
   return {
     bars,
     barWidth: BAR_W,
@@ -61,4 +56,35 @@ export function waveformSpec(size: WaveformSize): WaveformSpec {
     gapStart,
     gapLength,
   };
+}
+
+export function waveformSpec(size: WaveformSize): WaveformSpec {
+  const { count, gapLength } = SIZES[size];
+  const gapStart = Math.floor((count - gapLength) / 2);
+  const units = Array.from({ length: count }, (_, i) => {
+    const gap = i >= gapStart && i < gapStart + gapLength;
+    return { h: gap ? GAP_HEIGHT : (HEIGHTS[i % HEIGHTS.length] ?? GAP_HEIGHT), gap };
+  });
+  return buildSpec(units, gapStart, gapLength);
+}
+
+/** A real per-word waveform extracted from the word's recorded clip by
+ *  scripts/waveform-data.ts (committed in src/data/hero-waveform.json). */
+export interface RealWaveform {
+  /** Peak amplitude per 35ms bucket, normalized so max ≤ 0.95 (pulse headroom). */
+  heights: number[];
+  /** [start, length] of the bars to tint accent — the word's real stød dip.
+   *  Typed number[] (not a tuple) so JSON imports assign directly. */
+  dip?: number[];
+}
+
+/** Spec from real clip data. Same geometry as waveformSpec; heights are
+ *  clamped to [0.05, 0.95] so the sweep's scaleY(1.6) can never clip. */
+export function waveformSpecFromHeights(w: RealWaveform): WaveformSpec {
+  const [dipStart = -1, dipLength = 0] = w.dip ?? [];
+  const units = w.heights.map((h, i) => ({
+    h: Math.min(0.95, Math.max(0.05, h)),
+    gap: i >= dipStart && i < dipStart + dipLength,
+  }));
+  return buildSpec(units, dipStart, dipLength);
 }

@@ -30,6 +30,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@types/papaparse": "^5.5.2",
+    "mpg123-decoder": "^1.0.3",
     "vitest": "^4.1.9",
     "yaml": "^2.9.0"
   }

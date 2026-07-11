@@ -28,8 +28,9 @@ export const UI = {
     heroLead: 'Du läser redan danska — här tränar du örat och uttalet: stød, blødt d och talad danska.',
     heroCta: 'Börja med lektionerna',
     samplePlay: 'Hör skillnaden',
-    // Rendered as <span lang="da">{sampleWordsDa}</span> — {sampleCaption}
-    sampleWordsDa: 'hun · hund',
+    // Labels under each word's real waveform in the hero.
+    sampleWordA: 'hun',
+    sampleWordB: 'hund',
     sampleCaption: 'stødet är hela skillnaden.',
     sampleAria: 'Lyssna på danska: hun och hund',
   },
