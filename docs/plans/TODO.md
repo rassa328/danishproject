@@ -35,14 +35,24 @@ Recorded 2026-07-11 from a live review of the deployed site.
   `strings.ts:97`, done-screen link. Needs a verb that matches what lessons
   are (listening/doing): e.g. "Gå till lektionerna →" — user picks the wording.
 
-- [ ] **Fast flip-review mode (game-like).** You get a word, think or say the
-  answer to yourself — no typing. Enter (or tap) reveals; then knew-it /
-  didn't-know-it as a binary: swipe right / → / Enter = yes, swipe left / ← =
-  no. Built for fast repetition through many words. Word audio on reveal as a
-  **toggle**. Same spirit as the coming typing drill (drill-engine plan) —
-  coordinate: `strings.ts` is in that plan's write_set, and its blip/feedback
-  modules may be reusable. Plan proposal drafted 2026-07-11; awaiting the
-  prompt-direction decision and approval.
+- [ ] **Fast flip-review mode (game-like).** Decided 2026-07-11, detailed
+  plan-mode session pending. Agreed shape:
+  - New review direction `flip` inside the existing reviewer (inherits FSRS
+    per-direction records, due-all group, `?direction=flip` links, group
+    scoping, persistence, free practice).
+  - **Prompt = Swedish, think/say the Danish** (decision A — active recall).
+    No typing.
+  - Enter / Space / tap card → reveal. Then binary grade: swipe right / → /
+    Enter = knew it (FSRS Good); swipe left / ← = didn't (FSRS Again —
+    existing re-entry brings the card back ~6 positions later, giving the
+    fast-repeat loop). Double-Enter is the whole happy path.
+  - Swipe = pointer-event drag with card-follow, slight tilt, green/red edge
+    tint, ~60 px threshold; Nej/Ja buttons as fallback; reduced-motion snaps.
+  - Word-clip autoplay at reveal as a **persisted toggle** (speaker button in
+    the reviewer header).
+  - Constraint: needs `strings.ts`, which is in the active drill-engine
+    plan's write_set — sequence after it or coordinate the one-file overlap;
+    its blip/feedback modules may be reusable.
 
 ## Home page
 
