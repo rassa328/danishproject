@@ -32,19 +32,23 @@ Efter en vokal blir *d* ett mjukt ljud – ungefär som engelskt *th* i "the", f
 
 ## 3. P/T/K mjuknar till B/D/G i mitten av ord
 
-Sluta överartikulera – danskan tonar dem:
+Skrivet *p/t/k* inne i ett ord uttalas som *b/d/g* – sluta överartikulera:
 
-- p → b: <span lang="da">spise</span> ≈ [sbise]
-- t → d: <span lang="da">stol</span> ≈ [sdol]
-- k → g: <span lang="da">skib</span> ≈ [sgib]
+- p → b: <span lang="da">lampe</span> ≈ "lambe", <span lang="da">hoppe</span> ≈ "hobbe" – samma konsonantljud som i <span lang="da">købe</span>
+- t → d: <span lang="da">lytte</span> ≈ "lydde"
+- k → g: <span lang="da">takke</span> ≈ "tagge"
 
-## 4. Ett enda ljud: -ng
+Efter *s* (<span lang="da">spise</span>, <span lang="da">stol</span>, <span lang="da">skib</span>) fungerar det precis som i svenskan (*spela*, *stol*) – ingen ny regel att lära där.
 
-<span lang="da">sang</span> uttalas med *ng* som i engelska "sing" – inte n + g.
+## 4. G efter vokal försvagas eller försvinner
+
+- <span lang="da">dag</span> ≈ "da'" – <span lang="da">god dag</span> låter som "godda".
+- <span lang="da">tog</span> (tåget) ≈ "to'".
+- Det är också därför <span lang="da">og</span> bara låter som "å".
 
 ## 5. Stumma bokstäver
 
 - **Stumt d** efter *l, n, r*: <span lang="da">ild</span> → "il", <span lang="da">mand</span> → "man", <span lang="da">bord</span> → "bor".
 - **Stumt h** före *v* och *j*: <span lang="da">hvem</span> → "vem", <span lang="da">hjem</span> → "jem".
 
-> **Snabb checklista för att låta dansk:** svälj ändelserna (-e/-er), gör -et/-ede till mjukt d, tona p/t/k till b/d/g i mitten, och hoppa över stumt d (efter l/n/r) och h (i hv-/hj-).
+> **Snabb checklista för att låta dansk:** svälj ändelserna (-e/-er), gör -et/-ede till mjukt d, tona p/t/k till b/d/g i mitten, låt g efter vokal försvinna, och hoppa över stumt d (efter l/n/r) och h (i hv-/hj-).

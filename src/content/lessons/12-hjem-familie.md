@@ -1,5 +1,5 @@
 ---
-title: 'Hjem, bolig og familie'
+title: 'Hem, bostad och familj'
 level: b1
 topic: vocabulary
 unit: hverdag
@@ -12,6 +12,16 @@ objectives:
 prerequisites: ['02-falske-venner']
 vocabTags: ['hjem']
 practiceDirection: 'listen-sentence'
+checkpoint:
+  - q: "Vad betyder danska 'stue'?"
+    options: ['stuga', 'vardagsrum', 'källare']
+    answer: 1
+  - q: "'Første sal' är:"
+    options: ['bottenvåningen', 'en trappa upp', 'vinden']
+    answer: 1
+  - q: 'En manlig kusin heter på danska:'
+    options: ['en kusine', 'en fætter', 'en nevø']
+    answer: 1
 draft: false
 ---
 Som svensk läser du danska bostadsannonser nästan obehindrat – men just därför sätter de små glidningarna åt. Det farligaste ordet i hela temat är <span lang="da">stue</span>.

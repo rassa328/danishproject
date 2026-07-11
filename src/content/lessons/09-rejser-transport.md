@@ -1,5 +1,5 @@
 ---
-title: 'Rejser og transport'
+title: 'Resor och transport'
 level: b1
 topic: vocabulary
 unit: hverdag
@@ -12,6 +12,16 @@ objectives:
 prerequisites: []
 vocabTags: ['rejser']
 practiceDirection: 'listen-sentence'
+checkpoint:
+  - q: "Vad betyder danska 'at skifte' på stationen?"
+    options: ['att skifta färg', 'att byta (tåg)', 'att skjuta upp resan']
+    answer: 1
+  - q: "'Er toget forsinket?' betyder:"
+    options: ['Är tåget försenat?', 'Är tåget inställt?', 'Har tåget gått?']
+    answer: 0
+  - q: 'Vad heter flygplatsen på danska?'
+    options: ['flyvepladsen', 'lufthavnen', 'flygpladsen']
+    answer: 1
 draft: false
 ---
 Att resa i Danmark går smidigt – men på stationen och i appen möter du danska ord som inte alltid är de du förväntar dig. Det mesta är begripligt, men uttalet och några små skillnader kan ställa till det.

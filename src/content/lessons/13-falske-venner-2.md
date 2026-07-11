@@ -1,16 +1,26 @@
 ---
-title: 'Falske venner 2: flere fælder'
+title: 'Falska vänner 2 – fler fällor'
 level: b2
 topic: false-friends
 unit: falske-venner
 order: 13
-summary: 'Fler falska vänner mellan danska och svenska: gift, dyr, regne, semester, anledning, flink, rar med flera – ord där betydelserna delvis överlappar och lurar.'
+summary: 'Fler falska vänner mellan danska och svenska: dyr, regne, sky, lejlighed, semester, flink, rar med flera – ord där betydelserna delvis överlappar och lurar.'
 estMinutes: 8
 objectives:
   - 'Hantera fler falska vänner med delvis överlappande betydelser'
-  - 'Skilja gift, dyr och regne åt i sammanhang'
+  - 'Skilja dyr, regne och lejlighed åt i sammanhang'
 prerequisites: ['02-falske-venner']
 vocabTags: ['falsk-ven']
+checkpoint:
+  - q: "Vad betyder danska 'sky' (substantivet)?"
+    options: ['himmel', 'moln eller köttsky', 'skugga']
+    answer: 1
+  - q: "'En rar mand' är:"
+    options: ['en söt man', 'en snäll man', 'en konstig man']
+    answer: 1
+  - q: "'Vi ses ved lejlighed' betyder:"
+    options: ['vi ses vid lägenheten', 'vi ses när tillfälle ges', 'vi ses på semestern']
+    answer: 1
 draft: false
 ---
 Den första falska-vänner-lektionen tog de grövsta fällorna. Här kommer en andra omgång – ord där en svensk läser "rätt" men ändå hamnar fel, ofta för att betydelserna *delvis* överlappar. Det är de delvisa överlappen som är farligast: du märker aldrig att du missförstått.
@@ -21,12 +31,12 @@ Vissa danska ord rymmer två betydelser i samma form. Sammanhanget avgör – me
 
 | Danska | Betyder | Fälla |
 | --- | --- | --- |
-| <span lang="da">gift</span> | *gift* (äktenskap) **och** *gift* (toxin) | <span lang="da">Hun er gift</span> = hon är *gift*, inte förgiftad |
 | <span lang="da">dyr</span> | *djur* **och** *dyr* (kostsam) | <span lang="da">et dyr</span> = ett djur; <span lang="da">en dyr bil</span> = en dyr bil |
 | <span lang="da">regne</span> | *regna* **och** *räkna* | <span lang="da">regne med</span> = räkna med, inte "regna med" |
 | <span lang="da">sky</span> | *moln* **och** *sky* (köttsky/gelé), samt *blyg* (adj.) | en svensk tänker "himmel" eller "sås" – men <span lang="da">sky</span> är molnet eller den klara köttskyn |
+| <span lang="da">lejlighed</span> | *lägenhet* **och** *tillfälle* | <span lang="da">ved lejlighed</span> = vid tillfälle; <span lang="da">benytte lejligheden</span> = passa på tillfället |
 
-> Klassikern: <span lang="da">"Min søster er gift"</span> betyder att din syster är *gift* – ingen har förgiftat henne. Förgiftad heter <span lang="da">forgiftet</span>.
+> Klassikern: <span lang="da">"Vi kan tale om det ved lejlighed"</span> betyder "när tillfälle ges" – ingen lägenhet inblandad. (Danska <span lang="da">gift</span> däremot – äktenskap *och* toxin – fungerar exakt som svenska *gift*: ingen fälla där.)
 
 ## Asymmetriska fällor
 
@@ -35,7 +45,6 @@ Här betyder det danska ordet något *snävare* eller *annat* än det svenska or
 | Danska | Betyder på danska | Svenska ordet betyder |
 | --- | --- | --- |
 | <span lang="da">semester</span> | akademisk termin | ledighet → danska <span lang="da">ferie</span> |
-| <span lang="da">anledning</span> | orsak, anledning | konkret tillfälle → danska <span lang="da">lejlighed</span> |
 | <span lang="da">flink</span> | vänlig, snäll | snabb/händig → danska <span lang="da">hurtig / dygtig</span> |
 | <span lang="da">rar</span> | snäll, vänlig (om person) | söt/näpen → danska <span lang="da">sød / nuttet</span> |
 

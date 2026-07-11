@@ -44,7 +44,7 @@ De lägre tiotalen är **inte** vigesimala: <span lang="da">tyve</span> = 20, <s
 
 ## Princip 3 – entalet före tiotalet (med *og*)
 
-Precis som i svenskan ("tjugo*sju*" → här *sju-och-tjugo*):
+Till skillnad från svenskan: svenska säger tjugo*sju* (tiotalet först), danska säger *syv*ogtyve (entalet först, med *og*):
 
 - 27 = <span lang="da">syvogtyve</span> · 42 = <span lang="da">toogfyrre</span> · 68 = <span lang="da">otteogtres</span> · 99 = <span lang="da">nioghalvfems</span>
 

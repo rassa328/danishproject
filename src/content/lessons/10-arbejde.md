@@ -1,5 +1,5 @@
 ---
-title: 'Arbejde og arbejdspladsen'
+title: 'Arbete och arbetsplatsen'
 level: b2
 topic: vocabulary
 unit: hverdag
@@ -12,6 +12,16 @@ objectives:
 prerequisites: ['02-falske-venner']
 vocabTags: ['arbejde']
 practiceDirection: 'listen-sentence'
+checkpoint:
+  - q: "Vad betyder danska 'ferie'?"
+    options: ['skollov', 'semester/ledighet', 'helgdag']
+    answer: 1
+  - q: "Vad betyder danska 'frist'?"
+    options: ['anstånd/uppskov', 'deadline/tidsgräns', 'rast']
+    answer: 1
+  - q: "'Han blev fyret' betyder:"
+    options: ['han fyllde år', 'han blev avskedad', 'han blev firad']
+    answer: 1
 draft: false
 ---
 På danska arbetsplatser möter du många ord som ser svenska ut men som beter sig annorlunda. Här är de viktigaste – och de tre värsta fällorna.
@@ -49,6 +59,6 @@ Notera stavningen: svenskt *lön* blir <span lang="da">løn</span>, och *möte* 
 | <span lang="da">vikar</span> | vikarie |
 | <span lang="da">at sygemelde sig</span> | sjukanmäla sig |
 
-Är du sjuk ringer du och <span lang="da">sygemelder</span> dig. Behöver en kollega ersättas tar en <span lang="da">vikar</span> över. Och jobbar du för mycket blir det <span lang="da">overarbejde</span> – danskan säger inte "overtid" om jobb.
+Är du sjuk ringer du och <span lang="da">sygemelder</span> dig. Behöver en kollega ersättas tar en <span lang="da">vikar</span> över. Och jobbar du för mycket blir det <span lang="da">overarbejde</span> – ordet <span lang="da">overtid</span> finns också på danska, men <span lang="da">overarbejde</span> är vanligare i tal.
 
 Träna alla orden i flashcards (tagg `arbejde`) tills de tre falska vännerna sitter.

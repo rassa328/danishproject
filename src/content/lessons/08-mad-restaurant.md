@@ -1,5 +1,5 @@
 ---
-title: 'Mad, restaurant og indkøb'
+title: 'Mat, restaurang och inköp'
 level: b1
 topic: vocabulary
 unit: hverdag
@@ -13,11 +13,14 @@ prerequisites: ['02-falske-venner']
 vocabTags: ['mad']
 practiceDirection: 'listen-sentence'
 checkpoint:
-  - q: "På danska är 'frokost':"
-    options: ['frukost', 'lunch', 'kvällsmat']
+  - q: "Vad betyder danska 'ret' på en meny?"
+    options: ['rätt (korrekt)', 'maträtt', 'rättighet']
     answer: 1
   - q: "Vad betyder danska 'morgenmad'?"
     options: ['frukost', 'lunch', 'mellanmål']
+    answer: 0
+  - q: "'Må jeg bede om regningen?' betyder:"
+    options: ['Får jag be om notan?', 'Får jag be om kvittot?', 'Får jag be om menyn?']
     answer: 0
 draft: false
 ---

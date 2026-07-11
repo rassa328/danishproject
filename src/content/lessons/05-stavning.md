@@ -23,7 +23,7 @@ En stor del av det danska ordförrådet kan du *räkna ut* från svenskan med n�
 | ö | ø | öl → <span lang="da">øl</span>, kött → <span lang="da">kød</span> |
 | å | å | (samma) |
 | -t | -d | mat → <span lang="da">mad</span>, gata → <span lang="da">gade</span>, ut → <span lang="da">ud</span> |
-| ck | k | mycket → <span lang="da">meget</span>, socker → <span lang="da">sukker</span> |
+| ck | k / kk | tack → <span lang="da">tak</span>, socker → <span lang="da">sukker</span> |
 
 ## Varning – regeln gäller inte alltid
 

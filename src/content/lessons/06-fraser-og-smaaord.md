@@ -12,6 +12,16 @@ objectives:
 prerequisites: []
 vocabTags: ['fras']
 practiceDirection: 'speak'
+checkpoint:
+  - q: "Vad betyder danska 'sgu'?"
+    options: ['så gott', 'faktiskt/minsann (mild förstärkning)', 'tyvärr']
+    answer: 1
+  - q: "Danska 'snildt' betyder:"
+    options: ['snällt', 'enkelt/smidigt', 'snabbt']
+    answer: 1
+  - q: "Vad betyder 'i lige måde'?"
+    options: ['på rak väg', 'detsamma/likaså', 'i jämn takt']
+    answer: 1
 ---
 
 Det som får en att låta naturlig på danska är ofta de små orden och de fasta uttrycken – inte grammatiken.

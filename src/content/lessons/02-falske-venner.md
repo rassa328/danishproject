@@ -43,6 +43,6 @@ Eftersom danska och svenska ligger så nära varandra är det lätt att läsa et
 Vissa ord överlappar delvis och är därför extra lömska:
 
 - <span lang="da">have</span> = både verbet *att ha* och substantivet *trädgård*.
-- <span lang="da">sky</span> = sås/sky (mat) eller blyg – inte i första hand "himmel".
+- <span lang="da">sky</span> = *moln* (inte "himmel"!), även klar köttsky (mat) eller *blyg* (adj.).
 
 Träna dem i **flashcards** (tagg `falsk-ven`) tills de sitter – länken finns längst ner i lektionen.
