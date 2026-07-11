@@ -24,6 +24,10 @@ Recorded 2026-07-11 from a live review of the deployed site.
   (`FlashcardReviewer.svelte:215`) is the right semantics but is
   prompt-phase-only — needs a revealed-phase variant. Like skip, it must NOT
   set `celebrate` and should probably not count toward `reviewed`.
+  Parked for the future plan-mode session (no need now): Enter is also the
+  reveal key, so Enter-Enter walks the deck without ever grading — easy to
+  accidentally skip a card you meant to grade. Maybe a tiny guard (ignore
+  Enter ~300 ms after reveal), maybe over-engineering. Decide then.
   ⚠ Note text lives in `strings.ts` — inside the drill-engine plan's
   write_set; sequence or coordinate.
 - [x] **Typed answers: map Swedish letters to Danish.** DONE 2026-07-11
