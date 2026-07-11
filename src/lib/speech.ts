@@ -166,3 +166,17 @@ export async function speak(
     return 'none';
   }
 }
+
+/** Warm the browser cache for a clip that will play soon (the drill preloads
+ *  the next card's audio while the current card is active). Best-effort
+ *  fire-and-forget: no handle is kept, playback still goes through speak().
+ *  SSR-safe no-op and never throws. */
+export function preloadClip(url: string): void {
+  if (typeof window === 'undefined' || typeof Audio === 'undefined') return;
+  try {
+    const audio = new Audio(url);
+    audio.preload = 'auto';
+  } catch {
+    /* preload is only a hint — ignore failures */
+  }
+}

@@ -130,3 +130,34 @@ describe('decks.ts (CSV loaded via ?raw at build)', () => {
     expect(getByTag('falsk-ven').length).toBeGreaterThan(10);
   });
 });
+
+describe('accepted_sv column (optional curated Swedish answers)', () => {
+  const firstCard = (csvText: string) => {
+    const { cards, errors } = parse(csvText);
+    expect(errors).toEqual([]);
+    expect(cards).toHaveLength(1);
+    return cards[0]!;
+  };
+
+  it('splits a multi-value cell on | or , and trims', () => {
+    const c = firstCard('danish,swedish,accepted_sv\nhoppe,hoppa,"skutta | spritta, studsa"\n');
+    expect(c.acceptedSv).toEqual(['skutta', 'spritta', 'studsa']);
+  });
+
+  it('keeps a single value as a one-element list', () => {
+    const c = firstCard('danish,swedish,accepted_sv\nhoppe,hoppa,skutta\n');
+    expect(c.acceptedSv).toEqual(['skutta']);
+  });
+
+  it('leaves the field unset when the column is absent (today’s CSVs)', () => {
+    const c = firstCard('danish,swedish\nhoppe,hoppa\n');
+    expect(c.acceptedSv).toBeUndefined();
+    expect('acceptedSv' in c).toBe(false); // exactOptionalPropertyTypes: key truly absent
+  });
+
+  it('leaves the field unset for an empty cell', () => {
+    const c = firstCard('danish,swedish,accepted_sv\nhoppe,hoppa,\n');
+    expect(c.acceptedSv).toBeUndefined();
+    expect('acceptedSv' in c).toBe(false);
+  });
+});

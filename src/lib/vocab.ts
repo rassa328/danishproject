@@ -29,6 +29,10 @@ export interface Card {
    *  stored `danish` form and its `/`-separated variants are always accepted on
    *  top of these — see acceptedAnswers(). */
   accepted: string[];
+  /** Curated Swedish answers for da→sv typing. Optional `accepted_sv` CSV
+   *  column (not yet present in the decks); when set it overrides the
+   *  heuristic parse of the free-text `swedish` gloss. */
+  acceptedSv?: string[];
   audio?: string;
   audioExample?: string;
   /** Optional frequency rank (1 = most frequent). Used to introduce new cards
@@ -127,6 +131,8 @@ function toCard(raw: Record<string, string>): { card?: Card; error?: string } {
     tags: splitTags(raw.tags),
     accepted: splitTags(raw.accepted),
   };
+  const acceptedSv = splitTags(raw.accepted_sv);
+  if (acceptedSv.length) card.acceptedSv = acceptedSv;
   const exDa = nfc(raw.example_da);
   if (exDa) card.exampleDa = exDa;
   const exSv = nfc(raw.example_sv);
