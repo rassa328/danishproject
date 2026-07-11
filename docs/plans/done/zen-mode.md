@@ -104,3 +104,25 @@ Open, needs Rasmus:
 - Manual browser pass (repo policy: DOM/WebAudio = manual pass) — especially
   iOS: numeric keypad, touch buttons, audio unlock.
 - speech.ts gained stopSpeech() (added to write_set above).
+
+## Integration with drill-zen (2026-07-11 21:20)
+
+origin/main had concurrently shipped **drill-zen** (6c84291, owner
+claude-main): the word drill reworked into the Zen tool at /zen with the
+design-swap-ready split this design pass then slotted into. Merged main into
+this branch; resolution:
+
+- THEIRS wholesale: Nav (the ◎ icon entry — user decision), drill-modes
+  (their registries subsume my `free` flag), DrillEngine, /skriv→/zen
+  redirect, sentence-match + deck-groups + drill-engine fixes.
+- MINE: /zen page + island (the design swap their plan round 3 anticipated),
+  FocusLayout, zen lib/tests, speech.stopSpeech.
+- Adopted THEIR user-decided semantics into MY design shell: ord-översätt is
+  ONE mixed both-directions run (no visas-på step for ord; per-ITEM input/
+  grading/SRS via SUB_CONFIGS), 'visas på' remains for tal only.
+- nav zenLabel 'Zen — skrivövning' → 'Zen — övning' (zen now spans ord+tal).
+
+NOT yet in the design shell (their zen had them; follow-ups for the next
+design round): meningar (sentence subs), multi-select sets, endless Flöde,
+count picker, stats/CelebrationFlag end screen. All their lib support is
+merged and live — only the Fokus UI doesn't expose them yet.

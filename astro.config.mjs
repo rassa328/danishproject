@@ -14,5 +14,9 @@ export default defineConfig({
   base: '/danishproject',
   trailingSlash: 'ignore',
   output: 'static',
+  // The word drill was briefly /skriv before becoming /zen (static
+  // meta-refresh page). Astro prefixes `base` on the SOURCE route only —
+  // the destination is emitted verbatim, so it must carry the base itself.
+  redirects: { '/skriv': '/danishproject/zen' },
   integrations: [svelte(), mdx(), sitemap()],
 });

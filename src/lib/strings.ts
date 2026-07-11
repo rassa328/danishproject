@@ -21,9 +21,11 @@ export const UI = {
     lessons: 'Lektioner',
     flashcards: 'Flashcards',
     wordlist: 'Ordlista',
-    write: 'Skriv',
     numbers: 'Tal',
+    // The Zen entry renders as a dot-in-circle icon; these carry its name for
+    // tooltips and assistive tech. (Was 'skrivövning'; zen now spans ord+tal.)
     zen: 'Zen',
+    zenLabel: 'Zen — övning',
   },
 
   home: {
@@ -121,59 +123,82 @@ export const UI = {
     },
   },
 
-  // Typing drill (/skriv) + number dictation (/tal) — one shared engine island.
-  // Reuse flashcards.* verbatim where the wording already fits: replay, play,
-  // slowReplay, charHelper, saveError, correct/incorrect, listenPrompt,
-  // replayKeyTitle, confirmRestart. Only drill-specific copy lives here.
+  // Zen (/zen, the typing practice flow) + number dictation (/tal) — one shared
+  // engine island. Reuse flashcards.* verbatim where the wording already fits:
+  // replay, play, slowReplay, charHelper, saveError, correct/incorrect,
+  // listenPrompt, replayKeyTitle. Only drill-specific copy lives here.
   drill: {
-    title: 'Skrivövning',
+    title: 'Zen',
     description:
-      'Skriv orden på danska i högt tempo — varje rätt svar hörs direkt med äkta danskt uttal.',
-    lead: `Ett kort i taget: skriv svaret och tryck Enter. Rätt svar spelas upp direkt, och blir det fel ser du exakt vilka bokstäver som skilde. ${PROGRESS_NOTE}.`,
+      'Lugn skrivövning på danska: översätt eller lyssna, ord eller meningar, i ditt eget flöde.',
+    lead: 'Ett kort i taget, inget brus. Skriv, tryck Enter, andas.',
     // .vh label behind the skeleton placeholders while the island hydrates.
     loading: 'Laddar övningen…',
 
     // Session setup (before "Starta").
     modeLegend: 'Läge',
     modes: {
-      'sv-da': 'Svenska → danska',
-      'da-dictation': 'Diktat — lyssna och skriv',
-      'da-sv': 'Danska → svenska',
+      translate: 'Översätt',
+      listen: 'Lyssna',
+    },
+    contentLegend: 'Innehåll',
+    content: {
+      words: 'Ord',
+      sentences: 'Meningar',
     },
     sourceLegend: 'Vad vill du öva?',
     sourceDue: 'Att repetera (förfallna)',
-    sourceLesson: 'Från lektion',
-    cardCount: 'Antal kort',
+    sourceFree: 'Fritt — hela ordförrådet',
+    sourceSets: 'Valda set',
+    setsLegend: 'Välj set',
+    setsSelected: (n: number) => (n === 1 ? '1 set valt' : `${n} set valda`),
+    setsLessons: 'Lektioner',
+    cardCount: 'Längd',
+    sizeFlow: 'Flöde — tills du avslutar',
+    sizeAll: (n: number) => `Alla (${n})`,
     start: 'Starta',
-    noDue: 'Inget förfallet just nu — allt är repeterat. Välj en lektion i stället.',
-    noCards: 'Inga kort att öva med det här valet. Prova en annan lektion eller ett annat läge.',
+    noDue: 'Inget förfallet just nu — allt är repeterat. Välj set eller öva fritt i stället.',
+    noCards: 'Inga kort att öva med det här valet. Prova andra set eller ett annat läge.',
     noDictationCards:
-      'Diktat behöver inspelat ljud, och det saknas för de här orden. Prova ett annat läge.',
+      'Lyssna behöver inspelat ljud, och det saknas för de här orden. Prova ett annat läge.',
+    noSentenceCards:
+      'De här orden saknar exempelmeningar. Prova andra set eller öva ord i stället.',
 
-    // In-run. Dictation reuses flashcards.listenPrompt as its prompt line.
+    // In-run. Word dictation reuses flashcards.listenPrompt as its prompt line.
+    listenSentencePrompt: '🎧 Lyssna på meningen — skriv vad den betyder på svenska:',
     progress: (i: number, total: number) => `Kort ${i} av ${total}`,
-    // Per-mode answer-input copy, consumed by the DRILL_MODES registry
-    // (drill-modes.ts spreads these into each mode's input config).
+    progressFlow: (n: number) => `${n} besvarade`,
+    inARow: (n: number) => `${n} i rad`,
+    // Per-sub-mode answer-input copy, consumed by the SUB_CONFIGS registry
+    // (drill-modes.ts spreads these into each sub-mode's input config).
     input: {
       'sv-da': { label: 'Skriv på danska', placeholder: 'Skriv på danska…' },
       'da-dictation': { label: 'Skriv ordet du hör', placeholder: 'Skriv på danska…' },
       'da-sv': { label: 'Skriv betydelsen på svenska', placeholder: 'Skriv på svenska…' },
+      'sent-sv-da': { label: 'Skriv meningen på danska', placeholder: 'Skriv på danska…' },
+      'sent-da-sv': { label: 'Skriv betydelsen på svenska', placeholder: 'Skriv på svenska…' },
+      'sent-listen': {
+        label: 'Skriv vad meningen betyder på svenska',
+        placeholder: 'Skriv på svenska…',
+      },
       'number-dictation': { label: 'Skriv talet med siffror', placeholder: 't.ex. 42' },
     },
     submit: 'Svara',
-    enterHint: 'Enter skickar svaret.',
-    hint: 'Visa ordet (räknas som miss)',
+    hint: 'Visa svaret (räknas som miss)',
     answerLabel: 'Rätt svar:',
     youWrote: 'Du skrev:',
-    typeItOnce: 'Skriv ordet rätt en gång för att gå vidare',
+    continue: 'Enter — nästa',
+    next: 'Vidare',
+    nearMiss: 'Nästan rätt — så skrivs det:',
     requeued: 'Kortet kommer tillbaka i slutet av omgången.',
-    comboLabel: 'I rad',
+    back: '‹ Tillbaka',
+    finishFlow: 'Avsluta',
+    confirmBack: 'Du är mitt i en omgång. Vill du avbryta?',
 
     // End screen.
     doneTitle: 'Omgång klar!',
-    accuracy: 'Rätt på första försöket',
-    totalTime: 'Total tid',
-    bestCombo: 'Bästa svit',
+    doneLine: (accuracy: number, time: string, best: number) =>
+      `${accuracy} % · ${time} · bästa svit ${best}`,
     missedHeading: 'Det här krånglade',
     noMisses: 'Allt rätt på första försöket — snyggt!',
     runAgain: 'Kör igen',
@@ -221,15 +246,14 @@ export const UI = {
     },
     modes: { lyssna: 'lyssna', översätt: 'översätt' },
     modeSubs: {
-      ord: { lyssna: 'hör danska · skriv danska', översätt: 'se · översätt' },
+      // ord-översätt mixes both directions in one run (drill-zen decision).
+      ord: { lyssna: 'hör danska · skriv danska', översätt: 'åt båda hållen' },
       tal: { lyssna: 'hör danska · skriv siffror', översätt: 'se · översätt' },
     },
     langHeading: 'visas på',
+    // The 'visas på' step exists only for tal (digits vs Danish reading).
     langs: { danska: 'danska', svenska: 'svenska' },
-    langSubs: {
-      ord: { danska: 'ser danska · skriver svenska', svenska: 'ser svenska · skriver danska' },
-      tal: { danska: 'ser danska · skriver siffror', svenska: 'ser siffror · skriver danska' },
-    },
+    langSubs: { danska: 'ser danska · skriver siffror', svenska: 'ser siffror · skriver danska' },
     levels: {
       '0-20': '0–20',
       'tiotal': 'tiotal',

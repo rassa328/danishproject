@@ -9,6 +9,7 @@ import {
   OPTGROUP_STARTER,
   OPTGROUP_PRAKSIS,
 } from './deck-groups.ts';
+import type { GroupMatch } from './deck-groups.ts';
 import { praksisCards } from './praksis.ts';
 import type { Card, Pos } from './vocab.ts';
 
@@ -85,6 +86,22 @@ describe('matchesGroup', () => {
     expect(matchesGroup(mad, { kind: 'praksisTheme', theme: 'mat' })).toBe(true);
     expect(matchesGroup(mad, { kind: 'praksisTheme', theme: 'natur' })).toBe(false);
     expect(matchesGroup(starterMad, { kind: 'praksisTheme', theme: 'mat' })).toBe(false);
+  });
+
+  it('kind "union" matches on ANY listed tag OR ANY nested match', () => {
+    const tagged: Card = { ...card('t1', 'hverdag-b1'), tags: ['lektion-3'] };
+    const byMatch = praksis[0]!; // praksis-verber-b1, verb
+    const outside = card('t2', 'smalltalk-b1');
+    const union: GroupMatch = {
+      kind: 'union',
+      tags: ['lektion-3'],
+      matches: [{ kind: 'praksisPos', pos: 'verb' }],
+    };
+    expect(matchesGroup(tagged, union)).toBe(true); // via tag
+    expect(matchesGroup(byMatch, union)).toBe(true); // via nested match
+    expect(matchesGroup(outside, union)).toBe(false); // neither
+    // Empty union matches nothing.
+    expect(matchesGroup(tagged, { kind: 'union', tags: [], matches: [] })).toBe(false);
   });
 });
 

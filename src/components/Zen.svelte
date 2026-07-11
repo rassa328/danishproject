@@ -29,15 +29,16 @@
     gradeZen,
     highlightIndex,
     initialFlow,
-    inputKind,
     isReady,
+    itemDirection,
+    itemInputKind,
     LEVEL_IDS,
     parsePrefs,
     pick as flowPick,
     PREFS_KEY,
     stepOptions,
-    wordDirection,
-    wordModeId,
+    wordDirections,
+    wordSessionId,
     WORD_SOURCE_IDS,
     wrapIndex,
     zenPrompt,
@@ -118,18 +119,19 @@
   /** Live flow on the start screen, the session snapshot everywhere else. */
   const activeFlow = $derived(phase === 'start' ? flow : (sessionFlow ?? flow));
   const isListen = $derived(activeFlow.mode === 'lyssna');
-  const kind = $derived(inputKind(activeFlow));
   const current = $derived(phase === 'run' ? items[idx] : undefined);
+  /** The input's shape follows the ITEM (mixed översätt alternates sides). */
+  const kind = $derived(current ? itemInputKind(current, activeFlow) : 'danish');
   const gates = $derived.by<ZenGates>(() => {
-    const dir = ready ? wordDirection(flow) : null;
+    const dirs = ready ? wordDirections(flow) : [];
     const s = store;
     // Dictation only ever queues clip-backed cards — dueness must look at the
     // same pool, or 'repetera' could gate open onto an empty session.
     const pool =
-      wordModeId(flow) === 'da-dictation' ? knownCards.filter((c) => !!c.audio) : knownCards;
+      wordSessionId(flow) === 'listen' ? knownCards.filter((c) => !!c.audio) : knownCards;
     return {
       coverage,
-      hasDue: dir !== null && s !== undefined && anyDue(pool, s, dir, new Date()),
+      hasDue: dirs.length > 0 && s !== undefined && anyDue(pool, s, dirs, new Date()),
     };
   });
   const options = $derived(stepOptions(flow, gates));
@@ -162,7 +164,9 @@
     [
       flow.subject ? T.subjects[flow.subject].label : null,
       flow.mode ? T.modes[flow.mode] : null,
-      flow.mode === 'översätt' && flow.dispLang ? T.langs[flow.dispLang] : null,
+      flow.subject === 'tal' && flow.mode === 'översätt' && flow.dispLang
+        ? T.langs[flow.dispLang]
+        : null,
       flow.subject === 'tal'
         ? flow.level && T.levels[flow.level]
         : flow.wordSource && T.wordSources[flow.wordSource],
@@ -315,11 +319,11 @@
         new Promise<void>((resolve) => setTimeout(resolve, 8000)),
       ]);
       starterOnly = praksisCache() === null;
-      const modeId = wordModeId(built);
+      const sessionId = wordSessionId(built);
       const s = store;
-      if (modeId) {
+      if (sessionId) {
         session = buildWordSession({
-          modeId,
+          sessionId,
           source: built.wordSource,
           cards: knownCards,
           srs: s ?? noSrs,
@@ -423,9 +427,10 @@
     stopAllAudio();
     const correct = gradeZen(typed, zi, activeFlow);
     // One SRS write per graded attempt — 'repetera' only ('blandat' is free
-    // practice, same contract as the flashcards' "Öva fritt"). Reads the
-    // session snapshot: the live flow cannot re-label a free session.
-    const dir = wordDirection(activeFlow);
+    // practice, same contract as the flashcards' "Öva fritt"). The direction
+    // is the ITEM's own (a mixed översätt run trains both), and the source
+    // comes from the session snapshot: the live flow cannot re-label it.
+    const dir = itemDirection(zi);
     const s = store;
     if (
       zi.type === 'ord' &&
@@ -690,7 +695,7 @@
                 onfocus={() => (hot = id)}
               >
                 <span class="opt-label">{T.langs[id]}</span>
-                <span class="opt-sub">{flow.subject ? T.langSubs[flow.subject][id] : ''}</span>
+                <span class="opt-sub">{T.langSubs[id]}</span>
               </button>
             {/each}
           </div>

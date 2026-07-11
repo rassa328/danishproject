@@ -7,9 +7,10 @@
 // as drill-engine/drill-modes).
 //
 // Nothing is duplicated: number logic comes from danish-numbers.ts, word
-// items/grading from drill-modes.ts, queueing from session.ts buildQueue
-// (due-only 'repetera' via match {kind:'all'}, shuffled-everything 'blandat'
-// via the free flag).
+// items/grading from drill-modes.ts (the drill-zen registries: sessions build
+// items, per-item SUB_CONFIGS grade them — översätt is BOTH directions mixed
+// in one run, the drill-zen user decision), queueing from session.ts
+// buildQueue (due-only 'repetera' via match {kind:'all'}, free 'blandat').
 
 import {
   NUMBER_LEVELS,
@@ -19,9 +20,10 @@ import {
   type NumberLevelId,
 } from './danish-numbers.ts';
 import {
-  DRILL_MODES,
+  DRILL_SESSIONS,
+  subConfigOf,
   type DrillItem,
-  type DrillModeId,
+  type DrillSessionId,
 } from './drill-modes.ts';
 import type { QueueLimits, Rng, SrsView } from './session.ts';
 import type { Card } from './vocab.ts';
@@ -105,7 +107,11 @@ export function pick(flow: ZenFlow, gates: ZenGates, id: string): ZenFlow {
     case 'mode': {
       if (!(MODE_IDS as readonly string[]).includes(id)) return flow;
       const mode = id as ZenMode;
-      const next: ZenFlow = { ...flow, mode, step: mode === 'översätt' ? 'lang' : 'source' };
+      // 'visas på' exists only for tal (digits vs Danish reading). For ord,
+      // översätt mixes BOTH directions in one run (drill-zen user decision),
+      // so there is nothing to choose.
+      const askLang = mode === 'översätt' && flow.subject === 'tal';
+      const next: ZenFlow = { ...flow, mode, step: askLang ? 'lang' : 'source' };
       // A remembered source the new mode can't serve must not survive the pick.
       if (mode === 'lyssna' && flow.subject === 'tal' && flow.level && !gates.coverage[flow.level]) {
         next.level = null;
@@ -134,7 +140,10 @@ export function back(flow: ZenFlow): ZenFlow {
     case 'begin':
       return { ...flow, step: 'source' };
     case 'source':
-      return { ...flow, step: flow.mode === 'översätt' ? 'lang' : 'mode' };
+      return {
+        ...flow,
+        step: flow.mode === 'översätt' && flow.subject === 'tal' ? 'lang' : 'mode',
+      };
     case 'lang':
       return { ...flow, step: 'mode' };
     case 'mode':
@@ -174,49 +183,61 @@ export interface ReadyZenFlow extends ZenFlow {
 /** Begynd is allowed once every step the picks need has one. */
 export function isReady(flow: ZenFlow): flow is ReadyZenFlow {
   if (flow.subject === null || flow.mode === null) return false;
-  if (flow.mode === 'översätt' && flow.dispLang === null) return false;
-  return flow.subject === 'tal' ? flow.level !== null : flow.wordSource !== null;
+  if (flow.subject === 'tal') {
+    if (flow.mode === 'översätt' && flow.dispLang === null) return false;
+    return flow.level !== null;
+  }
+  return flow.wordSource !== null;
 }
 
 // ---------------------------------------------------------------------------
 // Flow → session shape
 
 /** What the answer input takes. digits: numeric keypad; danish: lang=da with
- *  live ä/ö→æ/ø; swedish: plain text (översätt-from-danska for ord). */
+ *  live ä/ö→æ/ø; swedish: plain text. For ord this is a PER-ITEM question —
+ *  a mixed översätt run alternates directions, so each item's sub decides. */
 export type ZenInputKind = 'digits' | 'danish' | 'swedish';
 
-export function inputKind(flow: ZenFlow): ZenInputKind {
-  if (flow.subject === 'tal') {
+export function itemInputKind(zi: ZenItem, flow: ZenFlow): ZenInputKind {
+  if (zi.type === 'tal') {
     return flow.mode === 'lyssna' || flow.dispLang === 'danska' ? 'digits' : 'danish';
   }
-  if (flow.mode === 'lyssna') return 'danish';
-  return flow.dispLang === 'danska' ? 'swedish' : 'danish';
+  return subConfigOf(zi.item).input.lang === 'da' ? 'danish' : 'swedish';
 }
 
-/** ord flows map 1:1 onto the existing word drill modes — items, grading and
- *  audio come from the registry verbatim. */
-export function wordModeId(flow: ZenFlow): DrillModeId | null {
+/** ord flows map onto the drill-zen session builders: lyssna = dictation,
+ *  översätt = the MIXED both-directions translate session. Items, grading and
+ *  audio come from the registries verbatim. */
+export function wordSessionId(flow: ZenFlow): DrillSessionId | null {
   if (flow.subject !== 'ord' || flow.mode === null) return null;
-  if (flow.mode === 'lyssna') return 'da-dictation';
-  if (flow.dispLang === null) return null;
-  return flow.dispLang === 'danska' ? 'da-sv' : 'sv-da';
+  return flow.mode === 'lyssna' ? 'listen' : 'translate';
 }
 
-/** The SRS direction a word flow trains — shared with the flashcards, so zen
- *  'repetera' drains the same dueness. */
-export function wordDirection(flow: ZenFlow): Direction | null {
-  const modeId = wordModeId(flow);
-  const mode = modeId ? DRILL_MODES[modeId] : null;
-  return mode?.srs?.direction ?? null;
+/** Every SRS direction a word flow trains (translate mixes produce and
+ *  recognize) — shared with the flashcards, so zen 'repetera' drains the
+ *  same dueness. */
+export function wordDirections(flow: ZenFlow): Direction[] {
+  const sessionId = wordSessionId(flow);
+  if (sessionId === 'listen') return ['listen'];
+  if (sessionId === 'translate') return ['produce', 'recognize'];
+  return [];
 }
 
-/** Anything due (not suspended) for this direction right now? Mirrors
- *  buildQueue's dueness test; gates the 'repetera' source option. */
-export function anyDue(cards: Card[], srs: SrsView, direction: Direction, now: Date): boolean {
-  return cards.some((c) => {
-    const r = srs.getRecord(c.id, direction);
-    return r !== null && !r.suspended && new Date(r.due) <= now;
-  });
+/** The direction one graded item writes to (null = ungraded item). */
+export function itemDirection(zi: ZenItem): Direction | null {
+  if (zi.type === 'tal') return null;
+  return subConfigOf(zi.item).srs?.direction ?? null;
+}
+
+/** Anything due (not suspended) in ANY of these directions right now?
+ *  Mirrors buildQueue's dueness test; gates the 'repetera' source option. */
+export function anyDue(cards: Card[], srs: SrsView, directions: Direction[], now: Date): boolean {
+  return cards.some((c) =>
+    directions.some((direction) => {
+      const r = srs.getRecord(c.id, direction);
+      return r !== null && !r.suspended && new Date(r.due) <= now;
+    }),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -245,10 +266,10 @@ export function buildNumberSession(level: NumberLevelId, n: number, rng: Rng): Z
   return items;
 }
 
-/** Word session via the registry: 'repetera' = due-only most-overdue-first
- *  (match {kind:'all'}), 'blandat' = everything eligible shuffled (free). */
+/** Word session via the drill-zen session registry: 'repetera' = due-only
+ *  most-overdue-first (match {kind:'all'}), 'blandat' = free roam. */
 export function buildWordSession(opts: {
-  modeId: DrillModeId;
+  sessionId: DrillSessionId;
   source: WordSourceId;
   cards: Card[];
   srs: SrsView;
@@ -257,7 +278,7 @@ export function buildWordSession(opts: {
   size: number;
   rng?: Rng;
 }): ZenItem[] {
-  const items = DRILL_MODES[opts.modeId].buildItems({
+  const items = DRILL_SESSIONS[opts.sessionId].buildItems({
     cards: opts.cards,
     srs: opts.srs,
     now: opts.now,
@@ -309,13 +330,14 @@ export function gradeDanishNumber(typed: string, item: TalItem): boolean {
 }
 
 /** One grading entry point for the island: numbers by input kind, words by
- *  the registry mode's matcher (Swedish folding, accepted alternatives …). */
+ *  the item sub's matcher (Swedish folding, accepted alternatives …). */
 export function gradeZen(typed: string, zi: ZenItem, flow: ZenFlow): boolean {
   if (zi.type === 'tal') {
-    return inputKind(flow) === 'digits' ? gradeDigits(typed, zi) : gradeDanishNumber(typed, zi);
+    return itemInputKind(zi, flow) === 'digits'
+      ? gradeDigits(typed, zi)
+      : gradeDanishNumber(typed, zi);
   }
-  const modeId = wordModeId(flow);
-  return modeId !== null && DRILL_MODES[modeId].matches(typed, zi.item);
+  return subConfigOf(zi.item).matches(typed, zi.item);
 }
 
 // ---------------------------------------------------------------------------
@@ -334,8 +356,8 @@ export function zenPrompt(zi: ZenItem, flow: ZenFlow): { text: string; lang: 'da
           : String(zi.value);
     return { text, lang: null };
   }
-  // ord översätt: the item prompt is Danish when it shows danska (da-sv).
-  return { text: zi.item.prompt, lang: flow.dispLang === 'danska' ? 'da' : null };
+  // ord översätt: each mixed item shows its own side — the sub knows.
+  return { text: zi.item.prompt, lang: subConfigOf(zi.item).prompt.lang === 'da' ? 'da' : null };
 }
 
 export interface ZenReveal {

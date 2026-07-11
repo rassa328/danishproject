@@ -1,13 +1,13 @@
 // Pure state machine for the typing drill (plan §3.3): answering →
-// feedback-correct | corrective → … → done. Deliberately separate from the
+// feedback-correct | feedback-miss → … → done. Deliberately separate from the
 // flashcards' session.ts: reinsertAgain's +6 offset ≠ the drill's
-// requeue-at-END, and combo/corrective/hint semantics don't belong in the
-// flashcard flow. Every function is pure — callers keep the returned state,
-// inputs are never mutated (the component holds the state in a $state rune).
+// requeue-at-END, and combo/miss/hint semantics don't belong in the flashcard
+// flow. Every function is pure — callers keep the returned state, inputs are
+// never mutated (the component holds the state in a $state rune).
 import type { DrillItem } from './drill-modes.ts';
 import type { DrillOutcome } from './drill-srs.ts';
 
-export type DrillPhase = 'answering' | 'feedback-correct' | 'corrective' | 'done';
+export type DrillPhase = 'answering' | 'feedback-correct' | 'feedback-miss' | 'done';
 
 /** Max times ONE item (by id) re-enters the end of the queue after misses. */
 export const DRILL_MAX_REQUEUES = 2;
@@ -58,9 +58,10 @@ export function reveal(s: DrillState): DrillState {
 
 /** Score an Enter-press. In `answering`, a clean correct answer celebrates;
  *  anything else (wrong, or correct only after the reveal hint) drops to the
- *  corrective phase and requeues a COPY of the item at the END of the run
- *  (capped per id). In `corrective` a correct retype advances UNGRADED —
- *  same attempt, no stat changes. No-op in the remaining phases. */
+ *  feedback-miss phase and requeues a COPY of the item at the END of the run
+ *  (capped per id). Leaving feedback-miss is the component calling advance()
+ *  (Enter continues — no retype gate); submit is a no-op in every non-answering
+ *  phase. */
 export function submit(s: DrillState, correct: boolean): DrillState {
   if (s.phase === 'answering') {
     if (correct && !s.revealed) {
@@ -80,7 +81,7 @@ export function submit(s: DrillState, correct: boolean): DrillState {
     const requeue = prior < DRILL_MAX_REQUEUES;
     return {
       ...s,
-      phase: 'corrective',
+      phase: 'feedback-miss',
       combo: 0,
       answered: s.answered + 1,
       missedIds: s.missedIds.includes(item.id) ? s.missedIds : [...s.missedIds, item.id],
@@ -88,13 +89,12 @@ export function submit(s: DrillState, correct: boolean): DrillState {
       requeues: requeue ? { ...s.requeues, [item.id]: prior + 1 } : s.requeues,
     };
   }
-  if (s.phase === 'corrective' && correct) return advance(s);
   return s;
 }
 
 /** Move to the next item, or to `done` past the last. Resets the per-item
  *  reveal flag. The component calls this after the 650 ms correct-feedback
- *  timer; a corrective retype advances via submit(). */
+ *  timer and on Enter/"Vidare" from the feedback-miss panel. */
 export function advance(s: DrillState): DrillState {
   if (s.phase === 'done') return s;
   const idx = s.idx + 1;
@@ -114,11 +114,20 @@ export function outcomeOf(s: DrillState, correct: boolean): DrillOutcome {
 }
 
 /** True for a blank (empty/whitespace-only) submit. The component must DROP
- *  blank un-revealed `answering` submits instead of grading them: the
- *  corrective retype advances synchronously with the input cleared, so a
- *  double-tapped or key-repeated Enter would otherwise land on the NEXT,
- *  never-seen card and write an SRS Again for it. Reveal→Enter stays the
- *  explicit give-up path (still scored as a hint-miss). */
+ *  blank un-revealed `answering` submits instead of grading them: continuing
+ *  out of the feedback-miss panel advances synchronously with the input
+ *  cleared, so a key-repeated Enter would otherwise land on the NEXT,
+ *  never-seen card and write an SRS Again for it (the panel itself is guarded
+ *  by the component's show-time delay). Reveal→Enter stays the explicit
+ *  give-up path (still scored as a hint-miss). */
 export function isBlankAttempt(typed: string): boolean {
   return typed.trim().length === 0;
+}
+
+/** Append freshly built items to the queue — the endless-Flöde top-up. Pure
+ *  and phase-agnostic (except done, where the run is already over); idx,
+ *  stats, requeues and the reveal flag are untouched. */
+export function extendQueue(s: DrillState, items: DrillItem[]): DrillState {
+  if (s.phase === 'done' || items.length === 0) return s;
+  return { ...s, queue: [...s.queue, ...items] };
 }
