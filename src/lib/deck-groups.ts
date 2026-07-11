@@ -15,7 +15,7 @@ import type { Card, Pos } from './vocab.ts';
 
 // Merge stray/duplicate decks, then strip the -b1/-b2 suffix so a theme's B1 and
 // B2 words sit together (e.g. falske-venner-b1 + -b2 → one theme).
-const DECK_ALIAS: Record<string, string> = { foelelser: 'känslor' };
+const DECK_ALIAS: Record<string, string> = {};
 
 export const themeKey = (deck: string): string => {
   const base = deck.replace(/-b[12]$/, '');
@@ -29,15 +29,11 @@ const THEME_LABELS: Record<string, string> = {
   'mad-og-restaurant': 'Mat & restaurang',
   'krop-og-sundhed': 'Kropp & hälsa',
   'hjem-og-familie': 'Hem & familj',
-  'hjem-og-koekken': 'Hem & kök',
   arbejde: 'Arbete',
   'falske-venner': 'Falska vänner',
   'udtryk-og-idiomer': 'Uttryck & idiom',
   smalltalk: 'Småprat',
-  känslor: 'Känslor',
-  'tid-og-numre': 'Tid & tal',
-  'natur-og-vejr': 'Natur & väder',
-  kläder: 'Kläder',
+  foelelser: 'Känslor',
 };
 
 const humanize = (key: string): string => {
