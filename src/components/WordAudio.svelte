@@ -8,6 +8,31 @@
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
 
+  // Same fallback marker as SpeakButton: when a clip fails and Web Speech is
+  // used instead, show a muted 'talsyntes' hint so the learner can tell the
+  // curated native clip from the robot voice. Inserted as a sibling (never
+  // inside `el`, whose textContent is the spoken text) and styled inline —
+  // this island injects into ordlista markup, so scoped styles can't reach it.
+  function setTtsHint(el: HTMLElement, show: boolean) {
+    const next = el.nextElementSibling;
+    const existing = next instanceof HTMLElement && next.classList.contains('tts-hint') ? next : null;
+    if (!show) {
+      existing?.remove();
+      return;
+    }
+    if (existing) return;
+    const hint = document.createElement('span');
+    hint.className = 'tts-hint';
+    hint.textContent = 'talsyntes';
+    hint.title = 'Spelades med webbläsarens talsyntes — inspelat klipp saknas eller kunde inte spelas';
+    hint.style.color = 'var(--muted)';
+    hint.style.fontSize = 'var(--step--1)';
+    hint.style.fontStyle = 'italic';
+    hint.style.marginLeft = '0.35em';
+    hint.style.cursor = 'help';
+    el.insertAdjacentElement('afterend', hint);
+  }
+
   onMount(() => {
     const els = document.querySelectorAll<HTMLElement>('[data-audio]');
     let playing: HTMLElement | null = null;
@@ -27,7 +52,8 @@
         playing = el;
         el.classList.add('is-playing');
         window.setTimeout(() => el.classList.remove('is-playing'), 700);
-        await speak(text, { audioUrl: withBase(audio) });
+        const outcome = await speak(text, { audioUrl: withBase(audio) });
+        setTtsHint(el, outcome === 'tts');
       };
 
       el.addEventListener('click', play);

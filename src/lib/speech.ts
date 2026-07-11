@@ -60,29 +60,84 @@ export async function hasDanishVoice(): Promise<boolean> {
   return (await resolveDanishVoice()) !== null;
 }
 
-export type SpeakOutcome = 'audio' | 'tts' | 'none';
+export type SpeakOutcome = 'audio' | 'tts' | 'blocked' | 'cancelled' | 'none';
+
+// The one clip playing right now. Every speak() call stops it (and cancels any
+// ongoing Web Speech) before starting, so audio never overlaps.
+let currentAudio: HTMLAudioElement | null = null;
+
+// Monotonic call id: lets an in-flight speak() detect it was superseded by a
+// newer call (whose stopCurrent() aborted its play()) and bail out silently
+// instead of speaking stale text over the newer playback.
+let speakSeq = 0;
+
+function stopCurrent(): void {
+  if (currentAudio) {
+    try {
+      currentAudio.pause();
+    } catch {
+      /* already stopped/detached — nothing to do */
+    }
+    currentAudio = null;
+  }
+  const s = synth();
+  if (s) {
+    try {
+      s.cancel();
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 /** Speak Danish text. Clip-first: if `audioUrl` plays, use it; else da-DK TTS;
- *  else 'none' (caller shows a fallback). Never throws. */
-export async function speak(text: string, opts: { audioUrl?: string } = {}): Promise<SpeakOutcome> {
+ *  else 'none' (caller shows a fallback). Starting a new speak() stops any
+ *  previous playback. `rate` scales speed (1 = normal, 0.75 = slow replay):
+ *  it sets the clip's playbackRate, or scales the Web Speech base rate 0.95.
+ *  Returns 'blocked' if the browser refused autoplay (no user gesture yet) —
+ *  callers should then offer an explicit play button instead of assuming the
+ *  clip was heard. Returns 'cancelled' if a newer speak() superseded this one
+ *  before it produced sound (callers can ignore that outcome). Never throws. */
+export async function speak(
+  text: string,
+  opts: { audioUrl?: string; rate?: number } = {}
+): Promise<SpeakOutcome> {
+  const seq = ++speakSeq;
+  stopCurrent();
   if (opts.audioUrl) {
+    let audio: HTMLAudioElement | null = null;
     try {
-      await new Audio(opts.audioUrl).play();
+      audio = new Audio(opts.audioUrl);
+      if (opts.rate !== undefined) audio.playbackRate = opts.rate;
+      currentAudio = audio;
+      await audio.play();
       return 'audio';
-    } catch {
-      /* fall through to TTS */
+    } catch (err) {
+      // Only clear our own element: a newer speak() may already have replaced
+      // currentAudio with its own (its pause() is what rejected our play()).
+      if (audio && currentAudio === audio) currentAudio = null;
+      if (seq !== speakSeq) return 'cancelled';
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        // Autoplay blocked: the page has no user gesture yet, so Web Speech
+        // would be equally blocked (or jarringly delayed). Don't fall through.
+        return 'blocked';
+      }
+      console.warn('[speech] clip failed, falling back to Web Speech:', opts.audioUrl, err);
     }
   }
   const s = synth();
   if (!s) return 'none';
   const voice = await resolveDanishVoice();
+  // A newer speak() may have started while we awaited voice resolution;
+  // speaking now would overlap (or cancel) its playback.
+  if (seq !== speakSeq) return 'cancelled';
   if (!voice) return 'none';
   try {
     s.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.voice = voice;
     u.lang = voice.lang || 'da-DK';
-    u.rate = 0.95;
+    u.rate = 0.95 * (opts.rate ?? 1);
     s.speak(u);
     return 'tts';
   } catch {
