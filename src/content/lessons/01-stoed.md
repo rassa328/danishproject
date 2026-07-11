@@ -10,7 +10,8 @@ objectives:
   - 'Förklara vad stød är och varför svenskar inte hör det'
   - 'Känna igen minimala par där stødet ensamt skiljer orden åt'
 prerequisites: []
-vocabTags: []
+vocabTags: ['stoed']
+practiceDirection: 'listen'
 ---
 
 **Stød** är ett kort, knarrigt avbrott i rösten (en glottal "knäpp") som ligger på långa vokaler eller på vokal + *l, m, n, ng, r, v, j*. Svenskan har **tonaccent** (accent 1 och 2) men **inget stød** – och det är just därför svenskar låter svenska när de pratar danska.

@@ -10,7 +10,8 @@ objectives:
   - 'Förstå det vigesimala (20-bas) talsystemet bakom halvtreds'
   - 'Läsa och säga danska tal med entalet före tiotalet'
 prerequisites: []
-vocabTags: []
+vocabTags: ['tal']
+practiceDirection: 'listen'
 checkpoint:
   - q: "Vad betyder 'halvtreds'?"
     options: ['40', '50', '60']
