@@ -65,7 +65,10 @@ const isActive = (l: (typeof links)[number]) =>
     text-decoration: underline;
     text-underline-offset: 4px;
   }
-  a[aria-current='page'] {
+  /* Must out-specify `ul a` above: Astro scopes every selector with a
+     [data-astro-cid] attribute, so a bare a[aria-current] (0,2,1 compiled)
+     would LOSE to ul a (0,2,2 compiled) on color/underline. */
+  ul a[aria-current='page'] {
     color: var(--accent);
     font-weight: 600;
     text-decoration: underline;
