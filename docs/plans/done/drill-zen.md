@@ -2,7 +2,7 @@
 title: Zen — the word drill becomes a Danish zen practice tool (◎ /zen) + drill fixes
 owner: claude-main
 branch: main
-status: active
+status: done
 write_set:
   - src/lib/strings.ts
   - src/lib/deck-groups.ts
@@ -20,6 +20,7 @@ write_set:
   - astro.config.mjs
 verify: npx vitest run src/lib/drill-engine.test.ts src/lib/drill-modes.test.ts src/lib/deck-groups.test.ts src/lib/sentence-match.test.ts && npx astro check && npm test && npm run build
 opened: 2026-07-11
+closed: 2026-07-11
 ---
 
 
@@ -308,3 +309,25 @@ srs.ts, storage.ts, drill-srs.ts, FlashcardReviewer, CelebrationFlag, letter-dif
 - Redirect drops query strings (meta-refresh) — acceptable.
 - Probe cost: ≤5k cards per setup change, same cached praksis JSON Starta uses.
 - Focus-mode drops the run-card border — verify `:focus-visible` still reads.
+
+## Close-out (2026-07-11, claude-main)
+
+Implemented in commits 6355be4 (plan registration) + 6c84291 (implementation),
+pushed to origin/main on the user's go. Verified: 272 unit tests, `astro check`
+clean, `npm run build` clean (redirect page confirmed base-prefixed), and a
+~70-assertion Playwright pass against `astro preview` covering the full plan
+matrix (nav icon semantics, real-count probes + Starta gating, direction
+mixing, miss-flow focus/guard/Vidare, sentence exact/near/wrong, Flöde top-up +
+Avsluta/Escape, bounded Tillbaka + confirm, /tal merged miss line, SRS write
+policy, reduced motion).
+
+Deviations from the plan: none of substance. One discovery folded in during
+implementation: Astro `redirects` does NOT base-prefix the destination (only
+the source route), so the config carries `/danishproject/zen` verbatim.
+
+Open follow-ups (not this plan's scope):
+- Flashcards "Öva fritt (påverkar inte schemat)" DOES write grades
+  (FlashcardReviewer grade() runs unconditionally) — label and behavior
+  disagree; needs its own small fix.
+- The coming design pass reskins the Zen interface; markup is snippet-per-panel
+  and CSS token-only to make that swap cheap.
