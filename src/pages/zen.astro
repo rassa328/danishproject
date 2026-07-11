@@ -3,18 +3,22 @@ import FocusLayout from '../layouts/FocusLayout.astro';
 import Zen from '../components/Zen.svelte';
 import manifest from '../data/number-audio.json';
 import { allCards } from '../lib/decks.ts';
+import { praksisUnique } from '../lib/praksis.ts';
+import { buildStudyGroups } from '../lib/deck-groups.ts';
 import { UI } from '../lib/strings.ts';
 
 // The zen practice presentation (designs: Tal Fokus v2 dark / Morgendis v2
-// light) — one full-screen loop over ord (starter deck as props, praksis
-// fetched lazily) and tal (clip-composed numbers; lyssna levels gated on
-// full clip coverage — real recordings only, never TTS). client:load: the
-// island IS the page.
+// light) — one full-screen loop: läge → riktning → källa (repetera · blandat
+// · tal · the flashcard sets) → nivå. Starter deck as props, praksis fetched
+// lazily; tal = clip-composed numbers (lyssna levels gated on full clip
+// coverage — real recordings only, never TTS). Groups carry match
+// descriptors, not cards (page-weight). client:load: the island IS the page.
+const groups = buildStudyGroups(allCards, praksisUnique);
 ---
 
 <FocusLayout title={UI.zen.title} description={UI.zen.description}>
   <h1 class="vh">{UI.zen.title}</h1>
-  <Zen client:load cards={allCards} manifest={manifest} />
+  <Zen client:load cards={allCards} groups={groups} manifest={manifest} />
 </FocusLayout>
 
 <style>

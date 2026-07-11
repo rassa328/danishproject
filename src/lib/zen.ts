@@ -1,16 +1,16 @@
 // Pure logic for /zen — the full-screen "Fokus" practice presentation
-// (designs: Tal Fokus v2 = dark, Tal Fokus - Morgendis v2 = light), one quiet
-// loop generalized over BOTH subjects: ord (the vocabulary, via the
-// DRILL_MODES registry + SRS store) and tal (the number generators + composed
-// real clips). The Svelte island (Zen.svelte) only wires DOM, audio and
-// timers — every decision that can be unit-tested lives here (the same split
-// as drill-engine/drill-modes).
+// (designs: Tal Fokus v2 = dark, Tal Fokus - Morgendis v2 = light). One quiet
+// loop; the start flow (user feedback 2026-07-11) is mode → riktning
+// (översätt only) → källa (repetera · blandat · tal · the flashcard sets) →
+// nivå (tal only) → Begynd. The Svelte island (Zen.svelte) only wires DOM,
+// audio and timers — every decision that can be unit-tested lives here (the
+// same split as drill-engine/drill-modes).
 //
 // Nothing is duplicated: number logic comes from danish-numbers.ts, word
-// items/grading from drill-modes.ts (the drill-zen registries: sessions build
-// items, per-item SUB_CONFIGS grade them — översätt is BOTH directions mixed
-// in one run, the drill-zen user decision), queueing from session.ts
-// buildQueue (due-only 'repetera' via match {kind:'all'}, free 'blandat').
+// items/grading from drill-modes.ts (sessions build items, per-item
+// SUB_CONFIGS grade them), set descriptors from deck-groups, queueing from
+// session.ts buildQueue (due-only 'repetera' via match {kind:'all'}, free
+// 'blandat', scheduled set sessions via the set's own match).
 
 import {
   NUMBER_LEVELS,
@@ -25,6 +25,7 @@ import {
   type DrillItem,
   type DrillSessionId,
 } from './drill-modes.ts';
+import type { GroupMatch, StudyGroup } from './deck-groups.ts';
 import type { QueueLimits, Rng, SrsView } from './session.ts';
 import type { Card } from './vocab.ts';
 import type { Direction } from './storage.ts';
@@ -32,65 +33,98 @@ import { UI } from './strings.ts';
 
 const T = UI.zen;
 
-export type ZenSubject = 'ord' | 'tal';
 export type ZenMode = 'lyssna' | 'översätt';
-export type ZenLang = 'danska' | 'svenska';
-export type WordSourceId = 'repetera' | 'blandat';
-export type ZenStep = 'subject' | 'mode' | 'lang' | 'source' | 'begin';
+/** Riktning (översätt only): which side is SHOWN → which side is typed.
+ *  For tal, sv-da means "ser siffror · skriver danska" and vice versa. */
+export type ZenDirection = 'sv-da' | 'da-sv';
+export type ZenStep = 'mode' | 'direction' | 'source' | 'level' | 'begin';
 
-export const SUBJECT_IDS: readonly ZenSubject[] = ['ord', 'tal'];
 export const MODE_IDS: readonly ZenMode[] = ['lyssna', 'översätt'];
-export const LANG_IDS: readonly ZenLang[] = ['danska', 'svenska'];
+export const DIRECTION_IDS: readonly ZenDirection[] = ['sv-da', 'da-sv'];
 export const LEVEL_IDS: readonly NumberLevelId[] = NUMBER_LEVELS.map((l) => l.id);
-export const WORD_SOURCE_IDS: readonly WordSourceId[] = ['repetera', 'blandat'];
+/** Fixed källa ids; sets are appended as `set:<group.id>`. */
+export const SOURCE_REPETERA = 'repetera';
+export const SOURCE_BLANDAT = 'blandat';
+export const SOURCE_TAL = 'tal';
 
-/** Runtime gates on the source step: which lyssna number levels have FULL
- *  clip coverage (a partial level would go silent mid-session — real
- *  recordings only, never TTS), and whether anything is due for the chosen
- *  word direction ('repetera' is pointless when the answer is no). */
-export interface ZenGates {
-  coverage: Record<NumberLevelId, boolean>;
-  hasDue: boolean;
+/** A pickable flashcard set (from the flashcards' study groups). */
+export interface ZenSet {
+  id: string;
+  label: string;
+  match: GroupMatch;
 }
 
-/** The start flow: one step on screen at a time. Earlier picks are kept —
- *  per subject for the source — so stepping back (and next session's
- *  restored prefs) highlights them. */
+/** The due-all synthetic group IS zen's 'repetera' — everything else becomes
+ *  a källa option. */
+export function zenSets(groups: StudyGroup[]): ZenSet[] {
+  return groups
+    .filter((g) => g.match.kind !== 'all')
+    .map((g) => ({ id: g.id, label: g.label, match: g.match }));
+}
+
+export const setSourceId = (set: ZenSet): string => `set:${set.id}`;
+
+export function setForSource(source: string | null, sets: ZenSet[]): ZenSet | null {
+  if (source === null || !source.startsWith('set:')) return null;
+  const id = source.slice(4);
+  return sets.find((s) => s.id === id) ?? null;
+}
+
+/** Everything the source/level steps gate on at runtime. */
+export interface ZenContext {
+  /** Which number levels have FULL clip coverage (a partial level would go
+   *  silent mid-session — real recordings only, never TTS). */
+  coverage: Record<NumberLevelId, boolean>;
+  /** Anything due for the flow's direction — gates 'repetera'. */
+  hasDue: boolean;
+  sets: ZenSet[];
+}
+
+/** The start flow: one step on screen at a time. Earlier picks are kept so
+ *  stepping back (and next session's restored prefs) highlights them. */
 export interface ZenFlow {
   step: ZenStep;
-  subject: ZenSubject | null;
   mode: ZenMode | null;
-  dispLang: ZenLang | null;
-  /** tal's source pick. */
+  direction: ZenDirection | null;
+  /** 'repetera' | 'blandat' | 'tal' | `set:<id>`. */
+  source: string | null;
+  /** tal's level pick. */
   level: NumberLevelId | null;
-  /** ord's source pick. */
-  wordSource: WordSourceId | null;
 }
 
 export const initialFlow = (): ZenFlow => ({
-  step: 'subject',
-  subject: null,
+  step: 'mode',
   mode: null,
-  dispLang: null,
+  direction: null,
+  source: null,
   level: null,
-  wordSource: null,
 });
+
+/** tal is offered in lyssna only while at least one level is fully clip-
+ *  covered; in översätt it is always available. */
+export function talAvailable(flow: ZenFlow, ctx: ZenContext): boolean {
+  if (flow.mode !== 'lyssna') return true;
+  return LEVEL_IDS.some((id) => ctx.coverage[id]);
+}
 
 /** The ids the highlight can land on for the current step (arrow keys).
  *  Gated options are excluded — they render disabled but can't be picked. */
-export function stepOptions(flow: ZenFlow, gates: ZenGates): string[] {
+export function stepOptions(flow: ZenFlow, ctx: ZenContext): string[] {
   switch (flow.step) {
-    case 'subject':
-      return [...SUBJECT_IDS];
     case 'mode':
       return [...MODE_IDS];
-    case 'lang':
-      return [...LANG_IDS];
-    case 'source':
-      if (flow.subject === 'tal') {
-        return LEVEL_IDS.filter((id) => !(flow.mode === 'lyssna' && !gates.coverage[id]));
-      }
-      return WORD_SOURCE_IDS.filter((id) => !(id === 'repetera' && !gates.hasDue));
+    case 'direction':
+      return [...DIRECTION_IDS];
+    case 'source': {
+      const ids: string[] = [];
+      if (ctx.hasDue) ids.push(SOURCE_REPETERA);
+      ids.push(SOURCE_BLANDAT);
+      if (talAvailable(flow, ctx)) ids.push(SOURCE_TAL);
+      ids.push(...ctx.sets.map(setSourceId));
+      return ids;
+    }
+    case 'level':
+      return LEVEL_IDS.filter((id) => !(flow.mode === 'lyssna' && !ctx.coverage[id]));
     case 'begin':
       return [];
   }
@@ -98,75 +132,60 @@ export function stepOptions(flow: ZenFlow, gates: ZenGates): string[] {
 
 /** Apply a pick on the current step. Returns the SAME object when the pick
  *  is invalid (unknown id, gated option) so callers can cheaply no-op. */
-export function pick(flow: ZenFlow, gates: ZenGates, id: string): ZenFlow {
+export function pick(flow: ZenFlow, ctx: ZenContext, id: string): ZenFlow {
   switch (flow.step) {
-    case 'subject': {
-      if (!(SUBJECT_IDS as readonly string[]).includes(id)) return flow;
-      return { ...flow, subject: id as ZenSubject, step: 'mode' };
-    }
     case 'mode': {
       if (!(MODE_IDS as readonly string[]).includes(id)) return flow;
       const mode = id as ZenMode;
-      // 'visas på' exists only for tal (digits vs Danish reading). For ord,
-      // översätt mixes BOTH directions in one run (drill-zen user decision),
-      // so there is nothing to choose.
-      const askLang = mode === 'översätt' && flow.subject === 'tal';
-      const next: ZenFlow = { ...flow, mode, step: askLang ? 'lang' : 'source' };
-      // A remembered source the new mode can't serve must not survive the pick.
-      if (mode === 'lyssna' && flow.subject === 'tal' && flow.level && !gates.coverage[flow.level]) {
-        next.level = null;
-      }
-      return next;
+      // Riktning only exists for översätt; lyssna is always Danish → you.
+      return { ...flow, mode, step: mode === 'översätt' ? 'direction' : 'source' };
     }
-    case 'lang': {
-      if (!(LANG_IDS as readonly string[]).includes(id)) return flow;
-      return { ...flow, dispLang: id as ZenLang, step: 'source' };
+    case 'direction': {
+      if (!(DIRECTION_IDS as readonly string[]).includes(id)) return flow;
+      return { ...flow, direction: id as ZenDirection, step: 'source' };
     }
     case 'source': {
-      if (!stepOptions(flow, gates).includes(id)) return flow;
-      return flow.subject === 'tal'
-        ? { ...flow, level: id as NumberLevelId, step: 'begin' }
-        : { ...flow, wordSource: id as WordSourceId, step: 'begin' };
+      if (!stepOptions(flow, ctx).includes(id)) return flow;
+      return { ...flow, source: id, step: id === SOURCE_TAL ? 'level' : 'begin' };
+    }
+    case 'level': {
+      if (!stepOptions(flow, ctx).includes(id)) return flow;
+      return { ...flow, level: id as NumberLevelId, step: 'begin' };
     }
     case 'begin':
       return flow;
   }
 }
 
-/** Esc / "tillbaka": one step up, skipping 'lang' in lyssna (it was never
- *  shown). Picks are kept. No-op (same object) on the first step. */
+/** Esc / "tillbaka": one step up, entering only the steps that were shown.
+ *  No-op (same object) on the first step — the island exits zen instead. */
 export function back(flow: ZenFlow): ZenFlow {
   switch (flow.step) {
     case 'begin':
+      return { ...flow, step: flow.source === SOURCE_TAL ? 'level' : 'source' };
+    case 'level':
       return { ...flow, step: 'source' };
     case 'source':
-      return {
-        ...flow,
-        step: flow.mode === 'översätt' && flow.subject === 'tal' ? 'lang' : 'mode',
-      };
-    case 'lang':
+      return { ...flow, step: flow.mode === 'översätt' ? 'direction' : 'mode' };
+    case 'direction':
       return { ...flow, step: 'mode' };
     case 'mode':
-      return { ...flow, step: 'subject' };
-    case 'subject':
       return flow;
   }
 }
 
 /** Where the highlight starts on a step: the option already picked (restored
  *  prefs / stepping back), else the first. */
-export function highlightIndex(flow: ZenFlow, gates: ZenGates): number {
+export function highlightIndex(flow: ZenFlow, ctx: ZenContext): number {
   const selected =
-    flow.step === 'subject'
-      ? flow.subject
-      : flow.step === 'mode'
-        ? flow.mode
-        : flow.step === 'lang'
-          ? flow.dispLang
-          : flow.subject === 'tal'
-            ? flow.level
-            : flow.wordSource;
-  const i = selected === null ? -1 : stepOptions(flow, gates).indexOf(selected);
+    flow.step === 'mode'
+      ? flow.mode
+      : flow.step === 'direction'
+        ? flow.direction
+        : flow.step === 'source'
+          ? flow.source
+          : flow.level;
+  const i = selected === null ? -1 : stepOptions(flow, ctx).indexOf(selected);
   return i >= 0 ? i : 0;
 }
 
@@ -176,50 +195,54 @@ export function wrapIndex(i: number, delta: number, n: number): number {
 }
 
 export interface ReadyZenFlow extends ZenFlow {
-  subject: ZenSubject;
   mode: ZenMode;
+  source: string;
 }
 
 /** Begynd is allowed once every step the picks need has one. */
 export function isReady(flow: ZenFlow): flow is ReadyZenFlow {
-  if (flow.subject === null || flow.mode === null) return false;
-  if (flow.subject === 'tal') {
-    if (flow.mode === 'översätt' && flow.dispLang === null) return false;
-    return flow.level !== null;
-  }
-  return flow.wordSource !== null;
+  if (flow.mode === null || flow.source === null) return false;
+  if (flow.mode === 'översätt' && flow.direction === null) return false;
+  return flow.source !== SOURCE_TAL || flow.level !== null;
+}
+
+/** repetera and set sessions grade (one dueness per card+skill, shared with
+ *  the flashcards); blandat is free practice; numbers have no SRS in v1. */
+export function sourceIsGraded(source: string | null): boolean {
+  return source === SOURCE_REPETERA || (source !== null && source.startsWith('set:'));
 }
 
 // ---------------------------------------------------------------------------
 // Flow → session shape
 
 /** What the answer input takes. digits: numeric keypad; danish: lang=da with
- *  live ä/ö→æ/ø; swedish: plain text. For ord this is a PER-ITEM question —
- *  a mixed översätt run alternates directions, so each item's sub decides. */
+ *  live ä/ö→æ/ø; swedish: plain text. Per ITEM — the sub knows its side. */
 export type ZenInputKind = 'digits' | 'danish' | 'swedish';
 
 export function itemInputKind(zi: ZenItem, flow: ZenFlow): ZenInputKind {
   if (zi.type === 'tal') {
-    return flow.mode === 'lyssna' || flow.dispLang === 'danska' ? 'digits' : 'danish';
+    // lyssna and 'danska → svenska' answer in digits; 'svenska → danska'
+    // writes the Danish reading.
+    return flow.mode === 'översätt' && flow.direction === 'sv-da' ? 'danish' : 'digits';
   }
   return subConfigOf(zi.item).input.lang === 'da' ? 'danish' : 'swedish';
 }
 
-/** ord flows map onto the drill-zen session builders: lyssna = dictation,
- *  översätt = the MIXED both-directions translate session. Items, grading and
- *  audio come from the registries verbatim. */
+/** Word flows map onto the drill session builders. null = a tal flow. */
 export function wordSessionId(flow: ZenFlow): DrillSessionId | null {
-  if (flow.subject !== 'ord' || flow.mode === null) return null;
-  return flow.mode === 'lyssna' ? 'listen' : 'translate';
+  if (flow.source === SOURCE_TAL || flow.mode === null) return null;
+  if (flow.mode === 'lyssna') return 'listen';
+  if (flow.direction === null) return null;
+  return flow.direction === 'sv-da' ? 'translate-sv-da' : 'translate-da-sv';
 }
 
-/** Every SRS direction a word flow trains (translate mixes produce and
- *  recognize) — shared with the flashcards, so zen 'repetera' drains the
- *  same dueness. */
+/** The SRS directions a word flow trains — shared with the flashcards, so
+ *  zen 'repetera' drains the same dueness. */
 export function wordDirections(flow: ZenFlow): Direction[] {
-  const sessionId = wordSessionId(flow);
-  if (sessionId === 'listen') return ['listen'];
-  if (sessionId === 'translate') return ['produce', 'recognize'];
+  if (flow.mode === 'lyssna') return ['listen'];
+  if (flow.mode === 'översätt' && flow.direction !== null) {
+    return [flow.direction === 'sv-da' ? 'produce' : 'recognize'];
+  }
   return [];
 }
 
@@ -247,6 +270,8 @@ export type ZenItem =
   | { type: 'tal'; value: number; tokens: string[]; kind: NumberKind }
   | { type: 'ord'; item: DrillItem };
 
+export type TalItem = Extract<ZenItem, { type: 'tal' }>;
+
 /** n draws from the number level's generator, rerolling up to 8× so the same
  *  value never lands twice in a row (small pools like tiotal may still
  *  repeat later in the session — design parity). */
@@ -266,11 +291,24 @@ export function buildNumberSession(level: NumberLevelId, n: number, rng: Rng): Z
   return items;
 }
 
-/** Word session via the drill-zen session registry: 'repetera' = due-only
- *  most-overdue-first (match {kind:'all'}), 'blandat' = free roam. */
+/** The queue descriptor a word källa builds with: repetera = due-only over
+ *  everything; blandat = free roam over everything; a set = its own match,
+ *  scheduled like the flashcards (due first, then new under the budget). */
+export function sourceQueue(
+  source: string,
+  sets: ZenSet[],
+): { match: GroupMatch; free: boolean } | null {
+  if (source === SOURCE_REPETERA) return { match: { kind: 'all' }, free: false };
+  if (source === SOURCE_BLANDAT) return { match: { kind: 'all' }, free: true };
+  const set = setForSource(source, sets);
+  return set ? { match: set.match, free: false } : null;
+}
+
+/** Word session via the drill session registry. */
 export function buildWordSession(opts: {
   sessionId: DrillSessionId;
-  source: WordSourceId;
+  match: GroupMatch;
+  free: boolean;
   cards: Card[];
   srs: SrsView;
   now: Date;
@@ -283,8 +321,8 @@ export function buildWordSession(opts: {
     srs: opts.srs,
     now: opts.now,
     limits: opts.limits,
-    match: { kind: 'all' },
-    free: opts.source === 'blandat',
+    match: opts.match,
+    free: opts.free,
     size: opts.size,
     ...(opts.rng !== undefined ? { rng: opts.rng } : {}),
   });
@@ -307,8 +345,6 @@ const fold = (s: string): string =>
 
 /** Spacing between number tokens is never graded: 'syv og tyve' ≡ 'syvogtyve'. */
 const squash = (s: string): string => s.replaceAll(' ', '');
-
-export type TalItem = Extract<ZenItem, { type: 'tal' }>;
 
 /** Digit answers: thousands spaces stripped, then an exact value match. */
 export function gradeDigits(typed: string, item: TalItem): boolean {
@@ -347,7 +383,7 @@ export function gradeZen(typed: string, zi: ZenItem, flow: ZenFlow): boolean {
 export function zenPrompt(zi: ZenItem, flow: ZenFlow): { text: string; lang: 'da' | null } | null {
   if (flow.mode === 'lyssna') return null;
   if (zi.type === 'tal') {
-    if (flow.dispLang === 'danska') return { text: zi.tokens.join(' '), lang: 'da' };
+    if (flow.direction === 'da-sv') return { text: zi.tokens.join(' '), lang: 'da' };
     const text =
       zi.kind === 'year'
         ? T.year(zi.value)
@@ -356,7 +392,7 @@ export function zenPrompt(zi: ZenItem, flow: ZenFlow): { text: string; lang: 'da
           : String(zi.value);
     return { text, lang: null };
   }
-  // ord översätt: each mixed item shows its own side — the sub knows.
+  // ord: each item shows its own side — the sub knows.
   return { text: zi.item.prompt, lang: subConfigOf(zi.item).prompt.lang === 'da' ? 'da' : null };
 }
 
@@ -384,20 +420,22 @@ export function zenReveal(zi: ZenItem, typed: string, correct: boolean): ZenReve
 // ---------------------------------------------------------------------------
 // Prefs
 
-export const PREFS_KEY = 'zen.prefs.v1';
+/** v2: the 2026-07-11 flow rework (mode → riktning → källa → nivå). */
+export const PREFS_KEY = 'zen.prefs.v2';
 
 export interface ZenPrefs {
-  subject: ZenSubject | null;
   mode: ZenMode | null;
-  dispLang: ZenLang | null;
+  direction: ZenDirection | null;
+  source: string | null;
   level: NumberLevelId | null;
-  wordSource: WordSourceId | null;
 }
 
 /** Parse a stored prefs blob; anything unknown or malformed becomes null so
- *  a stale/foreign value can never preselect an invalid option. */
+ *  a stale/foreign value can never preselect an invalid option. Set sources
+ *  are shape-checked here and existence-checked against the live set list at
+ *  pick time (stepOptions filters them). */
 export function parsePrefs(raw: string | null): ZenPrefs {
-  const none: ZenPrefs = { subject: null, mode: null, dispLang: null, level: null, wordSource: null };
+  const none: ZenPrefs = { mode: null, direction: null, source: null, level: null };
   if (raw === null) return none;
   let data: unknown;
   try {
@@ -409,11 +447,15 @@ export function parsePrefs(raw: string | null): ZenPrefs {
   const o = data as Record<string, unknown>;
   const valid = <T extends string>(ids: readonly T[], v: unknown): T | null =>
     typeof v === 'string' && (ids as readonly string[]).includes(v) ? (v as T) : null;
+  const source =
+    typeof o.source === 'string' &&
+    ([SOURCE_REPETERA, SOURCE_BLANDAT, SOURCE_TAL].includes(o.source) || /^set:.+/.test(o.source))
+      ? o.source
+      : null;
   return {
-    subject: valid(SUBJECT_IDS, o.subject),
     mode: valid(MODE_IDS, o.mode),
-    dispLang: valid(LANG_IDS, o.dispLang),
+    direction: valid(DIRECTION_IDS, o.direction),
+    source,
     level: valid(LEVEL_IDS, o.level),
-    wordSource: valid(WORD_SOURCE_IDS, o.wordSource),
   };
 }

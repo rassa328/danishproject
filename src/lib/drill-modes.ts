@@ -30,6 +30,8 @@ import { UI } from './strings.ts';
 
 export type DrillSessionId =
   | 'translate'
+  | 'translate-sv-da'
+  | 'translate-da-sv'
   | 'listen'
   | 'translate-sent'
   | 'listen-sent'
@@ -388,6 +390,16 @@ export const subConfigOf = (item: DrillItem): SubConfig => SUB_CONFIGS[item.sub]
 
 export const DRILL_SESSIONS: Record<DrillSessionId, DrillSessionConfig> = {
   translate: { id: 'translate', buildItems: buildTranslateItems },
+  // Single-direction translate (zen's riktning step picks a side; the mixed
+  // 'translate' above stays for surfaces that want back-and-forth).
+  'translate-sv-da': {
+    id: 'translate-sv-da',
+    buildItems: (deps) => buildWordCards(deps, 'produce').map(svDaItem),
+  },
+  'translate-da-sv': {
+    id: 'translate-da-sv',
+    buildItems: (deps) => buildWordCards(deps, 'recognize').map(daSvItem),
+  },
   listen: {
     id: 'listen',
     buildItems: (deps) =>

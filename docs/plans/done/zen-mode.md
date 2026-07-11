@@ -126,3 +126,22 @@ NOT yet in the design shell (their zen had them; follow-ups for the next
 design round): meningar (sentence subs), multi-select sets, endless Flöde,
 count picker, stats/CelebrationFlag end screen. All their lib support is
 merged and live — only the Fokus UI doesn't expose them yet.
+
+## Round 3 — user feedback on the live site (2026-07-11 21:45)
+
+"not possible to exit · no tal option in the start (part of översätt, choose
+sv→da or da→sv) · sets from the flashcards alongside repetera/blandat ·
+warmer, more yellow dot". Applied:
+
+- Exit: 'lämna · esc' link on the first step (footer) → site start page; Esc
+  on the first step does the same.
+- Flow v2: läge (lyssna · översätt) → riktning (svenska→danska ·
+  danska→svenska, översätt only) → källa (repetera · blandat · tal ·
+  flashcard sets) → nivå (tal only) → Begynd. Mixed translate is gone from
+  zen (kept in drill-modes as 'translate'); new single-direction sessions
+  'translate-sv-da'/'translate-da-sv' added to DRILL_SESSIONS.
+- Sets = the flashcards' study groups (due-all synthetic excluded), scheduled
+  builds (due first + new under the daily budget), SRS-graded like repetera;
+  blandat stays free/ungraded; tal ungraded (no number SRS in v1).
+- Light-theme glow: Dannebrog red → warm amber #c99b3f (dark's gold stays).
+- Prefs bumped to zen.prefs.v2 (mode/direction/source/level).

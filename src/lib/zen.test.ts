@@ -16,26 +16,38 @@ import {
   LEVEL_IDS,
   parsePrefs,
   pick,
+  setForSource,
+  sourceIsGraded,
+  sourceQueue,
   stepOptions,
   wordDirections,
   wordSessionId,
   wrapIndex,
   zenPrompt,
   zenReveal,
+  zenSets,
   type TalItem,
+  type ZenContext,
   type ZenFlow,
-  type ZenGates,
   type ZenItem,
+  type ZenSet,
 } from './zen.ts';
 import { numberToTokens, priceToTokens, yearToTokens } from './danish-numbers.ts';
 import type { Card } from './vocab.ts';
 import type { Rng, SrsView } from './session.ts';
 import type { SrsRecord } from './storage.ts';
+import type { StudyGroup } from './deck-groups.ts';
+
+const SETS: ZenSet[] = [
+  { id: 'vardag', label: 'Vardag', match: { kind: 'decks', decks: ['vardag'] } },
+  { id: 'falska', label: 'Falska vänner', match: { kind: 'decks', decks: ['falska-venner'] } },
+];
 
 /** Today's real coverage shape: only tiotal fully recorded. */
-const gates = (over: Partial<ZenGates> = {}): ZenGates => ({
+const ctx = (over: Partial<ZenContext> = {}): ZenContext => ({
   coverage: { '0-20': false, 'tiotal': true, '0-99': false, 'stora-tal': false },
   hasDue: true,
+  sets: SETS,
   ...over,
 });
 const flow = (over: Partial<ZenFlow>): ZenFlow => ({ ...initialFlow(), ...over });
@@ -70,92 +82,94 @@ const record = (over: Partial<SrsRecord>): SrsRecord => ({
 });
 
 const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
-const limits = { newPerDay: 0, reviewPerDay: 100 };
+const limits = { newPerDay: 5, reviewPerDay: 100 };
 const NOW = new Date('2026-07-11T12:00:00Z');
 
 // ---------------------------------------------------------------------------
 
 describe('start flow', () => {
-  it('walks subject → mode → source; the visas-på step exists only for tal', () => {
-    let f = pick(initialFlow(), gates(), 'tal');
-    expect(f.step).toBe('mode');
-    f = pick(f, gates(), 'översätt');
-    expect(f.step).toBe('lang'); // tal-översätt: digits vs Danish reading
-    f = pick(f, gates(), 'svenska');
+  it('walks mode → källa for lyssna, inserting riktning for översätt', () => {
+    let f = pick(initialFlow(), ctx(), 'lyssna');
     expect(f.step).toBe('source');
-    f = pick(f, gates(), 'stora-tal');
-    expect(f).toMatchObject({ step: 'begin', subject: 'tal', level: 'stora-tal' });
+    f = pick(f, ctx(), 'blandat');
+    expect(f).toMatchObject({ step: 'begin', mode: 'lyssna', source: 'blandat' });
 
-    // ord-översätt mixes both directions in one run — no language step.
-    let g = pick(initialFlow(), gates(), 'ord');
-    g = pick(g, gates(), 'översätt');
+    let g = pick(initialFlow(), ctx(), 'översätt');
+    expect(g.step).toBe('direction');
+    g = pick(g, ctx(), 'da-sv');
     expect(g.step).toBe('source');
-    g = pick(g, gates(), 'blandat');
-    expect(g).toMatchObject({ step: 'begin', subject: 'ord', wordSource: 'blandat' });
+    g = pick(g, ctx(), 'set:vardag');
+    expect(g).toMatchObject({ step: 'begin', direction: 'da-sv', source: 'set:vardag' });
   });
 
-  it('gates source options: tal-lyssna on coverage, ord on dueness', () => {
-    expect(stepOptions(flow({ step: 'source', subject: 'tal', mode: 'lyssna' }), gates())).toEqual([
-      'tiotal',
-    ]);
-    expect(
-      stepOptions(flow({ step: 'source', subject: 'tal', mode: 'översätt' }), gates()),
-    ).toEqual([...LEVEL_IDS]);
-    expect(stepOptions(flow({ step: 'source', subject: 'ord', mode: 'lyssna' }), gates())).toEqual([
+  it('routes tal through the level step', () => {
+    let f = pick(initialFlow(), ctx(), 'översätt');
+    f = pick(f, ctx(), 'sv-da');
+    f = pick(f, ctx(), 'tal');
+    expect(f.step).toBe('level');
+    f = pick(f, ctx(), 'stora-tal');
+    expect(f).toMatchObject({ step: 'begin', source: 'tal', level: 'stora-tal' });
+  });
+
+  it('offers källa in order — repetera gated on dueness, tal on lyssna coverage', () => {
+    expect(stepOptions(flow({ step: 'source', mode: 'översätt' }), ctx())).toEqual([
       'repetera',
       'blandat',
+      'tal',
+      'set:vardag',
+      'set:falska',
     ]);
-    expect(
-      stepOptions(flow({ step: 'source', subject: 'ord' }), gates({ hasDue: false })),
-    ).toEqual(['blandat']);
+    expect(stepOptions(flow({ step: 'source', mode: 'lyssna' }), ctx({ hasDue: false }))).toEqual([
+      'blandat',
+      'tal',
+      'set:vardag',
+      'set:falska',
+    ]);
+    // No covered level at all → lyssna hides tal; översätt keeps it.
+    const noCoverage = ctx({
+      coverage: { '0-20': false, 'tiotal': false, '0-99': false, 'stora-tal': false },
+    });
+    expect(stepOptions(flow({ step: 'source', mode: 'lyssna' }), noCoverage)).not.toContain('tal');
+    expect(stepOptions(flow({ step: 'source', mode: 'översätt' }), noCoverage)).toContain('tal');
+    // Level step: lyssna filters uncovered levels.
+    expect(stepOptions(flow({ step: 'level', mode: 'lyssna' }), ctx())).toEqual(['tiotal']);
+    expect(stepOptions(flow({ step: 'level', mode: 'översätt' }), ctx())).toEqual([...LEVEL_IDS]);
   });
 
   it('ignores unknown ids and gated picks (same object back)', () => {
     const start = initialFlow();
-    expect(pick(start, gates(), 'nope')).toBe(start);
-    const atTalSource = flow({ step: 'source', subject: 'tal', mode: 'lyssna' });
-    expect(pick(atTalSource, gates(), '0-99')).toBe(atTalSource);
-    const atOrdSource = flow({ step: 'source', subject: 'ord', mode: 'lyssna' });
-    expect(pick(atOrdSource, gates({ hasDue: false }), 'repetera')).toBe(atOrdSource);
+    expect(pick(start, ctx(), 'nope')).toBe(start);
+    const atSource = flow({ step: 'source', mode: 'lyssna' });
+    expect(pick(atSource, ctx({ hasDue: false }), 'repetera')).toBe(atSource);
+    expect(pick(atSource, ctx(), 'set:okänd')).toBe(atSource);
+    const atLevel = flow({ step: 'level', mode: 'lyssna' });
+    expect(pick(atLevel, ctx(), '0-99')).toBe(atLevel);
   });
 
-  it('drops a remembered tal level that lyssna cannot play', () => {
-    const remembered = flow({ step: 'mode', subject: 'tal', level: '0-99' });
-    expect(pick(remembered, gates(), 'lyssna').level).toBeNull();
-    expect(pick(remembered, gates(), 'översätt').level).toBe('0-99');
-    const covered = flow({ step: 'mode', subject: 'tal', level: 'tiotal' });
-    expect(pick(covered, gates(), 'lyssna').level).toBe('tiotal');
-  });
-
-  it('backs up one step, entering lang only where it was shown', () => {
-    expect(back(flow({ step: 'begin' })).step).toBe('source');
-    expect(back(flow({ step: 'source', subject: 'tal', mode: 'översätt' })).step).toBe('lang');
-    expect(back(flow({ step: 'source', subject: 'ord', mode: 'översätt' })).step).toBe('mode');
-    expect(back(flow({ step: 'source', subject: 'tal', mode: 'lyssna' })).step).toBe('mode');
-    expect(back(flow({ step: 'lang' })).step).toBe('mode');
-    expect(back(flow({ step: 'mode' })).step).toBe('subject');
+  it('backs up one step, entering only the steps that were shown', () => {
+    expect(back(flow({ step: 'begin', source: 'tal' })).step).toBe('level');
+    expect(back(flow({ step: 'begin', source: 'blandat' })).step).toBe('source');
+    expect(back(flow({ step: 'level' })).step).toBe('source');
+    expect(back(flow({ step: 'source', mode: 'översätt' })).step).toBe('direction');
+    expect(back(flow({ step: 'source', mode: 'lyssna' })).step).toBe('mode');
+    expect(back(flow({ step: 'direction' })).step).toBe('mode');
     const first = initialFlow();
-    expect(back(first)).toBe(first);
+    expect(back(first)).toBe(first); // the island exits zen instead
   });
 
-  it('highlights the already-picked option per subject, else the first', () => {
-    expect(highlightIndex(initialFlow(), gates())).toBe(0);
-    expect(highlightIndex(flow({ subject: 'tal' }), gates())).toBe(1);
+  it('highlights the already-picked option, else the first', () => {
+    expect(highlightIndex(initialFlow(), ctx())).toBe(0);
+    expect(highlightIndex(flow({ mode: 'översätt' }), ctx())).toBe(1);
+    expect(highlightIndex(flow({ step: 'direction', direction: 'da-sv' }), ctx())).toBe(1);
     expect(
-      highlightIndex(
-        flow({ step: 'source', subject: 'tal', mode: 'översätt', level: '0-99' }),
-        gates(),
-      ),
-    ).toBe(2);
-    expect(
-      highlightIndex(flow({ step: 'source', subject: 'ord', wordSource: 'blandat' }), gates()),
-    ).toBe(1);
+      highlightIndex(flow({ step: 'source', mode: 'översätt', source: 'set:falska' }), ctx()),
+    ).toBe(4);
     // A selection filtered out by the gates falls back to 0.
     expect(
-      highlightIndex(
-        flow({ step: 'source', subject: 'tal', mode: 'lyssna', level: '0-99' }),
-        gates(),
-      ),
+      highlightIndex(flow({ step: 'source', mode: 'lyssna', source: 'repetera' }), ctx({ hasDue: false })),
+    ).toBe(0);
+    expect(
+      highlightIndex(flow({ step: 'level', mode: 'lyssna', level: '0-99' }), ctx()),
     ).toBe(0);
   });
 
@@ -166,12 +180,33 @@ describe('start flow', () => {
   });
 
   it('is ready only when every step the picks need has one', () => {
-    expect(isReady(flow({ subject: 'tal', mode: 'lyssna', level: 'tiotal' }))).toBe(true);
-    expect(isReady(flow({ subject: 'tal', mode: 'lyssna' }))).toBe(false);
-    expect(isReady(flow({ subject: 'tal', mode: 'översätt', level: '0-99' }))).toBe(false);
-    // ord-översätt has no language step — ready without dispLang.
-    expect(isReady(flow({ subject: 'ord', mode: 'översätt', wordSource: 'blandat' }))).toBe(true);
-    expect(isReady(flow({ subject: 'ord', mode: 'lyssna', level: 'tiotal' }))).toBe(false);
+    expect(isReady(flow({ mode: 'lyssna', source: 'blandat' }))).toBe(true);
+    expect(isReady(flow({ mode: 'lyssna' }))).toBe(false);
+    expect(isReady(flow({ mode: 'översätt', source: 'blandat' }))).toBe(false);
+    expect(isReady(flow({ mode: 'översätt', direction: 'sv-da', source: 'blandat' }))).toBe(true);
+    expect(isReady(flow({ mode: 'lyssna', source: 'tal' }))).toBe(false);
+    expect(isReady(flow({ mode: 'lyssna', source: 'tal', level: 'tiotal' }))).toBe(true);
+  });
+
+  it('grades repetera and set sessions, never blandat or tal', () => {
+    expect(sourceIsGraded('repetera')).toBe(true);
+    expect(sourceIsGraded('set:vardag')).toBe(true);
+    expect(sourceIsGraded('blandat')).toBe(false);
+    expect(sourceIsGraded('tal')).toBe(false);
+    expect(sourceIsGraded(null)).toBe(false);
+  });
+
+  it('derives sets from the flashcard groups, dropping the due-all synthetic', () => {
+    const groups: StudyGroup[] = [
+      { id: 'due-all', label: 'Att repetera (alla)', optgroup: '', match: { kind: 'all' } },
+      { id: 'vardag', label: 'Vardag', optgroup: 'Utvalda', match: { kind: 'decks', decks: ['vardag'] } },
+    ];
+    expect(zenSets(groups)).toEqual([
+      { id: 'vardag', label: 'Vardag', match: { kind: 'decks', decks: ['vardag'] } },
+    ]);
+    expect(setForSource('set:vardag', SETS)?.label).toBe('Vardag');
+    expect(setForSource('set:missing', SETS)).toBeNull();
+    expect(setForSource('blandat', SETS)).toBeNull();
   });
 });
 
@@ -211,36 +246,52 @@ describe('flow → session shape', () => {
   };
   const n7: TalItem = { type: 'tal', value: 7, tokens: numberToTokens(7), kind: 'number' };
 
-  it('the input follows the ITEM: mixed översätt alternates sides', () => {
-    const anyOrd = flow({ subject: 'ord', mode: 'översätt' });
+  it('the input follows the item side; tal follows mode and riktning', () => {
+    const anyOrd = flow({ mode: 'översätt', direction: 'sv-da' });
     expect(itemInputKind(svDaItem, anyOrd)).toBe('danish');
-    expect(itemInputKind(daSvItem, anyOrd)).toBe('swedish');
-    expect(itemInputKind(dictItem, flow({ subject: 'ord', mode: 'lyssna' }))).toBe('danish');
-    expect(itemInputKind(n7, flow({ subject: 'tal', mode: 'lyssna' }))).toBe('digits');
-    expect(itemInputKind(n7, flow({ subject: 'tal', mode: 'översätt', dispLang: 'danska' }))).toBe(
+    expect(itemInputKind(daSvItem, flow({ mode: 'översätt', direction: 'da-sv' }))).toBe('swedish');
+    expect(itemInputKind(dictItem, flow({ mode: 'lyssna' }))).toBe('danish');
+    expect(itemInputKind(n7, flow({ mode: 'lyssna', source: 'tal' }))).toBe('digits');
+    // danska → svenska: ser danska, skriver siffror.
+    expect(itemInputKind(n7, flow({ mode: 'översätt', direction: 'da-sv', source: 'tal' }))).toBe(
       'digits',
     );
-    expect(itemInputKind(n7, flow({ subject: 'tal', mode: 'översätt', dispLang: 'svenska' }))).toBe(
+    // svenska → danska: ser siffror, skriver danska.
+    expect(itemInputKind(n7, flow({ mode: 'översätt', direction: 'sv-da', source: 'tal' }))).toBe(
       'danish',
     );
   });
 
-  it('maps ord flows onto the drill-zen sessions and their SRS directions', () => {
-    expect(wordSessionId(flow({ subject: 'ord', mode: 'lyssna' }))).toBe('listen');
-    expect(wordSessionId(flow({ subject: 'ord', mode: 'översätt' }))).toBe('translate');
-    expect(wordSessionId(flow({ subject: 'tal', mode: 'lyssna' }))).toBeNull();
+  it('maps word flows onto directional drill sessions and SRS directions', () => {
+    expect(wordSessionId(flow({ mode: 'lyssna', source: 'blandat' }))).toBe('listen');
+    expect(
+      wordSessionId(flow({ mode: 'översätt', direction: 'sv-da', source: 'set:vardag' })),
+    ).toBe('translate-sv-da');
+    expect(wordSessionId(flow({ mode: 'översätt', direction: 'da-sv', source: 'repetera' }))).toBe(
+      'translate-da-sv',
+    );
+    expect(wordSessionId(flow({ mode: 'lyssna', source: 'tal' }))).toBeNull();
 
-    expect(wordDirections(flow({ subject: 'ord', mode: 'lyssna' }))).toEqual(['listen']);
-    expect(wordDirections(flow({ subject: 'ord', mode: 'översätt' }))).toEqual([
-      'produce',
-      'recognize',
-    ]);
-    expect(wordDirections(flow({ subject: 'tal', mode: 'lyssna' }))).toEqual([]);
+    expect(wordDirections(flow({ mode: 'lyssna' }))).toEqual(['listen']);
+    expect(wordDirections(flow({ mode: 'översätt', direction: 'sv-da' }))).toEqual(['produce']);
+    expect(wordDirections(flow({ mode: 'översätt', direction: 'da-sv' }))).toEqual(['recognize']);
+    expect(wordDirections(flow({ mode: 'översätt' }))).toEqual([]);
 
     expect(itemDirection(svDaItem)).toBe('produce');
     expect(itemDirection(daSvItem)).toBe('recognize');
     expect(itemDirection(dictItem)).toBe('listen');
     expect(itemDirection(n7)).toBeNull();
+  });
+
+  it('maps källa to queue descriptors', () => {
+    expect(sourceQueue('repetera', SETS)).toEqual({ match: { kind: 'all' }, free: false });
+    expect(sourceQueue('blandat', SETS)).toEqual({ match: { kind: 'all' }, free: true });
+    expect(sourceQueue('set:vardag', SETS)).toEqual({
+      match: { kind: 'decks', decks: ['vardag'] },
+      free: false,
+    });
+    expect(sourceQueue('set:missing', SETS)).toBeNull();
+    expect(sourceQueue('tal', SETS)).toBeNull();
   });
 
   it('anyDue mirrors buildQueue dueness across the given directions', () => {
@@ -255,9 +306,7 @@ describe('flow → session shape', () => {
     expect(
       anyDue(cards, view(record({ due: '2027-01-01T00:00:00.000Z' })), ['produce'], NOW),
     ).toBe(false);
-    // A mixed run is due when EITHER direction is.
-    expect(anyDue(cards, view(record({}), 'recognize'), ['produce', 'recognize'], NOW)).toBe(true);
-    expect(anyDue(cards, view(record({}), 'listen'), ['produce', 'recognize'], NOW)).toBe(false);
+    expect(anyDue(cards, view(record({}), 'recognize'), ['produce'], NOW)).toBe(false);
   });
 });
 
@@ -276,11 +325,11 @@ describe('sessions', () => {
     expect(() => buildNumberSession('nope' as never, 5, seqRng(0.5))).toThrow(RangeError);
   });
 
-  it('builds due-only word sessions for repetera and free roam for blandat', () => {
+  it('builds directional word sessions per källa', () => {
     const cards = [
-      card({ id: 'a', danish: 'hund', swedish: 'hund', audio: 'audio/a.mp3' }),
-      card({ id: 'b', danish: 'kat', swedish: 'katt', audio: 'audio/b.mp3' }),
-      card({ id: 'c', danish: 'hest', swedish: 'häst', audio: 'audio/c.mp3' }),
+      card({ id: 'a', danish: 'hund', swedish: 'hund', audio: 'audio/a.mp3', deck: 'vardag' }),
+      card({ id: 'b', danish: 'kat', swedish: 'katt', audio: 'audio/b.mp3', deck: 'vardag' }),
+      card({ id: 'c', danish: 'hest', swedish: 'häst', audio: 'audio/c.mp3', deck: 'djur' }),
     ];
     // Only 'a' is due (in produce).
     const srs: SrsView = {
@@ -288,8 +337,9 @@ describe('sessions', () => {
       newCardsToday: () => 0,
     };
     const due = buildWordSession({
-      sessionId: 'translate',
-      source: 'repetera',
+      sessionId: 'translate-sv-da',
+      match: { kind: 'all' },
+      free: false,
       cards,
       srs,
       now: NOW,
@@ -298,12 +348,14 @@ describe('sessions', () => {
     });
     expect(due).toHaveLength(1);
     expect(due[0]?.type === 'ord' && due[0].item.id).toBe('a');
-    expect(due[0]?.type === 'ord' && due[0].item.sub).toBe('sv-da'); // produce side
+    expect(due[0]?.type === 'ord' && due[0].item.sub).toBe('sv-da');
+    expect(due[0]?.type === 'ord' && due[0].item.prompt).toBe('hund');
 
-    // Free roam: every card once, directions alternated by the builder.
-    const mixed = buildWordSession({
-      sessionId: 'translate',
-      source: 'blandat',
+    // The opposite direction shows Danish, answers Swedish.
+    const daSv = buildWordSession({
+      sessionId: 'translate-da-sv',
+      match: { kind: 'all' },
+      free: true,
       cards,
       srs: noSrs,
       now: NOW,
@@ -311,16 +363,29 @@ describe('sessions', () => {
       size: 10,
       rng: seqRng(0.999), // identity shuffle
     });
-    expect(mixed).toHaveLength(3);
-    const subs = new Set(mixed.map((z) => (z.type === 'ord' ? z.item.sub : '')));
-    expect([...subs].every((s) => s === 'sv-da' || s === 'da-sv')).toBe(true);
-    expect(subs.size).toBe(2); // genuinely mixed
+    expect(daSv).toHaveLength(3);
+    expect(daSv.every((z) => z.type === 'ord' && z.item.sub === 'da-sv')).toBe(true);
+
+    // A set källa trains only its own deck (scheduled build: new-card budget).
+    const setSession = buildWordSession({
+      sessionId: 'translate-sv-da',
+      match: { kind: 'decks', decks: ['vardag'] },
+      free: false,
+      cards,
+      srs: noSrs,
+      now: NOW,
+      limits,
+      size: 10,
+      rng: seqRng(0.999),
+    });
+    expect(setSession.map((z) => (z.type === 'ord' ? z.item.id : '')).sort()).toEqual(['a', 'b']);
 
     // Dictation requires a clip — a card without audio never enters lyssna.
     const noClip = [...cards, card({ id: 'd', danish: 'ø', swedish: 'ö' })];
     const dictation = buildWordSession({
       sessionId: 'listen',
-      source: 'blandat',
+      match: { kind: 'all' },
+      free: true,
       cards: noClip,
       srs: noSrs,
       now: NOW,
@@ -341,8 +406,8 @@ describe('grading', () => {
   const n27: TalItem = { type: 'tal', value: 27, tokens: numberToTokens(27), kind: 'number' };
   const y1994: TalItem = { type: 'tal', value: 1994, tokens: yearToTokens(1994), kind: 'year' };
   const kr42: TalItem = { type: 'tal', value: 42, tokens: priceToTokens(42), kind: 'price' };
-  const talListen = flow({ subject: 'tal', mode: 'lyssna' });
-  const talWrite = flow({ subject: 'tal', mode: 'översätt', dispLang: 'svenska' });
+  const talListen = flow({ mode: 'lyssna', source: 'tal' });
+  const talWrite = flow({ mode: 'översätt', direction: 'sv-da', source: 'tal' });
 
   it('grades digits on exact value, ignoring thousands spaces', () => {
     expect(gradeDigits('27', n27)).toBe(true);
@@ -375,18 +440,17 @@ describe('grading', () => {
       type: 'ord',
       item: { id: 'a', sub: 'sv-da', prompt: 'sjö', answer: 'sø', card: c, sourceCardId: 'a' },
     };
-    const anyOrd = flow({ subject: 'ord', mode: 'översätt' });
+    const anyOrd = flow({ mode: 'översätt', direction: 'sv-da' });
     expect(gradeZen('sø', zi, anyOrd)).toBe(true);
     expect(gradeZen('sö', zi, anyOrd)).toBe(true); // Swedish-keyboard fold
     expect(gradeZen('so', zi, anyOrd)).toBe(false);
     expect(gradeZen('', zi, anyOrd)).toBe(false);
-    // The mirrored side grades Swedish via the da-sv matcher.
     const rev: ZenItem = {
       type: 'ord',
       item: { id: 'a', sub: 'da-sv', prompt: 'sø', answer: 'sjö', card: c, sourceCardId: 'a' },
     };
-    expect(gradeZen('sjö', rev, anyOrd)).toBe(true);
-    expect(gradeZen('hav', rev, anyOrd)).toBe(false);
+    expect(gradeZen('sjö', rev, flow({ mode: 'översätt', direction: 'da-sv' }))).toBe(true);
+    expect(gradeZen('hav', rev, flow({ mode: 'översätt', direction: 'da-sv' }))).toBe(false);
   });
 });
 
@@ -404,21 +468,26 @@ describe('display', () => {
     item: { id: 'a', sub: 'da-sv', prompt: 'hund', answer: 'hund (djuret)', card: c },
   };
 
-  it('prompts the Danish reading or the Swedish-side value for tal', () => {
-    const daSide = flow({ subject: 'tal', mode: 'översätt', dispLang: 'danska' });
-    const svSide = flow({ subject: 'tal', mode: 'översätt', dispLang: 'svenska' });
-    expect(zenPrompt(n7, daSide)).toEqual({ text: 'syv', lang: 'da' });
-    expect(zenPrompt(n7, svSide)).toEqual({ text: '7', lang: null });
-    expect(zenPrompt(y1994, svSide)).toEqual({ text: 'år 1994', lang: null });
-    expect(zenPrompt(kr42, svSide)).toEqual({ text: '42 kronor', lang: null });
-    expect(zenPrompt(n7, flow({ subject: 'tal', mode: 'lyssna' }))).toBeNull();
+  it('prompts tal per riktning: Danish reading or the Swedish-side value', () => {
+    const daShown = flow({ mode: 'översätt', direction: 'da-sv', source: 'tal' });
+    const svShown = flow({ mode: 'översätt', direction: 'sv-da', source: 'tal' });
+    expect(zenPrompt(n7, daShown)).toEqual({ text: 'syv', lang: 'da' });
+    expect(zenPrompt(n7, svShown)).toEqual({ text: '7', lang: null });
+    expect(zenPrompt(y1994, svShown)).toEqual({ text: 'år 1994', lang: null });
+    expect(zenPrompt(kr42, svShown)).toEqual({ text: '42 kronor', lang: null });
+    expect(zenPrompt(n7, flow({ mode: 'lyssna', source: 'tal' }))).toBeNull();
   });
 
-  it('prompts each mixed ord item on its own side, lang from the sub', () => {
-    const anyOrd = flow({ subject: 'ord', mode: 'översätt' });
-    expect(zenPrompt(svDa, anyOrd)).toEqual({ text: 'hund (djuret)', lang: null });
-    expect(zenPrompt(daSv, anyOrd)).toEqual({ text: 'hund', lang: 'da' });
-    expect(zenPrompt(svDa, flow({ subject: 'ord', mode: 'lyssna' }))).toBeNull();
+  it('prompts each ord item on its own side, lang from the sub', () => {
+    expect(zenPrompt(svDa, flow({ mode: 'översätt', direction: 'sv-da' }))).toEqual({
+      text: 'hund (djuret)',
+      lang: null,
+    });
+    expect(zenPrompt(daSv, flow({ mode: 'översätt', direction: 'da-sv' }))).toEqual({
+      text: 'hund',
+      lang: 'da',
+    });
+    expect(zenPrompt(svDa, flow({ mode: 'lyssna' }))).toBeNull();
   });
 
   it('reveals the Danish form big with the other side under it', () => {
@@ -446,24 +515,27 @@ describe('display', () => {
 describe('parsePrefs', () => {
   it('round-trips valid prefs and nulls everything else', () => {
     const raw = JSON.stringify({
-      subject: 'ord',
       mode: 'översätt',
-      dispLang: 'svenska',
+      direction: 'da-sv',
+      source: 'set:vardag',
       level: 'stora-tal',
-      wordSource: 'blandat',
     });
     expect(parsePrefs(raw)).toEqual({
-      subject: 'ord',
       mode: 'översätt',
-      dispLang: 'svenska',
+      direction: 'da-sv',
+      source: 'set:vardag',
       level: 'stora-tal',
-      wordSource: 'blandat',
     });
-    const none = { subject: null, mode: null, dispLang: null, level: null, wordSource: null };
+    const none = { mode: null, direction: null, source: null, level: null };
     expect(parsePrefs(null)).toEqual(none);
     expect(parsePrefs('not json')).toEqual(none);
     expect(parsePrefs('"str"')).toEqual(none);
-    expect(parsePrefs(JSON.stringify({ subject: 'siffror', level: 42 }))).toEqual(none);
-    expect(parsePrefs(JSON.stringify({ mode: 'lyssna' }))).toEqual({ ...none, mode: 'lyssna' });
+    expect(parsePrefs(JSON.stringify({ mode: 'skriv', source: 'okänd', level: 42 }))).toEqual(none);
+    expect(parsePrefs(JSON.stringify({ mode: 'lyssna', source: 'tal' }))).toEqual({
+      ...none,
+      mode: 'lyssna',
+      source: 'tal',
+    });
+    expect(parsePrefs(JSON.stringify({ source: 'set:' }))).toEqual(none); // empty set id
   });
 });

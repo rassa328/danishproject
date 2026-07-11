@@ -16,6 +16,7 @@
   import { preloadClip, speak, stopSpeech } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import type { Card } from '../lib/vocab.ts';
+  import type { StudyGroup } from '../lib/deck-groups.ts';
   import type { SrsView } from '../lib/session.ts';
   import { fetchPraksis, praksisCache } from '../lib/praksis-client.ts';
   import { recordOutcome } from '../lib/drill-srs.ts';
@@ -36,15 +37,22 @@
     parsePrefs,
     pick as flowPick,
     PREFS_KEY,
+    setForSource,
+    SOURCE_BLANDAT,
+    SOURCE_REPETERA,
+    SOURCE_TAL,
+    sourceIsGraded,
+    sourceQueue,
     stepOptions,
+    talAvailable,
     wordDirections,
     wordSessionId,
-    WORD_SOURCE_IDS,
     wrapIndex,
     zenPrompt,
     zenReveal,
+    zenSets,
+    type ZenContext,
     type ZenFlow,
-    type ZenGates,
     type ZenItem,
     type ZenReveal,
   } from '../lib/zen.ts';
@@ -60,13 +68,16 @@
 
   let {
     cards = [],
+    groups = [],
     manifest = null,
     dannebrogCross = false,
     holdMs = 1400,
     sessionLength = 10,
   }: {
-    /** Curated starter deck only — praksis is fetched lazily when 'ord' is picked. */
+    /** Curated starter deck only — praksis is fetched lazily once a mode is picked. */
     cards?: Card[];
+    /** The flashcards' study groups — zen's källa sets (due-all excluded). */
+    groups?: StudyGroup[];
     /** Number-clip manifest — gates which tal-lyssna levels are offered. */
     manifest?: NumberAudioManifest | null;
     /** Faint off-center Dannebrog cross over the whole screen. */
@@ -79,7 +90,8 @@
 
   const coverage = Object.fromEntries(
     LEVEL_IDS.map((id) => [id, manifest ? levelAvailable(id, manifest) : false]),
-  ) as ZenGates['coverage'];
+  ) as ZenContext['coverage'];
+  const sets = zenSets(groups);
   const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
 
   let phase = $state<'start' | 'run' | 'done'>('start');
@@ -122,54 +134,63 @@
   const current = $derived(phase === 'run' ? items[idx] : undefined);
   /** The input's shape follows the ITEM (mixed översätt alternates sides). */
   const kind = $derived(current ? itemInputKind(current, activeFlow) : 'danish');
-  const gates = $derived.by<ZenGates>(() => {
+  const ctx = $derived.by<ZenContext>(() => {
     const dirs = ready ? wordDirections(flow) : [];
     const s = store;
     // Dictation only ever queues clip-backed cards — dueness must look at the
     // same pool, or 'repetera' could gate open onto an empty session.
-    const pool =
-      wordSessionId(flow) === 'listen' ? knownCards.filter((c) => !!c.audio) : knownCards;
+    const pool = flow.mode === 'lyssna' ? knownCards.filter((c) => !!c.audio) : knownCards;
     return {
       coverage,
       hasDue: dirs.length > 0 && s !== undefined && anyDue(pool, s, dirs, new Date()),
+      sets,
     };
   });
-  const options = $derived(stepOptions(flow, gates));
+  const options = $derived(stepOptions(flow, ctx));
   /** hot, validated against the CURRENT options — never silently remapped. */
   const hotId = $derived(hot !== null && options.includes(hot) ? hot : null);
-  const sourceRows = $derived.by(() => {
-    if (flow.subject === 'tal') {
-      return LEVEL_IDS.map((id) => ({
-        id: id as string,
-        label: T.levels[id],
-        disabled: flow.mode === 'lyssna' && !coverage[id],
-        note: flow.mode === 'lyssna' && !coverage[id] ? T.missingNote : '',
-      }));
-    }
-    return WORD_SOURCE_IDS.map((id) => ({
+  const talOk = $derived(talAvailable(flow, ctx));
+  const sourceRows = $derived([
+    {
+      id: SOURCE_REPETERA,
+      label: T.sources.repetera,
+      disabled: !ctx.hasDue,
+      note: ctx.hasDue ? '' : T.noDueNote,
+    },
+    {
+      id: SOURCE_BLANDAT,
+      label: T.sources.blandat,
+      disabled: false,
+      note: deckFailed ? T.starterOnlyNote : T.freeNote,
+    },
+    {
+      id: SOURCE_TAL,
+      label: T.sources.tal,
+      disabled: !talOk,
+      note: talOk ? T.talNote : T.missingNote,
+    },
+  ]);
+  const levelRows = $derived(
+    LEVEL_IDS.map((id) => ({
       id: id as string,
-      label: T.wordSources[id],
-      disabled: id === 'repetera' && !gates.hasDue,
-      note:
-        id === 'repetera' && !gates.hasDue
-          ? T.noDueNote
-          : id === 'blandat'
-            ? deckFailed
-              ? T.starterOnlyNote
-              : T.freeNote
-            : '',
-    }));
+      label: T.levels[id],
+      disabled: flow.mode === 'lyssna' && !coverage[id],
+      note: flow.mode === 'lyssna' && !coverage[id] ? T.missingNote : '',
+    })),
+  );
+  const sourceLabel = $derived.by(() => {
+    if (flow.source === null) return null;
+    if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
+    if (flow.source === SOURCE_BLANDAT) return T.sources.blandat;
+    if (flow.source === SOURCE_TAL) return T.sources.tal;
+    return setForSource(flow.source, sets)?.label ?? null;
   });
   const summaryText = $derived(
     [
-      flow.subject ? T.subjects[flow.subject].label : null,
-      flow.mode ? T.modes[flow.mode] : null,
-      flow.subject === 'tal' && flow.mode === 'översätt' && flow.dispLang
-        ? T.langs[flow.dispLang]
-        : null,
-      flow.subject === 'tal'
-        ? flow.level && T.levels[flow.level]
-        : flow.wordSource && T.wordSources[flow.wordSource],
+      flow.mode ? T.modes[flow.mode].label : null,
+      flow.mode === 'översätt' && flow.direction ? T.directions[flow.direction].label : null,
+      sourceLabel,
+      flow.source === SOURCE_TAL && flow.level ? T.levels[flow.level] : null,
     ]
       .filter(Boolean)
       .join(' · '),
@@ -179,7 +200,7 @@
     if (saveWarning) return T.saveError;
     if (audioNeedsClick && isListen && !reveal) return T.audioBlockedHint;
     let base = isListen
-      ? activeFlow.subject === 'tal'
+      ? activeFlow.source === SOURCE_TAL
         ? T.runHintListen
         : T.runHintListenOrd
       : T.runHint;
@@ -220,7 +241,7 @@
 
   // ---- start flow ----------------------------------------------------------
   function syncHot() {
-    hot = stepOptions(flow, gates)[highlightIndex(flow, gates)] ?? null;
+    hot = stepOptions(flow, ctx)[highlightIndex(flow, ctx)] ?? null;
   }
   function moveHi(delta: number) {
     if (options.length === 0) return;
@@ -230,19 +251,27 @@
   }
   function pickId(id: string) {
     if (inTransition()) return;
-    const next = flowPick(flow, gates, id);
+    const next = flowPick(flow, ctx, id);
     if (next === flow) return;
     flow = next;
     syncHot();
     focusHot();
-    // Picking 'ord' signals intent — warm the praksis deck while the user
-    // walks the remaining steps (cached; begin() awaits the same promise).
-    if (id === 'ord') void ensureWordDeck();
+    // A picked mode signals intent — warm the praksis deck while the user
+    // walks the remaining steps (cached; begin() awaits the same promise);
+    // the source step's dueness gate also wants the full deck.
+    if (flow.step !== 'mode') void ensureWordDeck();
+  }
+  /** Esc/tillbaka on the FIRST step leaves zen for the site's start page. */
+  function exitZen() {
+    window.location.assign(withBase(''));
   }
   function stepBack() {
     if (inTransition()) return;
     const prev = flowBack(flow);
-    if (prev === flow) return;
+    if (prev === flow) {
+      exitZen();
+      return;
+    }
     flow = prev;
     syncHot();
     focusHot();
@@ -260,11 +289,10 @@
       localStorage.setItem(
         PREFS_KEY,
         JSON.stringify({
-          subject: flow.subject,
           mode: flow.mode,
-          dispLang: flow.dispLang,
+          direction: flow.direction,
+          source: flow.source,
           level: flow.level,
-          wordSource: flow.wordSource,
         }),
       );
     } catch {
@@ -426,15 +454,15 @@
     }
     stopAllAudio();
     const correct = gradeZen(typed, zi, activeFlow);
-    // One SRS write per graded attempt — 'repetera' only ('blandat' is free
-    // practice, same contract as the flashcards' "Öva fritt"). The direction
-    // is the ITEM's own (a mixed översätt run trains both), and the source
-    // comes from the session snapshot: the live flow cannot re-label it.
+    // One SRS write per graded attempt — repetera and set sessions grade
+    // ('blandat' is free practice, the flashcards' "Öva fritt" contract).
+    // The direction is the ITEM's own, and the source comes from the session
+    // snapshot: the live flow cannot re-label a free session.
     const dir = itemDirection(zi);
     const s = store;
     if (
       zi.type === 'ord' &&
-      activeFlow.wordSource === 'repetera' &&
+      sourceIsGraded(activeFlow.source) &&
       zi.item.sourceCardId &&
       dir &&
       s
@@ -632,7 +660,7 @@
     flow = { ...flow, ...prefs };
     ready = true;
     syncHot();
-    if (prefs.subject === 'ord') void ensureWordDeck();
+    if (prefs.mode !== null) void ensureWordDeck();
   });
 
   onDestroy(() => {
@@ -652,22 +680,7 @@
 
   {#if phase === 'start'}
     <div class="stage" style:opacity={stageOpacity}>
-      {#if flow.step === 'subject'}
-        <div class="opt-row rise">
-          {#each ['ord', 'tal'] as const as id (id)}
-            <button
-              type="button"
-              class="opt"
-              class:hot={hotId === id}
-              onclick={() => pickId(id)}
-              onfocus={() => (hot = id)}
-            >
-              <span class="opt-label">{T.subjects[id].label}</span>
-              <span class="opt-sub">{T.subjects[id].sub}</span>
-            </button>
-          {/each}
-        </div>
-      {:else if flow.step === 'mode'}
+      {#if flow.step === 'mode'}
         <div class="opt-row rise">
           {#each ['lyssna', 'översätt'] as const as id (id)}
             <button
@@ -677,16 +690,16 @@
               onclick={() => pickId(id)}
               onfocus={() => (hot = id)}
             >
-              <span class="opt-label">{T.modes[id]}</span>
-              <span class="opt-sub">{flow.subject ? T.modeSubs[flow.subject][id] : ''}</span>
+              <span class="opt-label">{T.modes[id].label}</span>
+              <span class="opt-sub">{T.modes[id].sub}</span>
             </button>
           {/each}
         </div>
-      {:else if flow.step === 'lang'}
+      {:else if flow.step === 'direction'}
         <div class="lang-step rise">
-          <div class="step-heading">{T.langHeading}</div>
+          <div class="step-heading">{T.directionHeading}</div>
           <div class="opt-row tight">
-            {#each ['danska', 'svenska'] as const as id (id)}
+            {#each ['sv-da', 'da-sv'] as const as id (id)}
               <button
                 type="button"
                 class="opt small"
@@ -694,15 +707,48 @@
                 onclick={() => pickId(id)}
                 onfocus={() => (hot = id)}
               >
-                <span class="opt-label">{T.langs[id]}</span>
-                <span class="opt-sub">{T.langSubs[id]}</span>
+                <span class="opt-label">{T.directions[id].label}</span>
+                <span class="opt-sub">{T.directions[id].sub}</span>
               </button>
             {/each}
           </div>
         </div>
       {:else if flow.step === 'source'}
+        <div class="source-step rise">
+          <div class="source-col">
+            {#each sourceRows as row (row.id)}
+              <button
+                type="button"
+                class="src"
+                class:hot={!row.disabled && hotId === row.id}
+                disabled={row.disabled}
+                onclick={() => pickId(row.id)}
+                onfocus={() => (hot = row.id)}
+              >
+                <span>{row.label}</span>
+                {#if row.note}<span class="src-note">{row.note}</span>{/if}
+              </button>
+            {/each}
+          </div>
+          {#if sets.length > 0}
+            <div class="set-grid">
+              {#each sets as set (set.id)}
+                <button
+                  type="button"
+                  class="src set"
+                  class:hot={hotId === `set:${set.id}`}
+                  onclick={() => pickId(`set:${set.id}`)}
+                  onfocus={() => (hot = `set:${set.id}`)}
+                >
+                  {set.label}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else if flow.step === 'level'}
         <div class="source-col rise">
-          {#each sourceRows as row (row.id)}
+          {#each levelRows as row (row.id)}
             <button
               type="button"
               class="src"
@@ -727,7 +773,12 @@
       {/if}
 
       <div class="footer">
-        {#if flow.step !== 'subject'}
+        {#if flow.step === 'mode'}
+          <a class="back" href={withBase('')}>
+            <span class="back-word">{T.exit}</span>
+            <span class="key">{T.escKey}</span>
+          </a>
+        {:else}
           <button type="button" class="back rise" onclick={stepBack}>
             <span class="back-word">{T.back}</span>
             <span class="key">{T.escKey}</span>
@@ -799,7 +850,7 @@
   {#if phase === 'done'}
     <div class="stage done" style:opacity={stageOpacity}>
       <div class="done-text" role="status">
-        {T.done(items.length, activeFlow.subject ? T.subjects[activeFlow.subject].label : '')}
+        {T.done(items.length, activeFlow.source === SOURCE_TAL ? 'tal' : 'ord')}
       </div>
       <button type="button" class="back" onclick={backToStart} bind:this={doneBackBtn}>
         <span class="back-word">{T.back}</span>
@@ -837,8 +888,8 @@
     --z-faint: #d0cabe;
     --z-sub: #746c5e;
     --z-ok: #41724b;
-    --z-glow: #c8102e;
-    --z-glow-box: 0 0 22px 6px rgba(200, 16, 46, 0.25);
+    --z-glow: #c99b3f; /* warm amber (user feedback — was Dannebrog red) */
+    --z-glow-box: 0 0 22px 6px rgba(201, 155, 63, 0.3);
     --z-hot-line: rgba(38, 33, 27, 0.35);
     --z-input-line: rgba(38, 33, 27, 0.28);
     --z-input-line-focus: rgba(38, 33, 27, 0.45);
@@ -937,7 +988,24 @@
   .lang-step { display: flex; flex-direction: column; align-items: center; gap: 24px; }
   .step-heading { font-size: 11px; letter-spacing: 0.1em; color: var(--z-key); }
 
+  .source-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+    max-width: min(80vw, 640px);
+  }
   .source-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .set-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px 28px;
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 2px;
+  }
+  .set-grid .src.set { font-size: 13px; }
   .src {
     font-size: 16px;
     letter-spacing: 0.04em;
@@ -965,7 +1033,7 @@
     gap: 32px;
   }
   .key { font-size: 10px; letter-spacing: 0.14em; color: var(--z-key); }
-  .back { display: flex; align-items: baseline; gap: 10px; }
+  .back { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: inherit; }
   .back-word {
     font-size: 12px;
     letter-spacing: 0.06em;

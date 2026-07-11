@@ -232,44 +232,38 @@ export const UI = {
   },
 
   // /zen — the full-screen "Fokus" practice presentation (designs: Tal Fokus
-  // v2 = dark, Tal Fokus - Morgendis v2 = light). One quiet loop over BOTH
-  // subjects (ord & tal). Lower-case labels are deliberate — the screen is
-  // typography, not chrome; 'Begynd' is Danish on purpose (the one Danish
-  // word in the UI).
+  // v2 = dark, Tal Fokus - Morgendis v2 = light). Flow (user feedback
+  // 2026-07-11): läge → riktning (översätt) → källa (repetera · blandat ·
+  // tal · flashcard-sets) → nivå (tal). Lower-case labels are deliberate —
+  // the screen is typography, not chrome; 'Begynd' is Danish on purpose.
   zen: {
     title: 'Zen',
     description:
-      'Öva i fokusläge — lyssna eller översätt, ord eller tal, ett i taget utan något runtomkring.',
-    subjects: {
-      ord: { label: 'ord', sub: 'ditt ordförråd' },
-      tal: { label: 'tal', sub: 'siffror · årtal · priser' },
+      'Öva i fokusläge — lyssna eller översätt, ord och tal, ett i taget utan något runtomkring.',
+    modes: {
+      lyssna: { label: 'lyssna', sub: 'hör danska · skriv det du hör' },
+      översätt: { label: 'översätt', sub: 'se · översätt' },
     },
-    modes: { lyssna: 'lyssna', översätt: 'översätt' },
-    modeSubs: {
-      // ord-översätt mixes both directions in one run (drill-zen decision).
-      ord: { lyssna: 'hör danska · skriv danska', översätt: 'åt båda hållen' },
-      tal: { lyssna: 'hör danska · skriv siffror', översätt: 'se · översätt' },
+    directionHeading: 'riktning',
+    directions: {
+      'sv-da': { label: 'svenska → danska', sub: 'ser svenska · skriver danska' },
+      'da-sv': { label: 'danska → svenska', sub: 'ser danska · skriver svenska' },
     },
-    langHeading: 'visas på',
-    // The 'visas på' step exists only for tal (digits vs Danish reading).
-    langs: { danska: 'danska', svenska: 'svenska' },
-    langSubs: { danska: 'ser danska · skriver siffror', svenska: 'ser siffror · skriver danska' },
+    sources: { repetera: 'repetera', blandat: 'blandat', tal: 'tal' },
+    talNote: 'siffror · årtal · priser',
     levels: {
       '0-20': '0–20',
       'tiotal': 'tiotal',
       '0-99': '0–99',
       'stora-tal': 'stora tal',
     },
-    wordSources: { repetera: 'repetera', blandat: 'blandat' },
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
     freeNote: 'utan schema',
     starterOnlyNote: 'endast grundorden',
-    submit: 'svara',
-    pauseShort: 'paus',
-    ttsNote: 'talsyntes',
     begin: 'Begynd',
     back: 'tillbaka',
+    exit: 'lämna',
     enterKey: 'enter',
     escKey: 'esc',
     keyHintPick: 'pilar väljer · enter',
@@ -284,7 +278,10 @@ export const UI = {
     inputDigits: 'Skriv talet med siffror',
     inputDanish: 'Skriv på danska',
     inputSwedish: 'Skriv på svenska',
-    done: (n: number, subject: string) => `${n} ${subject}. Vi ses i morgon.`,
+    submit: 'svara',
+    pauseShort: 'paus',
+    ttsNote: 'talsyntes',
+    done: (n: number, subject: 'ord' | 'tal') => `${n} ${subject}. Vi ses i morgon.`,
     resume: 'fortsätt',
     quit: 'avsluta',
     year: (y: number) => `år ${y}`,
