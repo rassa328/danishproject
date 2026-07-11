@@ -1,6 +1,6 @@
 ---
 title: Gamified typing-drill engine + number dictation drill
-owner: main2-non-workflow
+owner: claude-main
 branch: main
 status: active
 write_set:
@@ -38,6 +38,15 @@ opened: 2026-07-11
 <!-- Migrated 2026-07-11 from ~/.claude/plans/task-build-a-humble-perlis.md (drill-engine
      section). Approved in plan mode 2026-07-11; not yet implemented. This repo copy is
      canonical; the ~/.claude/plans file is a draft. -->
+<!-- 2026-07-11 14:08: ownership taken over from main2-non-workflow by claude-main on the
+     user's direct instruction (original owner idle; user confirmed no other agent active).
+     Execution starting now, phases per §5. -->
+<!-- Executor note 2026-07-11: §2.2's "normalizeTyped never folds æ/ø/å" predates the
+     swedish-letter-folding change (done/swedish-letter-folding.md): matchTyped/matchCloze now
+     accept ä→æ/ö→ø as a comparison-time second chance. Harmless here — the drill remaps
+     input live via char-map before comparison — but letter-diff works on normalizeTyped
+     forms, which remain unfolded, exactly as §6 assumes. -->
+
 
 # Gamified typing-drill engine + number dictation drill — SELF-CONTAINED execution plan
 
