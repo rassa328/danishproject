@@ -104,6 +104,9 @@
   let ttsHeard = $state(false);
   let saveWarning = $state(false);
   let deckFailed = $state(false);
+  // This session was built without the praksis deck (fetch failed or timed
+  // out) — the learner should know they're on the starter words only.
+  let sessionStarterOnly = $state(false);
   let ready = $state(false);
   let store = $state<Store | undefined>();
   let knownCards = $state<Card[]>(cards);
@@ -171,12 +174,14 @@
   const runHint = $derived.by(() => {
     if (saveWarning) return T.saveError;
     if (audioNeedsClick && isListen && !reveal) return T.audioBlockedHint;
-    const base = isListen
+    let base = isListen
       ? activeFlow.subject === 'tal'
         ? T.runHintListen
         : T.runHintListenOrd
       : T.runHint;
-    return ttsHeard && isListen ? `${T.ttsNote} · ${base}` : base;
+    if (ttsHeard) base = `${T.ttsNote} · ${base}`;
+    if (sessionStarterOnly) base = `${T.starterOnlyNote} · ${base}`;
+    return base;
   });
 
   let player: NumberAudioPlayer | undefined;
@@ -298,10 +303,18 @@
     const fadeStart = Date.now();
     stageOpacity = 0; // the fade masks a praksis fetch still in flight
     let session: ZenItem[] = [];
+    let starterOnly = false;
     if (built.subject === 'tal' && built.level) {
       session = buildNumberSession(built.level, sessionLength, Math.random);
     } else if (built.wordSource) {
-      await ensureWordDeck();
+      // Bounded wait: a praksis fetch that hangs must not park the fade at
+      // opacity 0 forever — after the race the session builds from whatever
+      // knownCards holds (starter-only at worst, disclosed via runHint).
+      await Promise.race([
+        ensureWordDeck(),
+        new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+      ]);
+      starterOnly = praksisCache() === null;
       const modeId = wordModeId(built);
       const s = store;
       if (modeId) {
@@ -321,6 +334,7 @@
       // source step again; the gates now reflect reality.
       flow = { ...flow, step: 'source', wordSource: null };
       syncHot();
+      focusHot();
       stageOpacity = 1;
       return;
     }
@@ -334,6 +348,8 @@
       reveal = null;
       saveWarning = false;
       ttsHeard = false;
+      audioNeedsClick = false;
+      sessionStarterOnly = starterOnly;
       phase = 'run';
       delay(() => (stageOpacity = 1), 40);
       delay(focusInput, 120);
@@ -379,7 +395,11 @@
     if (zi.type !== 'ord' || zi.item.audio?.kind !== 'clip') return;
     // In lyssna the prompt WAS the word — replaying it reinforces; keep it.
     const a = zi.item.audio;
-    void speak(a.text, a.url ? { audioUrl: withBase(a.url) } : {});
+    const shown = reveal;
+    void speak(a.text, a.url ? { audioUrl: withBase(a.url) } : {}).then((out) => {
+      // Disclose a talsyntes fallback while ITS reveal is still on screen.
+      if (out === 'tts' && reveal === shown) ttsHeard = true;
+    });
   }
   function stopAllAudio() {
     player?.stop();
@@ -450,6 +470,7 @@
       typed = '';
       reveal = null;
       ttsHeard = false;
+      audioNeedsClick = false;
       delay(() => (stageOpacity = 1), 40);
       delay(focusInput, 120);
       if (isListen) delay(() => void playCurrent(), 500);
@@ -457,6 +478,7 @@
   }
 
   function pause() {
+    if (inTransition()) return;
     stopAllAudio();
     clearTimers();
     paused = true;

@@ -2,7 +2,7 @@
 title: Zen mode
 owner: claude (bg job cd71c729, ultracode)
 branch: worktree-zen-mode
-status: active
+status: done
 write_set:
   - src/pages/zen.astro
   - src/components/Zen.svelte
@@ -11,9 +11,10 @@ write_set:
   - src/lib/zen.test.ts
   - src/lib/strings.ts
   - src/lib/drill-modes.ts
+  - src/lib/speech.ts
   - src/components/Nav.astro
 verify: npm test && npx astro check && npm run build
-opened: 2026-07-11 19:56
+opened: 2026-07-11
 ---
 
 # Zen mode — the Fokus design, generalized beyond numbers
@@ -78,3 +79,28 @@ morgon."
 - After implementation: multi-lens adversarial review via Workflow
   (correctness/design-fidelity/a11y/conventions/invariants), fix confirmed
   findings, then npm test + astro check + build; draft PR.
+
+## Close-out (2026-07-11 21:05)
+
+Shipped on branch worktree-zen-mode:
+- 336283a plan · 8cc4905 implementation · 3d5868b + follow-up: fixes for the
+  adversarial reviews.
+- Review round 1 (6 lenses, 45 agents): 38 confirmed findings → all fixed or
+  explicitly dispositioned. Round 2 (3 attack agents on the fixes, 17 agents):
+  14 confirmed (7 distinct) → all fixed, incl. the pause()-mid-fade deadlock
+  and the unbounded praksis await behind the closed fade gate.
+- Verified: 273 vitest (22 zen), astro check clean, build green, preview
+  smoke of /zen and /tal, plans:check green.
+
+As-designed (matches the .dc files, left alone): reveal auto-hide pace
+(holdMs prop covers it), 400ms quit fade, dueness recomputed per navigation.
+Deliberate deviations (documented in the island's comments): real buttons +
+focus-follows-highlight + aria-live (a11y), --z-dim/--z-sub lifted to ≥3:1 /
+≥4.5:1 contrast, ord reveals play the word's real clip, coarse-pointer
+svara/paus buttons, prefs restored on mount (Morgendis behavior).
+
+Open, needs Rasmus:
+- /tal removal (explicitly slated but a separate go).
+- Manual browser pass (repo policy: DOM/WebAudio = manual pass) — especially
+  iOS: numeric keypad, touch buttons, audio unlock.
+- speech.ts gained stopSpeech() (added to write_set above).
