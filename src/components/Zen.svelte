@@ -199,7 +199,7 @@
   const runHint = $derived.by(() => {
     if (saveWarning) return T.saveError;
     if (audioNeedsClick && isListen && !reveal) return T.audioBlockedHint;
-    let base = isListen
+    let base: string = isListen
       ? activeFlow.source === SOURCE_TAL
         ? T.runHintListen
         : T.runHintListenOrd
@@ -336,9 +336,9 @@
     stageOpacity = 0; // the fade masks a praksis fetch still in flight
     let session: ZenItem[] = [];
     let starterOnly = false;
-    if (built.subject === 'tal' && built.level) {
+    if (built.source === SOURCE_TAL && built.level) {
       session = buildNumberSession(built.level, sessionLength, Math.random);
-    } else if (built.wordSource) {
+    } else if (built.source !== null && built.source !== SOURCE_TAL) {
       // Bounded wait: a praksis fetch that hangs must not park the fade at
       // opacity 0 forever — after the race the session builds from whatever
       // knownCards holds (starter-only at worst, disclosed via runHint).
@@ -348,11 +348,13 @@
       ]);
       starterOnly = praksisCache() === null;
       const sessionId = wordSessionId(built);
+      const queue = sourceQueue(built.source, sets);
       const s = store;
-      if (sessionId) {
+      if (sessionId && queue) {
         session = buildWordSession({
           sessionId,
-          source: built.wordSource,
+          match: queue.match,
+          free: queue.free,
           cards: knownCards,
           srs: s ?? noSrs,
           now: new Date(),
@@ -362,9 +364,9 @@
       }
     }
     if (session.length === 0) {
-      // 'repetera' raced to empty (graded elsewhere meanwhile) — surface the
-      // source step again; the gates now reflect reality.
-      flow = { ...flow, step: 'source', wordSource: null };
+      // The källa raced to empty (repetera graded elsewhere, an exhausted
+      // set) — surface the source step again; the gates now reflect reality.
+      flow = { ...flow, step: 'source', source: null };
       syncHot();
       focusHot();
       stageOpacity = 1;
