@@ -1,23 +1,26 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import FlashcardReviewer from '../components/FlashcardReviewer.svelte';
-import { allCards } from '../lib/decks.ts';
-import { praksisCards } from '../lib/praksis.ts';
+import { allCards, cardCount } from '../lib/decks.ts';
+import { praksisUnique, praksisUniqueCount } from '../lib/praksis.ts';
 import { buildStudyGroups } from '../lib/deck-groups.ts';
 import { UI } from '../lib/strings.ts';
 
-// Full studyable set = curated starter deck + the 5000-word practice deck.
-// Serialized once to the island; `groups` are lightweight picker descriptors.
-// client:idle defers hydration so the larger parse never blocks first paint.
-const cards = [...allCards, ...praksisCards];
-const groups = buildStudyGroups(allCards, praksisCards);
+// Only the small curated starter deck is serialized into island props — that
+// keeps this page's HTML tiny and starter sessions instant. The 5000-word
+// praksis deck is emitted separately at build (praksis-cards.json) and fetched
+// lazily by the island the first time a session needs it. `groups` carry
+// counts, not cards, so the full picker (incl. praksis themes) renders
+// immediately without the fetch.
+const groups = buildStudyGroups(allCards, praksisUnique);
+const totalCards = cardCount + praksisUniqueCount;
 ---
 
 <BaseLayout title={UI.flashcards.title} description={UI.flashcards.description}>
   <h1>{UI.flashcards.title}</h1>
   <p class="lead">{UI.flashcards.lead}</p>
 
-  <FlashcardReviewer client:idle cards={cards} groups={groups} />
+  <FlashcardReviewer client:idle cards={allCards} groups={groups} totalCards={totalCards} />
 
   <style>
     .lead { color: var(--muted); }

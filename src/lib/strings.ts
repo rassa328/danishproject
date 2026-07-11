@@ -29,6 +29,11 @@ export const UI = {
     description: 'Skriv det danska ordet utifrån svenskan. Du repeterar varje ord precis innan du hinner glömma det.',
     lead: `Skriv det danska ordet utifrån svenskan. Repetitionen schemaläggs åt dig — du ser varje ord precis innan du hinner glömma det. ${PROGRESS_NOTE}.`,
     loading: 'Laddar…',
+    // The praksis deck lives in a lazily hämtad JSON — shown while a session
+    // that needs it (praksis-grupp, tagg, allt förfallet) awaits the fetch.
+    loadingDeck: 'Hämtar hela ordförrådet…',
+    praksisFailed:
+      'Kunde inte hämta praksis-orden — övar bara med grundorden just nu. Ladda om sidan för att försöka igen.',
     deckLabel: 'Kortlek:',
     directionLegend: 'Riktning',
     write: 'Skriv',
@@ -103,9 +108,25 @@ export const UI = {
 
   wordlist: {
     title: 'Ordlista',
-    description: (n: number) => `Alla ${n} danska ord med svensk översättning, exempel och uttal.`,
-    lead: (n: number) =>
-      `Alla ${n} ord på ett ställe — din referenslista. Klicka på ett danskt ord (eller exempel) för att höra det på danska.`,
+    description: (total: number) =>
+      `Sök bland alla ${total} danska ord, med svensk översättning, exempel och uttal.`,
+    lead: (starter: number, total: number) =>
+      `Sök bland alla ${total} ord som appen tränar. Nedanför hittar du de ${starter} utvalda grundorden som referenslista — klicka på ett danskt ord (eller exempel) för att höra det.`,
+    // The search island (searches starter ∪ the lazily fetched praksis deck).
+    searchLabel: 'Sök ord',
+    searchPlaceholder: 'Sök på danska eller svenska…',
+    searchLoading: 'Hämtar hela ordförrådet…',
+    searchFailed: 'Kunde inte hämta praksis-orden — söker bara bland grundorden.',
+    noMatches: 'Inga träffar.',
+    matchCount: (shown: number, total: number) =>
+      shown < total
+        ? `Visar ${shown} av ${total} träffar.`
+        : total === 1
+          ? '1 träff.'
+          : `${total} träffar.`,
+    // 'Träna →' on each themed section header, into the matching reviewer group.
+    trainTheme: 'Träna →',
+    trainThemeTitle: (label: string) => `Öva ${label} med flashcards`,
   },
 
   lessons: {
@@ -159,6 +180,8 @@ export const UI = {
     missionDone: 'Klarad ✓',
     missionMarkDone: 'Markera som klarad',
     focusWords: 'Försök få med:',
+    // Each focus word is click-to-hear, so the task never starts from silent text.
+    hearWord: (word: string) => `Lyssna: ${word}`,
     // Picked deterministically by date — all about producing spoken Danish.
     missions: [
       'Beställ något (kaffe, mat, en biljett) på danska — högt, även om du är ensam.',
@@ -190,6 +213,24 @@ export const UI = {
       remove: 'Ta bort',
       wordsHint: 'Tips: nya ord du loggar kan senare bli en egen kortlek.',
     },
+  },
+
+  // Stød discrimination drill (lesson 01): hear one clip, pick which word of a
+  // minimal pair it was. Forced choice — the exercise that builds perception.
+  minimalPairs: {
+    heading: 'Hör du stødet?',
+    intro:
+      'Spela klippet och välj vilket ord du hörde. Orden skiljs bara av stødet — precis det ditt svenska öra behöver träna.',
+    play: '▶ Spela klippet',
+    playAgain: 'Spela igen',
+    round: (i: number, n: number) => `Omgång ${i} av ${n}`,
+    listenFirst: 'Spela klippet först — välj sedan.',
+    correct: '✓ Rätt!',
+    wrong: (word: string, gloss: string) => `✗ Inte riktigt — det var ${word} (${gloss}).`,
+    next: 'Nästa',
+    showResult: 'Visa resultat',
+    result: (ok: number, n: number) => `Du hörde rätt på ${ok} av ${n}.`,
+    retry: 'Öva igen',
   },
 
   // Light, non-gamified progress (personal-tool scope).

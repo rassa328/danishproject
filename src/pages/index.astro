@@ -1,18 +1,25 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import { getCollection } from 'astro:content';
 import { withBase } from '../lib/url.ts';
 import { allCards, cardCount } from '../lib/decks.ts';
-import { praksisCount } from '../lib/praksis.ts';
+import { praksisUniqueCount } from '../lib/praksis.ts';
 import { UI } from '../lib/strings.ts';
 import ProgressSummary from '../components/ProgressSummary.svelte';
 import DailyMission from '../components/DailyMission.svelte';
 import InputLog from '../components/InputLog.svelte';
 
-// Curated headwords the daily mission can weave in (small payload).
-const missionPool = allCards.map((c) => c.danish);
+// Curated {danish, audio} pairs the daily mission can weave in — the audio ref
+// makes each focus word click-to-hear (small payload: two fields per card).
+const missionPool = allCards.map((c) => ({
+  danish: c.danish,
+  ...(c.audio ? { audio: c.audio } : {}),
+}));
 // startedCount() spans starter ∪ praksis (both are studyable), so the progress
-// denominator must too — else it can read "N av 187" with N > 187.
-const totalWords = cardCount + praksisCount;
+// denominator must too — else it can read "N av 225" with N > 225. Deduped:
+// praksis rows that share an id with a starter card aren't counted twice.
+const totalWords = cardCount + praksisUniqueCount;
+const lessonCount = (await getCollection('lessons', ({ data }) => !data.draft)).length;
 ---
 
 <BaseLayout
@@ -34,17 +41,17 @@ const totalWords = cardCount + praksisCount;
     <a class="card" href={withBase('lektioner')}>
       <span class="step">1</span>
       <h2>Lektioner</h2>
-      <p>Korta lektioner om stød, falska vänner och det vigesimala talsystemet.</p>
+      <p>{lessonCount} korta lektioner om det som är svårt för svenskar: stød, talad danska, falska vänner och talsystemet.</p>
     </a>
     <a class="card" href={withBase('flashcards')}>
       <span class="step">2</span>
       <h2>Flashcards</h2>
-      <p>Skriv det danska ordet utifrån svenskan. {cardCount} kort som repeteras precis innan du glömmer dem.</p>
+      <p>Sex övningslägen — lyssna, säg, lyssna på meningar, skriv, lucka och flerval. {totalWords.toLocaleString('sv-SE')} ord som repeteras precis innan du glömmer dem.</p>
     </a>
     <a class="card" href={withBase('ordlista')}>
       <span class="step">3</span>
       <h2>Ordlista</h2>
-      <p>Alla {cardCount} ord med svensk översättning, exempel och uttal — din referenslista.</p>
+      <p>Sök bland alla {totalWords.toLocaleString('sv-SE')} ord — grundorden med exempel och inspelat uttal som referenslista.</p>
     </a>
   </div>
 

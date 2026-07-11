@@ -2,7 +2,10 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import VocabTable from '../components/VocabTable.astro';
 import WordAudio from '../components/WordAudio.svelte';
+import OrdlistaSearch from '../components/OrdlistaSearch.svelte';
+import { withBase } from '../lib/url.ts';
 import { allCards, cardCount } from '../lib/decks.ts';
+import { praksisUniqueCount } from '../lib/praksis.ts';
 import { formatLevel } from '../lib/format.ts';
 import { themeKey, themeLabel } from '../lib/deck-groups.ts';
 import { UI } from '../lib/strings.ts';
@@ -18,18 +21,34 @@ for (const c of allCards) {
 }
 
 // Biggest themes first; within a theme, words sorted by Danish (da collation).
+// `key` doubles as the reviewer group id suffix (starter:<key>) for the
+// "Träna →" link on each section header — deck-groups owns both sides.
 const sections = [...groups.entries()]
   .map(([key, cards]) => ({
+    key,
     label: themeLabel(key),
     levels: [...new Set(cards.map((c) => c.cefr))].sort(),
     cards: [...cards].sort((a, b) => a.danish.localeCompare(b.danish, 'da')),
   }))
   .sort((a, b) => b.cards.length - a.cards.length || a.label.localeCompare(b.label, 'sv'));
+
+// The search island covers starter ∪ praksis; praksis arrives via the lazy
+// JSON fetch, so only these slim starter entries ride along as props.
+const searchStarter = allCards.map((c) => ({
+  id: c.id,
+  danish: c.danish,
+  swedish: c.swedish,
+  deck: c.deck,
+  ...(c.audio ? { audio: c.audio } : {}),
+}));
+const totalWords = cardCount + praksisUniqueCount;
 ---
 
-<BaseLayout title={UI.wordlist.title} description={UI.wordlist.description(cardCount)}>
+<BaseLayout title={UI.wordlist.title} description={UI.wordlist.description(totalWords)}>
   <h1>{UI.wordlist.title}</h1>
-  <p class="lead">{UI.wordlist.lead(cardCount)}</p>
+  <p class="lead">{UI.wordlist.lead(cardCount, totalWords)}</p>
+
+  <OrdlistaSearch client:idle starter={searchStarter} />
 
   {
     sections.map((s) => (
@@ -37,6 +56,13 @@ const sections = [...groups.entries()]
         <h2>
           {s.label}
           <span class="meta">{s.levels.map((l) => formatLevel(l)).join(' · ')} · {s.cards.length} ord</span>
+          <a
+            class="train"
+            href={withBase(`flashcards?group=${encodeURIComponent(`starter:${s.key}`)}`)}
+            title={UI.wordlist.trainThemeTitle(s.label)}
+          >
+            {UI.wordlist.trainTheme}
+          </a>
         </h2>
         <VocabTable cards={s.cards} />
       </section>
@@ -63,6 +89,12 @@ const sections = [...groups.entries()]
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
+    .theme h2 .train {
+      margin-left: auto;
+      font-size: var(--step--1);
+      font-weight: 600;
+      white-space: nowrap;
+    }
 
     /* Click-to-hear affordance (class added at runtime by WordAudio). */
     :global(.da-clickable) {
@@ -86,6 +118,7 @@ const sections = [...groups.entries()]
     /* Printable cheat sheet: drop the chrome and the click affordance. */
     @media print {
       :global(nav), :global(footer), :global(.skip-link) { display: none !important; }
+      .theme h2 .train { display: none; }
       :global(.da-clickable) { text-decoration: none; cursor: auto; background: none; }
       .theme { break-inside: avoid; }
     }

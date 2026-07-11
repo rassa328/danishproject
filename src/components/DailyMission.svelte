@@ -5,16 +5,23 @@
   import { onMount } from 'svelte';
   import { Store } from '../lib/storage.ts';
   import { localDayIso, dayNumber } from '../lib/day.ts';
+  import { speak } from '../lib/speech.ts';
+  import { withBase } from '../lib/url.ts';
   import { UI } from '../lib/strings.ts';
 
-  // A pool of Danish headwords to optionally weave into the task.
-  let { pool = [] }: { pool?: string[] } = $props();
+  // Danish headwords (with their clip when one exists) to optionally weave into
+  // the task. Click-to-hear, so the speaking task never starts from silent text.
+  interface FocusWord {
+    danish: string;
+    audio?: string;
+  }
+  let { pool = [] }: { pool?: FocusWord[] } = $props();
   const T = UI.practice;
 
   let store: Store;
   let today = $state('');
   let mission = $state('');
-  let words = $state<string[]>([]);
+  let words = $state<FocusWord[]>([]);
   let done = $state(false);
 
   const pick = <X,>(arr: X[], seed: number, n = 1): X[] => {
@@ -29,9 +36,18 @@
     today = localDayIso(now);
     const dayNum = dayNumber(now);
     mission = pick(T.missions as unknown as string[], dayNum, 1)[0] ?? '';
-    if (pool.length) words = pick([...new Set(pool)], dayNum * 3, 3);
+    if (pool.length) {
+      // De-dupe by the Danish form (same policy as the old string pool).
+      const uniq = [...new Map(pool.map((w) => [w.danish, w])).values()];
+      words = pick(uniq, dayNum * 3, 3);
+    }
     done = store.isMissionDone(today);
   });
+
+  function hear(w: FocusWord) {
+    // Clip when committed, Web Speech da-DK otherwise (speech.ts degrades).
+    void speak(w.danish, w.audio ? { audioUrl: withBase(w.audio) } : {});
+  }
 
   function toggle() {
     done = !done;
@@ -44,7 +60,19 @@
     <h3>{T.missionTitle}</h3>
     <p class="task">{mission}</p>
     {#if words.length}
-      <p class="focus">{T.focusWords} <span lang="da">{words.join(', ')}</span></p>
+      <p class="focus">
+        {T.focusWords}
+        {#each words as w, i (w.danish)}
+          {#if i > 0}<span aria-hidden="true">, </span>{/if}
+          <button
+            type="button"
+            class="word"
+            lang="da"
+            onclick={() => hear(w)}
+            title={T.hearWord(w.danish)}
+          >{w.danish} <span class="icon" aria-hidden="true">🔊</span></button>
+        {/each}
+      </p>
     {/if}
     <button type="button" onclick={toggle} aria-pressed={done}>
       {done ? T.missionDone : T.missionMarkDone}
@@ -63,5 +91,23 @@
   .mission h3 { margin: 0 0 var(--sp-2); color: var(--accent); font-size: var(--step-0); }
   .task { margin: 0 0 var(--sp-2); font-size: var(--step-1); }
   .focus { margin: 0 0 var(--sp-3); color: var(--muted); font-size: var(--step--1); }
-  .focus span[lang='da'] { color: var(--text); font-weight: 600; }
+  /* Compact click-to-hear: the word itself is the control (same dotted-underline
+     affordance as the lesson/ordlista click-to-hear pattern). */
+  .word {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 0.2em;
+    text-decoration-color: var(--muted);
+    border-radius: 3px;
+  }
+  .word:hover,
+  .word:focus-visible { text-decoration-color: var(--accent); }
+  .word:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .word .icon { font-size: 0.8em; }
 </style>

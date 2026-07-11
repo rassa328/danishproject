@@ -11,6 +11,7 @@ objectives:
   - 'Välja rätt mellan da och når'
 prerequisites: []
 vocabTags: []
+practiceDirection: 'produce'
 checkpoint:
   - q: "Engångshändelse i dåtid: 'Jeg var glad ___ jeg så dig.' Vilket ord?"
     options: ['da', 'når', 'hvornår']

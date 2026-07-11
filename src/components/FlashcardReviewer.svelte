@@ -7,7 +7,8 @@
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
-  import { DUE_ALL_GROUP_ID, type StudyGroup } from '../lib/deck-groups.ts';
+  import { DUE_ALL_GROUP_ID, type GroupMatch, type StudyGroup } from '../lib/deck-groups.ts';
+  import { fetchPraksis, praksisCache } from '../lib/praksis-client.ts';
   import {
     buildQueue,
     buildChoices,
@@ -32,9 +33,18 @@
     cloze: T.cloze,
   };
 
-  // `cards` is the full studyable set (starter ∪ praksis), serialized once.
-  // `groups` are lightweight picker descriptors that resolve to subsets of it.
-  let { cards, groups }: { cards: Card[]; groups: StudyGroup[] } = $props();
+  // `cards` is ONLY the curated starter deck (small, inlined as island props so
+  // starter sessions start instantly). The 5000-word praksis deck is fetched
+  // lazily as JSON the first time a session needs it (see lib/praksis-client);
+  // `knownCards` below holds the merged union once that happens. `groups` are
+  // lightweight picker descriptors (they carry counts, not cards) so the picker
+  // renders immediately either way. `totalCards` = starter + praksis count, for
+  // the "N av M ord" line — a count, so it never needs the fetch.
+  let {
+    cards,
+    groups,
+    totalCards,
+  }: { cards: Card[]; groups: StudyGroup[]; totalCards: number } = $props();
 
   let store: Store;
   let ready = $state(false);
@@ -78,6 +88,13 @@
   let poolSize = $state(0);
   let filteredReason = $state<FilteredReason>('none');
   let speakSilent = $state(false);
+  // Everything the reviewer can study right now: the starter props, plus the
+  // praksis deck once its lazy JSON fetch has resolved (merged in start()).
+  let knownCards = $state<Card[]>(cards);
+  // True while start() awaits the praksis fetch (renders a small loading line).
+  let loadingDeck = $state(false);
+  // The fetch failed: sessions degrade to starter-only with a visible notice.
+  let praksisNotice = $state(false);
   // Outcome of the PROMPT audio in listen modes: 'none' shows a Swedish notice
   // (+ skip), 'blocked' swaps in an explicit play button (autoplay denied until
   // a user gesture), 'tts' shows the talsyntes marker by the replay control.
@@ -119,7 +136,7 @@
   function refreshChoices() {
     choices =
       direction === 'recognize' && current
-        ? buildChoices({ card: current, pool: sessionPool, allCards: cards })
+        ? buildChoices({ card: current, pool: sessionPool, allCards: knownCards })
         : [];
   }
 
@@ -224,15 +241,64 @@
     });
   }
 
-  function start(free = false) {
+  /** Does a session over this picker state need the praksis deck?
+   *  - praksis groups (all/POS/theme slices): always;
+   *  - tag deep-links: yes — praksis rows carry tags too (e.g. falsk-ven);
+   *  - the due-all group: for free practice (roams the whole union) or when
+   *    some SRS record belongs to a non-starter card;
+   *  - starter themes: never — they start instantly without the fetch. */
+  function needsPraksis(m: GroupMatch | null, free: boolean): boolean {
+    if (tag) return true;
+    if (!m) return false;
+    if (m.kind === 'praksisAll' || m.kind === 'praksisPos' || m.kind === 'praksisTheme')
+      return true;
+    if (m.kind === 'all') return free || hasNonStarterRecords();
+    return false;
+  }
+
+  /** Store can't enumerate record ids, but startedCount() counts distinct ids —
+   *  compare it against how many STARTER ids have a record: any surplus means
+   *  praksis (or imported) records exist and due-all must include that deck. */
+  function hasNonStarterRecords(): boolean {
+    let starterStarted = 0;
+    for (const c of cards) {
+      if (DIRECTIONS.some((d) => store.getRecord(c.id, d) !== null)) starterStarted++;
+    }
+    return store.startedCount() > starterStarted;
+  }
+
+  // Guards overlapping start() calls: while one awaits the praksis fetch the
+  // learner may pick another group — the newer call wins, the stale one bails.
+  let startToken = 0;
+
+  async function start(free = false) {
     // Scheduling lives in lib/session.ts (pure + unit-tested); the component
     // just supplies the store, clock and current picker state. Store satisfies
     // SrsView structurally; Settings carries the newPerDay/reviewPerDay limits.
     const g = groups.find((x) => x.id === selectedGroupId);
+    const match = g?.match ?? null;
+    const token = ++startToken;
+    if (!praksisCache() && needsPraksis(match, free)) {
+      loadingDeck = true;
+      try {
+        const praksis = await fetchPraksis();
+        if (token !== startToken) return; // superseded by a newer start()
+        knownCards = [...cards, ...praksis];
+        praksisNotice = false;
+      } catch {
+        if (token !== startToken) return;
+        praksisNotice = true; // degrade to starter-only, visibly
+      } finally {
+        if (token === startToken) loadingDeck = false;
+      }
+    } else if (praksisCache() && knownCards.length === cards.length) {
+      // Another island already fetched the deck — merge without re-awaiting.
+      knownCards = [...cards, ...(praksisCache() as Card[])];
+    }
     const built = buildQueue({
-      cards,
+      cards: knownCards,
       tag,
-      match: g?.match ?? null,
+      match,
       direction,
       free,
       srs: store,
@@ -313,6 +379,7 @@
   }
 
   function onContainerKey(e: KeyboardEvent) {
+    if (loadingDeck) return; // no queue to act on while the deck fetch runs
     // Never hijack typing: the answer input handles its own keys (Enter submits
     // via the form; letters/digits are text).
     const t = e.target as HTMLElement | null;
@@ -449,7 +516,10 @@
     bind:this={container}
     onkeydown={onContainerKey}
   >
-    {#if phase === 'done'}
+    {#if praksisNotice}<p class="warning" role="alert">{T.praksisFailed}</p>{/if}
+    {#if loadingDeck}
+      <p class="progress" role="status">{T.loadingDeck}</p>
+    {:else if phase === 'done'}
       <div class="done">
         {#if reviewed === 0 && tag && poolSize === 0}
           <h2 tabindex="-1">{T.doneEmpty}</h2>
@@ -466,7 +536,7 @@
         {:else}
           <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : isDueAll ? T.dueAllEmpty : T.doneEmpty}</h2>
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
-          <p class="started">{UI.progress.words(store.startedCount(), cards.length)}</p>
+          <p class="started">{UI.progress.words(store.startedCount(), totalCards)}</p>
           {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
           <!-- Contextual next steps: what's still due in this deck per mode
                (one click switches), or a calm pointer to the lessons. -->

@@ -6,6 +6,7 @@ import { UI } from '../lib/strings.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
 import LessonProgress from '../components/LessonProgress.svelte';
 import Checkpoint from '../components/Checkpoint.svelte';
+import MinimalPairDrill from '../components/MinimalPairDrill.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
 type LessonRef = { id: string; title: string };
@@ -43,11 +44,18 @@ const {
   position,
 } = Astro.props;
 const dirParam = practiceDirection ? `&direction=${encodeURIComponent(practiceDirection)}` : '';
+// Practice CTA: tag-scoped when the lesson has a vocab tag; otherwise a lesson
+// with a practiceDirection still gets a CTA into that mode over the default
+// deck (covers prose-only lessons like talad danska/grammatik) — no dead ends.
 const practiceHref = vocabTags.length
   ? withBase(
       `flashcards?tag=${encodeURIComponent(vocabTags[0]!)}&from=${encodeURIComponent(lessonId)}${dirParam}`,
     )
-  : null;
+  : practiceDirection
+    ? withBase(
+        `flashcards?direction=${encodeURIComponent(practiceDirection)}&from=${encodeURIComponent(lessonId)}`,
+      )
+    : null;
 const topicLabel: Record<string, string> = {
   pronunciation: 'Uttal',
   'false-friends': 'Falska vänner',
@@ -99,6 +107,11 @@ const topicLabel: Record<string, string> = {
   <div id="lesson-end" aria-hidden="true"></div>
 
   <LessonAudio clips={lessonAudio} client:idle />
+
+  {/* Stød discrimination drill — belongs to the stød lesson only. Its pair
+      data derives clip ids exactly like the lesson's own audio spans, and it
+      skips pairs whose clips aren't committed yet. */}
+  {lessonId === '01-stoed' && <MinimalPairDrill client:visible />}
 
   {checkpoint.length > 0 && <Checkpoint client:visible items={checkpoint} />}
 

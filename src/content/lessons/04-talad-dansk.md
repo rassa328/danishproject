@@ -11,6 +11,7 @@ objectives:
   - 'Koppla en dansk stavning till hur ordet faktiskt uttalas'
 prerequisites: ['01-stoed']
 vocabTags: []
+practiceDirection: 'listen'
 ---
 
 Det svåraste med danska är inte att läsa det – det är att **höra** det. Skriven och talad danska skiljer sig kraftigt. Här är de mönster som gör att ord låter helt annorlunda än de stavas.

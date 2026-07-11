@@ -34,6 +34,7 @@ const THEME_LABELS: Record<string, string> = {
   'udtryk-og-idiomer': 'Uttryck & idiom',
   smalltalk: 'Småprat',
   foelelser: 'Känslor',
+  udtale: 'Uttal (stød)',
 };
 
 const humanize = (key: string): string => {
@@ -43,13 +44,132 @@ const humanize = (key: string): string => {
 
 export const themeLabel = (key: string): string => THEME_LABELS[key] ?? humanize(key);
 
+// ---- praksis super-themes ----
+// The praksis deck has ~246 micro-deck base names ('praksis-mad-grund-b1' →
+// 'mad-grund'), far too many to pick from. They fold into ~20 super-themes via
+// keyword matching on the base name. ORDER MATTERS — the first theme with a
+// keyword hit wins — because base names collide across topics:
+//   falske-venner-verber must beat 'verber'; 'vaerktoej'/'koeretoej' must beat
+//   the clothes keyword 'toej'; 'haandarbejde' must beat 'arbejde'; 'husdyr'
+//   must beat 'hus'; 'fritid'/'maaltider' must beat 'tid'/'maal'.
+// Anything unmatched lands in the 'oevrigt' fallback, so every deck maps.
+const PRAKSIS_THEMES: ReadonlyArray<{ id: string; label: string; keywords: readonly string[] }> = [
+  { id: 'falske-venner', label: 'Falska vänner', keywords: ['falske-venner'] },
+  { id: 'verb', label: 'Verb (tema)', keywords: ['verber', 'bevaegelse', 'handlinger'] },
+  { id: 'adjektiv', label: 'Adjektiv (tema)', keywords: ['adjektiver'] },
+  {
+    id: 'smaaord',
+    label: 'Småord & adverb',
+    keywords: ['adverbier', 'forholdsord', 'bindeord', 'smaaord', 'spoergeord', 'retninger', 'positioner'],
+  },
+  {
+    id: 'mat',
+    label: 'Mat & kök',
+    keywords: ['mad', 'drikke', 'koekken', 'krydderier', 'svampe', 'noedder', 'mejeri', 'kager', 'supper', 'saucer', 'konserves', 'paalaeg', 'bagning', 'foedevarer', 'urter', 'maaltider', 'bager', 'slagter', 'emballage'],
+  },
+  {
+    id: 'natur',
+    label: 'Natur & djur',
+    keywords: ['natur', 'vejr', 'klima', 'dyr', 'fugle', 'insekter', 'fisk', 'traeer', 'blomster', 'geologi', 'vand-hav', 'astronomi', 'landskab', 'miljoe', 'landbrug', 'landmand', 'gartner', 'planter'],
+  },
+  {
+    id: 'kropp',
+    label: 'Kropp & hälsa',
+    keywords: ['krop', 'sundhed', 'sygdom', 'symptomer', 'hospital', 'tandlaege', 'medicin', 'foerstehjaelp', 'skelet', 'muskler', 'graviditet'],
+  },
+  {
+    id: 'hem',
+    label: 'Hem & hushåll',
+    keywords: ['hus', 'bolig', 'moebler', 'rengoering', 'badevaerelse', 'sovevaerelse', 'belysning', 'gulv', 'vinduer', 'opvarmning', 'opbevaring', 'hverdag', 'have'],
+  },
+  {
+    id: 'resor',
+    label: 'Resor & trafik',
+    keywords: ['transport', 'trafik', 'rejse', 'koeretoej', 'bilens', 'cykel', 'infrastruktur', 'by-bygninger'],
+  },
+  {
+    id: 'hantverk',
+    label: 'Hantverk & bygg',
+    keywords: ['byggeri', 'murer', 'vvs', 'elektriker', 'maler', 'mekaniker', 'smed', 'snedker', 'vaerktoej', 'haandarbejde', 'materialer', 'tekstur'],
+  },
+  {
+    id: 'klader',
+    label: 'Kläder & utseende',
+    keywords: ['toej', 'sko-', 'smykker', 'frisoer', 'tekstiler', 'syning', 'makeup'],
+  },
+  {
+    id: 'arbete',
+    label: 'Arbete & pengar',
+    keywords: ['arbejde', 'erhverv', 'kontor', 'penge', 'oekonomi', 'bank', 'arbejdsmarked', 'handel', 'indkoeb'],
+  },
+  {
+    id: 'skola',
+    label: 'Skola & vetenskap',
+    keywords: ['skole', 'uddannelse', 'universitet', 'videnskab', 'matematik', 'filosofi', 'historie', 'geografi'],
+  },
+  {
+    id: 'teknik',
+    label: 'Teknik & medier',
+    keywords: ['teknologi', 'computer', 'internet', 'telefon', 'elektronik', 'energi'],
+  },
+  {
+    id: 'kanslor',
+    label: 'Känslor & sinne',
+    keywords: ['foelelser', 'humoer', 'personlighed', 'karaktertraek', 'vilje', 'moral', 'tillid', 'grine', 'psykologi', 'ansigt', 'konflikt', 'beslutning', 'tanke', 'problem'],
+  },
+  { id: 'familj', label: 'Familj & relationer', keywords: ['familie', 'relationer', 'baby', 'social'] },
+  {
+    id: 'fritid',
+    label: 'Fritid & kultur',
+    keywords: ['sport', 'musik', 'kunst', 'kultur', 'boeger', 'film', 'teater', 'braetspil', 'hobby', 'fritid', 'ferie', 'friluftsliv', 'spil'],
+  },
+  {
+    id: 'samhalle',
+    label: 'Samhälle & politik',
+    keywords: ['politik', 'samfund', 'stat', 'lov', 'kriminalitet', 'religion', 'nyheder'],
+  },
+  {
+    id: 'sprak',
+    label: 'Språk & uttryck',
+    keywords: ['kommunikation', 'tale', 'slang', 'sprog', 'lyd', 'idiomatisk'],
+  },
+  { id: 'tid', label: 'Tid & mått', keywords: ['tid', 'kalender', 'ugedage', 'maal', 'mængder', 'former'] },
+];
+
+export const PRAKSIS_THEME_FALLBACK = 'oevrigt';
+const PRAKSIS_THEME_LABELS: Record<string, string> = Object.fromEntries([
+  ...PRAKSIS_THEMES.map((t) => [t.id, t.label]),
+  [PRAKSIS_THEME_FALLBACK, 'Övrigt'],
+]);
+
+export const praksisThemeLabel = (id: string): string =>
+  PRAKSIS_THEME_LABELS[id] ?? humanize(id);
+
+// Memoized: matchesGroup runs over 5000 cards per session build, but there are
+// only ~470 distinct deck names.
+const themeByDeck = new Map<string, string>();
+
+/** Super-theme id for a praksis deck name (any deck name maps — unknown ones
+ *  fall back to 'oevrigt', so no deck is ever dropped from the picker). */
+export function praksisThemeOf(deck: string): string {
+  const hit = themeByDeck.get(deck);
+  if (hit) return hit;
+  const base = deck.replace(/^praksis-/, '').replace(/-b[12]$/, '');
+  const theme =
+    PRAKSIS_THEMES.find((t) => t.keywords.some((k) => base.includes(k)))?.id ??
+    PRAKSIS_THEME_FALLBACK;
+  themeByDeck.set(deck, theme);
+  return theme;
+}
+
 // ---- reviewer study-group descriptors ----
 
 export type GroupMatch =
   | { kind: 'all' } // every card (starter ∪ praksis) — the due-only review group
   | { kind: 'decks'; decks: string[] } // a starter theme = a set of deck names
   | { kind: 'praksisAll' } // the whole 5000-word deck (frequency-ordered)
-  | { kind: 'praksisPos'; pos: Pos }; // one part-of-speech slice of the deck
+  | { kind: 'praksisPos'; pos: Pos } // one part-of-speech slice of the deck
+  | { kind: 'praksisTheme'; theme: string }; // one super-theme slice (praksisThemeOf)
 
 export interface StudyGroup {
   id: string;
@@ -81,6 +201,8 @@ export function matchesGroup(c: Card, m: GroupMatch): boolean {
       return isPraksis(c);
     case 'praksisPos':
       return isPraksis(c) && c.pos === m.pos;
+    case 'praksisTheme':
+      return isPraksis(c) && praksisThemeOf(c.deck) === m.theme;
   }
 }
 
@@ -119,9 +241,16 @@ export function buildStudyGroups(starter: Card[], praksis: Card[]): StudyGroup[]
       match: { kind: 'decks', decks: [...e.decks] },
     }));
 
-  // Praksis: one "all" pool + non-empty POS slices.
+  // Praksis: one "all" pool + non-empty POS slices + super-theme slices
+  // (~20 keyword-folded topic groups, AFTER the all/POS entries; biggest first,
+  // the 'Övrigt' fallback always last).
   const posCount = new Map<Pos, number>();
   for (const c of praksis) posCount.set(c.pos, (posCount.get(c.pos) ?? 0) + 1);
+  const themeCount = new Map<string, number>();
+  for (const c of praksis) {
+    const t = praksisThemeOf(c.deck);
+    themeCount.set(t, (themeCount.get(t) ?? 0) + 1);
+  }
   const praksisGroups: StudyGroup[] = [
     {
       id: 'praksis:all',
@@ -135,6 +264,19 @@ export function buildStudyGroups(starter: Card[], praksis: Card[]): StudyGroup[]
       optgroup: OPTGROUP_PRAKSIS,
       match: { kind: 'praksisPos', pos: p } as GroupMatch,
     })),
+    ...[...themeCount.entries()]
+      .sort(
+        (a, b) =>
+          Number(a[0] === PRAKSIS_THEME_FALLBACK) - Number(b[0] === PRAKSIS_THEME_FALLBACK) ||
+          b[1] - a[1] ||
+          praksisThemeLabel(a[0]).localeCompare(praksisThemeLabel(b[0]), 'sv'),
+      )
+      .map(([t, n]) => ({
+        id: `praksis-tema:${t}`,
+        label: `${praksisThemeLabel(t)} (${n})`,
+        optgroup: OPTGROUP_PRAKSIS,
+        match: { kind: 'praksisTheme', theme: t } as GroupMatch,
+      })),
   ];
 
   const dueAll: StudyGroup = {
