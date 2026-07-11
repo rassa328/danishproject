@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Store, memoryKV, DEFAULT_SETTINGS, DIRECTIONS, type KV } from './storage.ts';
+import { Store, memoryKV, DEFAULT_SETTINGS, DIRECTIONS, MIGRATIONS, type KV } from './storage.ts';
 import { Rating } from './srs.ts';
 import type { Card } from './vocab.ts';
 
@@ -94,20 +94,60 @@ describe('Store: settings + grading', () => {
 });
 
 describe('Store: resilience', () => {
-  it('corrupt JSON falls back to defaults without throwing', () => {
+  it('corrupt JSON falls back to defaults without throwing, stashing a pre-reset copy', () => {
     const kv = memoryKV();
     kv.setItem('dansk4svensk:srs:v1', '{not json');
     expect(() => new Store(kv).getSettings()).not.toThrow();
     expect(new Store(kv).getSettings()).toEqual(DEFAULT_SETTINGS);
+    // The unreadable blob is preserved for manual recovery, never just erased.
+    expect(kv.getItem('dansk4svensk:srs:v1:pre-reset')).toBe('{not json');
   });
 
-  it('an older schemaVersion resets cleanly', () => {
+  it('an older schemaVersion with NO registered migration resets cleanly + stashes', () => {
     const kv = memoryKV();
+    const old = JSON.stringify({ schemaVersion: 0, settings: { newPerDay: 999 } });
+    kv.setItem('dansk4svensk:srs:v1', old);
+    expect(new Store(kv).getSettings()).toEqual(DEFAULT_SETTINGS);
+    expect(kv.getItem('dansk4svensk:srs:v1:pre-reset')).toBe(old);
+  });
+
+  it('an older blob with a registered migration is preserved and upgraded, not wiped', () => {
+    const kv = memoryKV();
+    const rec = {
+      due: '2026-06-21T08:00:00.000Z',
+      stability: 3,
+      difficulty: 5,
+      elapsed_days: 0,
+      scheduled_days: 1,
+      learning_steps: 0,
+      reps: 4,
+      lapses: 0,
+      state: 2,
+      last_review: '2026-06-20T08:00:00.000Z',
+    };
+    // Synthetic v(N-1) shape: records lived under `cards` instead of `srs`.
     kv.setItem(
       'dansk4svensk:srs:v1',
-      JSON.stringify({ schemaVersion: 0, settings: { newPerDay: 999 } }),
+      JSON.stringify({
+        schemaVersion: 0,
+        cards: { 'v1::produce': rec },
+        settings: { newPerDay: 42 },
+      }),
     );
-    expect(new Store(kv).getSettings()).toEqual(DEFAULT_SETTINGS);
+    MIGRATIONS[0] = (old) => {
+      const o = old as Record<string, unknown>;
+      return { ...o, srs: o['cards'] ?? {} };
+    };
+    try {
+      const s = new Store(kv);
+      expect(s.getRecord('v1', 'produce')?.reps).toBe(4); // review history preserved
+      expect(s.getSettings().newPerDay).toBe(42); // settings preserved
+      // Upgraded blob is stamped current; no reset (and thus no stash) happened.
+      expect(JSON.parse(s.exportBackup()).srs.schemaVersion).toBe(1);
+      expect(kv.getItem('dansk4svensk:srs:v1:pre-reset')).toBeNull();
+    } finally {
+      delete MIGRATIONS[0];
+    }
   });
 
   it('getSettings heals a null-poisoned numeric setting back to its default', () => {

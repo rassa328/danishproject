@@ -76,8 +76,9 @@ export interface SrsRoot {
   firstRunAt: number | null;
   streak: { lastReviewIso: string; current: number } | null;
   settings: Settings;
-  // Phase 6 — added without a schema bump (would reset existing data); read
-  // defensively (?? / ??=) since older saved blobs won't have them.
+  // Phase 6 — added without a schema bump (predates the MIGRATIONS ladder,
+  // which has since made bumps non-destructive); read defensively (?? / ??=)
+  // since older saved blobs won't have them.
   missionLog?: Record<string, boolean>; // YYYY-MM-DD -> done
   inputLog?: InputEntry[];
   // Per-day new-card introductions (shared across directions) for a true daily
@@ -104,6 +105,12 @@ export interface WriteResult {
 const SRS_KEY = 'dansk4svensk:srs:v1';
 const DECKS_KEY = 'dansk4svensk:decks:v1';
 const SCHEMA_VERSION = 1;
+
+/** Stepwise schema migrations: MIGRATIONS[n] upgrades a version-n blob to n+1.
+ *  When SCHEMA_VERSION bumps, register a rung here instead of letting old blobs
+ *  reset — months of review history live in them. v1 is the first schema, so
+ *  the ladder is empty today. Exported so tests can exercise the machinery. */
+export const MIGRATIONS: Record<number, (old: unknown) => unknown> = {};
 
 export const DEFAULT_SETTINGS: Settings = {
   newPerDay: 10,
@@ -213,9 +220,26 @@ export class Store {
     if (!raw) return fallback();
     try {
       const parsed = JSON.parse(raw) as T & { schemaVersion?: number };
-      return migrate(parsed, fallback);
+      const migrated = migrate(parsed);
+      if (migrated !== null) return migrated;
     } catch {
-      return fallback(); // corrupt JSON -> fresh default, never crash
+      /* corrupt JSON -> stash + fresh default below, never crash */
+    }
+    // Unusable blob (corrupt JSON, or a version the ladder can't upgrade):
+    // stash the raw payload before resetting so data is always recoverable.
+    this.stashPreReset(key, raw);
+    return fallback();
+  }
+
+  /** Best-effort copy of the blob being abandoned to `key:pre-reset`, so a
+   *  fallback reset never silently destroys the only copy of review history.
+   *  With no `raw` given, stashes whatever is currently stored at `key`. */
+  private stashPreReset(key: string, raw?: string | null): void {
+    try {
+      const blob = raw ?? this.kv.getItem(key);
+      if (blob) this.kv.setItem(`${key}:pre-reset`, blob);
+    } catch {
+      /* stashing must never block the reset path */
     }
   }
 
@@ -449,21 +473,36 @@ export class Store {
       return { ok: false };
     }
     if (data.srs) {
-      this.srsRoot = migrate(data.srs, defaultSrsRoot);
+      const migrated = migrate(data.srs);
+      // An un-upgradeable import must not silently destroy the CURRENT data
+      // it is about to overwrite — stash the stored blob first.
+      if (migrated === null) this.stashPreReset(SRS_KEY);
+      this.srsRoot = migrated ?? defaultSrsRoot();
       const r = this.saveSrs();
       if (!r.ok) return r;
     }
-    if (data.decks) return this.write(DECKS_KEY, migrate(data.decks, defaultDecksRoot));
+    if (data.decks) {
+      const migrated = migrate(data.decks);
+      if (migrated === null) this.stashPreReset(DECKS_KEY);
+      return this.write(DECKS_KEY, migrated ?? defaultDecksRoot());
+    }
     return { ok: true };
   }
 }
 
-/** Run schema migrations up to SCHEMA_VERSION. Unknown/older blobs that can't be
- *  upgraded fall back to a fresh default rather than throwing. */
-function migrate<T extends { schemaVersion?: number }>(value: T, fallback: () => T): T {
+/** Walk the MIGRATIONS ladder from the blob's version up to SCHEMA_VERSION.
+ *  Returns the upgraded blob (stamped with the current version), the blob
+ *  unchanged when it is current or NEWER (forward-compat: keep unknown data),
+ *  or null when a rung is missing — the caller stashes and falls back. */
+function migrate<T extends { schemaVersion?: number }>(value: T): T | null {
   const v = typeof value?.schemaVersion === 'number' ? value.schemaVersion : 0;
-  if (v === SCHEMA_VERSION) return value;
-  if (v > SCHEMA_VERSION) return value; // forward-compat: keep unknown newer data
-  // v < SCHEMA_VERSION: no historical migrations yet (v1 is first). Reset cleanly.
-  return fallback();
+  if (v >= SCHEMA_VERSION) return value;
+  let cur: unknown = value;
+  for (let from = v; from < SCHEMA_VERSION; from++) {
+    const step = MIGRATIONS[from];
+    if (!step) return null; // no path from this version -> caller resets
+    cur = step(cur);
+  }
+  (cur as { schemaVersion?: number }).schemaVersion = SCHEMA_VERSION;
+  return cur as T;
 }

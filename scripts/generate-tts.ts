@@ -77,11 +77,12 @@ const exists = (p: string) =>
 const escapeXml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]!);
 
-/** Azure REST TTS → MP3 bytes. Retries with backoff on 429 (rate limit). When
- *  `ph` (IPA) is given the word is wrapped in a <phoneme> so we can force a
- *  specific pronunciation — e.g. stød vs no stød for an otherwise identical
- *  spelling. An unsupported IPA phone makes Azure return HTTP 400 (surfaced as a
- *  failed clip), our signal to fall back to a carrier phrase instead. */
+/** Azure REST TTS → MP3 bytes. Retries with backoff on 429 (rate limit) and on
+ *  timeouts/network drops — same attempt cap for both. When `ph` (IPA) is given
+ *  the word is wrapped in a <phoneme> so we can force a specific pronunciation —
+ *  e.g. stød vs no stød for an otherwise identical spelling. An unsupported IPA
+ *  phone makes Azure return HTTP 400 (surfaced as a failed clip), our signal to
+ *  fall back to a carrier phrase instead. */
 async function synthesize(text: string, ph?: string): Promise<Buffer> {
   const inner = ph
     ? `<phoneme alphabet='ipa' ph='${escapeXml(ph)}'>${escapeXml(text)}</phoneme>`
@@ -93,19 +94,52 @@ async function synthesize(text: string, ph?: string): Promise<Buffer> {
     `</speak>`;
   const url = `https://${REGION}.tts.speech.microsoft.com/cognitiveservices/v1`;
 
+  const MAX_RETRIES = 5;
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': KEY!,
-        'Content-Type': 'application/ssml+xml',
-        'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3',
-        'User-Agent': 'dansk-for-svenskar',
-      },
-      body: ssml,
-    });
-    if (res.ok) return Buffer.from(await res.arrayBuffer());
-    if (res.status === 429 && attempt < 5) {
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': KEY!,
+          'Content-Type': 'application/ssml+xml',
+          'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3',
+          'User-Agent': 'dansk-for-svenskar',
+        },
+        body: ssml,
+        // A hung connection would otherwise stall the whole run indefinitely.
+        signal: AbortSignal.timeout(30_000),
+      });
+    } catch (err) {
+      // TimeoutError / transient network failure: retryable, same cap as 429.
+      if (attempt < MAX_RETRIES) {
+        const wait = 2 ** attempt * 1000;
+        const why = (err as Error).name === 'TimeoutError' ? 'timed out (30s)' : `failed (${(err as Error).name})`;
+        console.warn(`  request ${why}, retrying in ${wait}ms…`);
+        await sleep(wait);
+        continue;
+      }
+      throw new Error(`Azure TTS request failed after ${attempt + 1} attempts: ${(err as Error).message}`);
+    }
+    if (res.ok) {
+      // Trust nothing about a 2xx: an HTML error page or an empty/truncated
+      // body written to disk would become a permanently "done" broken clip
+      // (existing files are skipped unless --force). Real clips are >1 kB.
+      const type = res.headers.get('content-type') ?? '';
+      const body = Buffer.from(await res.arrayBuffer());
+      if (!type.startsWith('audio/')) {
+        throw new Error(
+          `Azure TTS 2xx with non-audio content-type "${type}" (${body.length} bytes) — refusing to write a corrupt clip`,
+        );
+      }
+      if (body.length < 1000) {
+        throw new Error(
+          `Azure TTS returned an empty/truncated body (${body.length} bytes) — refusing to write a corrupt clip`,
+        );
+      }
+      return body;
+    }
+    if (res.status === 429 && attempt < MAX_RETRIES) {
       const wait = (Number(res.headers.get('retry-after')) || 2 ** attempt) * 1000;
       console.warn(`  429 rate-limited, waiting ${wait}ms…`);
       await sleep(wait);
@@ -161,8 +195,10 @@ async function collectLessonSpans(): Promise<LessonSpan[]> {
 type Clip = { file: string; text: string; ph?: string };
 type Stats = { generated: number; skipped: number; failed: number };
 
-/** Synthesize a list of clips, skipping ones already on disk (unless --force). */
-async function generateClips(clips: Clip[]): Promise<Stats> {
+/** Synthesize a list of clips, skipping ones already on disk (unless --force).
+ *  `checkpoint` (when given) runs after every 25 generated clips so a long run
+ *  persists its progress as it goes — see processDeck. */
+async function generateClips(clips: Clip[], checkpoint?: () => Promise<void>): Promise<Stats> {
   let generated = 0;
   let skipped = 0;
   let failed = 0;
@@ -177,6 +213,7 @@ async function generateClips(clips: Clip[]): Promise<Stats> {
       await writeFile(clip.file, mp3);
       generated++;
       console.log(`✓ ${name}  "${clip.text.slice(0, 48)}"`);
+      if (checkpoint && generated % 25 === 0) await checkpoint();
       await sleep(120); // gentle throttle to stay well under rate limits
     } catch (err) {
       failed++;
@@ -216,26 +253,33 @@ async function processDeck(csvPath: string): Promise<Stats> {
     const example = nfc(row.example_da);
     if (example) clips.push({ file: path.join(AUDIO_DIR, `${id}-ex.mp3`), text: example });
   }
-  const stats = await generateClips(clips);
-
-  // Reconcile audio columns for the rows we actually PROCESSED this run (reflect
+  // Reconcile audio columns for the rows we actually PROCESS this run (reflect
   // disk: a failed clip clears its cell). Rows gated out by --limit/--max-rank
   // are left untouched, so a partial/gated run never blanks committed audio for
-  // words it didn't attempt.
-  for (const row of eligible) {
-    const danish = nfc(row.danish);
-    if (!danish) continue;
-    const id = deriveId(danish, row.pos ?? '');
-    row.audio = (await exists(path.join(AUDIO_DIR, `${id}.mp3`))) ? `audio/${id}.mp3` : '';
-    const hasEx = nfc(row.example_da) && (await exists(path.join(AUDIO_DIR, `${id}-ex.mp3`)));
-    row.audio_example = hasEx ? `audio/${id}-ex.mp3` : '';
+  // words it didn't attempt. Runs INCREMENTALLY (every 25 generated clips) and
+  // again in the finally below — a single end-of-loop write once let an
+  // interrupted praksis run orphan 2,119 clips no CSV row referenced.
+  const reconcile = async () => {
+    for (const row of eligible) {
+      const danish = nfc(row.danish);
+      if (!danish) continue;
+      const id = deriveId(danish, row.pos ?? '');
+      row.audio = (await exists(path.join(AUDIO_DIR, `${id}.mp3`))) ? `audio/${id}.mp3` : '';
+      const hasEx = nfc(row.example_da) && (await exists(path.join(AUDIO_DIR, `${id}-ex.mp3`)));
+      row.audio_example = hasEx ? `audio/${id}-ex.mp3` : '';
+    }
+    // Keep original column order; ensure audio/audio_example are last.
+    const baseFields = (parsed.meta.fields ?? []).filter((f) => f !== 'audio' && f !== 'audio_example');
+    const fields = [...baseFields, 'audio', 'audio_example'];
+    const out = Papa.unparse({ fields, data: rows }, { quotes: true });
+    await writeFile(csvPath, out + '\n');
+  };
+
+  try {
+    return await generateClips(clips, reconcile);
+  } finally {
+    await reconcile();
   }
-  // Keep original column order; ensure audio/audio_example are last.
-  const baseFields = (parsed.meta.fields ?? []).filter((f) => f !== 'audio' && f !== 'audio_example');
-  const fields = [...baseFields, 'audio', 'audio_example'];
-  const out = Papa.unparse({ fields, data: rows }, { quotes: true });
-  await writeFile(csvPath, out + '\n');
-  return stats;
 }
 
 /** Lesson prose: a clip per unique <span lang="da"> (word, number form, whole

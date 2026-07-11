@@ -1,31 +1,78 @@
 // Build-time content integrity check (wired as npm `prebuild` + `pretest`).
 // Astro/Zod already validate each lesson's frontmatter shape; this script adds
 // the CROSS-references Zod can't see:
-//   - every non-empty lesson `vocabTags` resolves to >=1 card   (ERROR: dead link)
-//   - every `prerequisites` id points at a real lesson file     (ERROR)
-//   - every card audio path exists under public/                (WARN: falls back to TTS)
+//   - every non-empty lesson `vocabTags` resolves to >=1 card    (ERROR: dead link)
+//   - every `prerequisites` id points at a real lesson file      (ERROR)
+//   - starter-deck audio refs resolve to real clips              (ERROR: curated
+//     stød audio is the starter deck's core value; a broken ref must not ship)
+//   - praksis-deck audio refs resolve to real clips              (WARN: long-tail
+//     deck, a missing clip degrades to Web Speech TTS)
+//   - ids duplicated across starter ∪ praksis agree on danish+pos (ERROR: the
+//     runtime dedupes by id preferring the starter copy, so a praksis row that
+//     shares an id but differs in content would silently diverge/vanish)
+// Audio existence: locally against the working tree (existsSync); in CI against
+// `git ls-files` — a Pages build starts from a clean checkout, so an UNTRACKED
+// local mp3 that satisfies existsSync would still 404 in production.
 // Exits non-zero on any error so a broken link can never ship.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import Papa from 'papaparse';
+// Node >=22.18 strips types natively, so importing the runtime id helpers keeps
+// this check byte-identical with the ids the app derives (no copied hash).
+import { deriveId, nfc } from '../src/lib/audio-id.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const lessonsDir = root + 'src/content/lessons';
-const csvPath = root + 'src/data/vocab/starter-deck.csv';
 const publicDir = root + 'public';
+const DECKS = [
+  { name: 'starter', path: root + 'src/data/vocab/starter-deck.csv', missingAudio: 'error' },
+  { name: 'praksis', path: root + 'src/data/vocab/praksis-deck.csv', missingAudio: 'warn' },
+];
 
 const errors = [];
 const warnings = [];
 
-// ---- load cards ----
-const csv = readFileSync(csvPath, 'utf8');
-const { data: rows } = Papa.parse(csv, { header: true, skipEmptyLines: true });
-const tagSet = new Set();
-const audioPaths = new Set();
-for (const r of rows) {
-  for (const t of (r.tags || '').split(/[|,]/).map((s) => s.trim()).filter(Boolean)) tagSet.add(t);
-  for (const a of [r.audio, r.audio_example]) if (a && a.trim()) audioPaths.add(a.trim());
+// ---- load cards (same row validations for every deck CSV) ----
+const tagSet = new Set(); // union: the runtime tag filter runs over starter ∪ praksis
+const errorRefs = new Set(); // audio refs that must exist
+const warnRefs = new Set(); // audio refs that merely warn when missing
+const idInfo = new Map(); // card id -> { deck, danish, pos } (first occurrence)
+let crossDupes = 0;
+
+for (const deck of DECKS) {
+  // Normalize CRLF→LF before parsing: .gitattributes commits these as LF, but a
+  // tool that wrote CRLF can leave the WORKING TREE with mixed endings, which
+  // makes Papa mis-detect the newline and mangle the last row (seen in the
+  // interrupted TTS run). Validate the canonical content git will store.
+  const csv = readFileSync(deck.path, 'utf8').replace(/\r\n/g, '\n');
+  const { data: rows } = Papa.parse(csv, { header: true, skipEmptyLines: true });
+  for (const r of rows) {
+    for (const t of (r.tags || '').split(/[|,]/).map((s) => s.trim()).filter(Boolean)) tagSet.add(t);
+    for (const a of [r.audio, r.audio_example]) {
+      if (a && a.trim()) (deck.missingAudio === 'error' ? errorRefs : warnRefs).add(a.trim());
+    }
+    const danish = nfc(r.danish);
+    if (!danish) continue;
+    const pos = nfc(r.pos ?? '');
+    const id = nfc(r.id) || deriveId(danish, pos); // same resolution as vocab.ts
+    const prev = idInfo.get(id);
+    if (!prev) {
+      idInfo.set(id, { deck: deck.name, danish, pos });
+    } else if (prev.deck !== deck.name) {
+      // Cross-deck duplicate ids are EXPECTED (runtime dedupes preferring
+      // starter) — but only when both rows are the very same word.
+      crossDupes++;
+      if (prev.danish !== danish || prev.pos !== pos) {
+        errors.push(
+          `${deck.name}: id ${id} duplicates a ${prev.deck} card but the rows differ: ` +
+            `"${prev.danish}" (${prev.pos}) vs "${danish}" (${pos}). ` +
+            `Cross-deck duplicates must be identical in danish+pos.`,
+        );
+      }
+    }
+  }
 }
 
 // ---- load lessons ----
@@ -46,7 +93,6 @@ for (const file of files) {
     errors.push(`${file}: invalid YAML frontmatter (${e.message})`);
     continue;
   }
-  const id = file.replace(/\.mdx?$/, '');
 
   for (const tag of fm.vocabTags ?? []) {
     if (!tagSet.has(tag)) {
@@ -60,15 +106,34 @@ for (const file of files) {
   }
 }
 
-// ---- audio existence (warn-only: missing audio degrades to TTS) ----
-let missingAudio = 0;
-for (const a of audioPaths) {
-  if (!existsSync(`${publicDir}/${a}`)) {
-    missingAudio++;
-    if (missingAudio <= 10) warnings.push(`audio file missing: public/${a}`);
-  }
+// ---- audio existence ----
+// In CI validate against TRACKED files: an untracked local mp3 must not satisfy
+// the check, because the deployed build won't have it. Locally the working tree
+// is the truth (a TTS run's fresh clips are legitimately not yet committed).
+let hasAudio = (ref) => existsSync(`${publicDir}/${ref}`);
+if (process.env.CI && existsSync(`${root}.git`)) {
+  const out = execFileSync('git', ['ls-files', '-z', '--', 'public/audio'], {
+    cwd: root,
+    encoding: 'utf8',
+  });
+  const tracked = new Set(out.split('\0').filter(Boolean));
+  hasAudio = (ref) => tracked.has(`public/${ref}`);
 }
-if (missingAudio > 10) warnings.push(`…and ${missingAudio - 10} more missing audio files`);
+
+let missingError = 0;
+let missingWarn = 0;
+for (const ref of errorRefs) {
+  if (hasAudio(ref)) continue;
+  missingError++;
+  if (missingError <= 10) errors.push(`starter: referenced audio missing: public/${ref}`);
+}
+if (missingError > 10) errors.push(`…and ${missingError - 10} more missing starter audio refs`);
+for (const ref of warnRefs) {
+  if (errorRefs.has(ref) || hasAudio(ref)) continue; // already errored above
+  missingWarn++;
+  if (missingWarn <= 10) warnings.push(`praksis: audio file missing (falls back to TTS): public/${ref}`);
+}
+if (missingWarn > 10) warnings.push(`…and ${missingWarn - 10} more missing praksis audio files`);
 
 // ---- report ----
 for (const w of warnings) console.warn(`⚠ ${w}`);
@@ -79,5 +144,6 @@ if (errors.length) {
 }
 console.log(
   `✓ Content check passed: ${files.length} lessons, ${tagSet.size} vocab tags, ` +
-    `${audioPaths.size} audio refs (${missingAudio} missing → TTS fallback).`,
+    `${idInfo.size} distinct card ids (${crossDupes} expected cross-deck duplicates), ` +
+    `${errorRefs.size + warnRefs.size} audio refs (${missingWarn} missing → TTS fallback).`,
 );

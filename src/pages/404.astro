@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { withBase } from '../lib/url.ts';
+
+// GitHub Pages serves dist/404.html for any bad URL under the base path, so a
+// mistyped deep-link or stale bookmark lands here instead of on GitHub's
+// generic error page — with a way back into the app.
+---
+
+<BaseLayout
+  title="Sidan finns inte"
+  description="Sidan du sökte finns inte — hitta tillbaka till lektionerna, flashcards eller ordlistan."
+>
+  <p class="kicker" lang="da">Siden findes ikke</p>
+  <h1>Sidan finns inte</h1>
+  <p class="lead">
+    Adressen är felskriven eller så har sidan flyttats. Det danska ovanför
+    betyder just det — och härifrån hittar du tillbaka:
+  </p>
+
+  <div class="cards">
+    <a class="card" href={withBase('lektioner')}>
+      <h2>Lektioner</h2>
+      <p>Korta lektioner om stød, falska vänner och det vigesimala talsystemet.</p>
+    </a>
+    <a class="card" href={withBase('flashcards')}>
+      <h2>Flashcards</h2>
+      <p>Repetera orden precis innan du glömmer dem.</p>
+    </a>
+    <a class="card" href={withBase('ordlista')}>
+      <h2>Ordlista</h2>
+      <p>Alla ord med svensk översättning, exempel och uttal.</p>
+    </a>
+  </div>
+
+  <p class="home"><a href={withBase()}>Till startsidan</a></p>
+
+  <style>
+    .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--muted); margin: 0 0 var(--sp-2); }
+    .lead { font-size: var(--step-1); color: var(--muted); }
+    .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-4); }
+    .card { display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
+    .card:hover { border-color: var(--accent); }
+    .card h2 { margin: 0 0 var(--sp-2); color: var(--accent); }
+    .card p { margin: 0; color: var(--muted); font-size: var(--step--1); }
+    .home { margin-top: var(--sp-6); }
+  </style>
+</BaseLayout>

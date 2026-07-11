@@ -1,0 +1,8 @@
+# Deterministic line endings for the text formats we diff and hand-edit
+# (the vocab CSVs especially: a stray CRLF write causes whole-file phantom
+# diffs in the single most-edited data file). Audio is declared binary rather
+# than relying on git's content heuristics.
+*.csv text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.mp3 binary
