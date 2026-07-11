@@ -8,13 +8,19 @@ Recorded 2026-07-11 from a live review of the deployed site.
 
 ## Flashcards (reviewer)
 
-- [ ] **Drop the visible "(1) (2) (3) (4)" on the grade buttons.**
-  User: "what even is that for? i think enter is just enough."
-  They are keyboard shortcuts for the four FSRS grades
-  (`FlashcardReviewer.svelte:670-673`, handler at `:403-408`). Keep or drop the
-  digit *shortcuts* as a separate decision, but the labels should go, and
-  **Enter in the revealed phase should grade Good and advance** (today Enter
-  does nothing after reveal — only digits work).
+- [ ] **Explain the four grade buttons in the UI** (decision changed
+  2026-07-11: KEEP the 1–4 grades and shortcuts — user originally wanted them
+  gone, then saw what they do and reversed). The grades matter: measured with
+  the app's own scheduler at 0.9 retention, a mature card next comes due in
+  minutes (Igen) / 32 d (Svårt) / 46 d (Bra) / 77 d (Lätt), and each grade
+  also shifts the card's hidden difficulty. Nothing in the UI says any of
+  this. Add a short always-visible note (or first-session hint) under the
+  grade row, roughly: "Igen = fel, kortet kommer snart tillbaka · Svårt/Bra/
+  Lätt = rätt, styr hur länge kortet vilar" — user picks final wording.
+  Still wanted from the original complaint: **Enter in the revealed phase
+  should grade Bra and advance** (today Enter does nothing after reveal).
+  ⚠ Note text lives in `strings.ts` — inside the drill-engine plan's
+  write_set; sequence or coordinate.
 - [x] **Typed answers: map Swedish letters to Danish.** DONE 2026-07-11
   (plan `done/swedish-letter-folding.md`): `ä`→`æ`, `ö`→`ø`, digraph `ae`→`æ`
   accepted at comparison time in `matchTyped`/`matchCloze` (typed side only,
