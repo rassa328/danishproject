@@ -405,6 +405,11 @@ async function main() {
   // Lessons accompany the curated content; skip when doing only the praksis deck.
   if (DECK_SEL === 'starter' || DECK_SEL === 'all') {
     failed += (await processLessons()).failed;
+    // Lesson spans share the pos-less id namespace with the number atoms (a
+    // bare <span lang="da">hundrede</span> writes the atom's clip file), so
+    // refresh number-audio.json too — otherwise check-content's drift guard
+    // fails the next build/test on a healthy state. Offline and idempotent.
+    await reconcileNumberManifest();
   }
 
   console.log(`\nDone. Voice: ${VOICE}. Clips in public/audio/.`);

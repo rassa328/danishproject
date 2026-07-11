@@ -38,7 +38,7 @@ export function planClips(tokens: string[], m: NumberAudioManifest): string[] | 
 /** Every atom the level's generator can emit, first-seen order, deduped.
  *  The ranges MIRROR the NUMBER_LEVELS gens in danish-numbers.ts (0–20 ·
  *  whole tens 20–90 · 0–99 · numbers 100–999 / years 1900–2099 / prices
- *  1–999 kroner) — the gen-sweep test in number-audio.test.ts guards the sync. */
+ *  2–999 kroner) — the gen-sweep test in number-audio.test.ts guards the sync. */
 export function atomsForLevel(level: NumberLevelId): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -63,7 +63,7 @@ export function atomsForLevel(level: NumberLevelId): string[] {
     case 'stora-tal':
       for (let n = 100; n <= 999; n++) add(numberToTokens(n));
       for (let y = 1900; y <= 2099; y++) add(yearToTokens(y));
-      for (let kr = 1; kr <= 999; kr++) add(priceToTokens(kr));
+      for (let kr = 2; kr <= 999; kr++) add(priceToTokens(kr));
       break;
   }
   return out;

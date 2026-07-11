@@ -88,7 +88,8 @@ export function yearToTokens(y: number): string[] {
   return numberToTokens(y);
 }
 
-/** Whole kroner only in v1 (no øre/komma). */
+/** Whole kroner only in v1 (no øre/komma). Always the plural 'kroner' — the
+ *  stora-tal generator never draws 1 (singular 'krone' has no atom/clip). */
 export function priceToTokens(kroner: number): string[] {
   return [...numberToTokens(kroner), 'kroner'];
 }
@@ -151,7 +152,10 @@ export const NUMBER_LEVELS: NumberLevel[] = [
         const value = randInt(rng, 1900, 2099);
         return { value, tokens: yearToTokens(value), kind: 'year' as const };
       }
-      const value = randInt(rng, 1, 999);
+      // Prices start at 2: priceToTokens always appends plural 'kroner', and
+      // 1 would compose the ungrammatical 'en kroner' (singular is 'en krone',
+      // and 'krone' is not in the closed atom set).
+      const value = randInt(rng, 2, 999);
       return { value, tokens: priceToTokens(value), kind: 'price' as const };
     },
   },

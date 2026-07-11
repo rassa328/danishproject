@@ -193,6 +193,12 @@ describe('NUMBER_LEVELS.gen', () => {
     expect(price.tokens.at(-1)).toBe('kroner');
   });
 
+  it('price draws start at 2 kroner — 1 would compose ungrammatical "en kroner"', () => {
+    // First draw 0.9 → price branch; second draw 0 → the range minimum.
+    const price = level('stora-tal').gen(seqRng(0.9, 0));
+    expect(price).toEqual({ value: 2, tokens: ['to', 'kroner'], kind: 'price' });
+  });
+
   it('every generated token is a NUMBER_ATOMS member', () => {
     const atoms = new Set(NUMBER_ATOMS);
     // Deterministic sweep over each tier with a coarse grid of rng values.

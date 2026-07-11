@@ -142,7 +142,6 @@ export const UI = {
     sourceLegend: 'Vad vill du öva?',
     sourceDue: 'Att repetera (förfallna)',
     sourceLesson: 'Från lektion',
-    lessonLabel: 'Lektion:',
     cardCount: 'Antal kort',
     start: 'Starta',
     noDue: 'Inget förfallet just nu — allt är repeterat. Välj en lektion i stället.',
@@ -152,12 +151,13 @@ export const UI = {
 
     // In-run. Dictation reuses flashcards.listenPrompt as its prompt line.
     progress: (i: number, total: number) => `Kort ${i} av ${total}`,
-    writePrompt: 'Skriv på danska:',
-    meaningPrompt: 'Vad betyder ordet? Skriv på svenska:',
+    // Per-mode answer-input copy, consumed by the DRILL_MODES registry
+    // (drill-modes.ts spreads these into each mode's input config).
     input: {
-      da: { label: 'Skriv ordet på danska', placeholder: 'Skriv på danska…' },
-      sv: { label: 'Skriv betydelsen på svenska', placeholder: 'Skriv på svenska…' },
-      digits: { label: 'Skriv talet med siffror', placeholder: 't.ex. 97' },
+      'sv-da': { label: 'Skriv på danska', placeholder: 'Skriv på danska…' },
+      'da-dictation': { label: 'Skriv ordet du hör', placeholder: 'Skriv på danska…' },
+      'da-sv': { label: 'Skriv betydelsen på svenska', placeholder: 'Skriv på svenska…' },
+      'number-dictation': { label: 'Skriv talet med siffror', placeholder: 't.ex. 42' },
     },
     submit: 'Svara',
     enterHint: 'Enter skickar svaret.',
@@ -183,7 +183,7 @@ export const UI = {
       title: 'Sifferdiktat',
       description:
         'Hör ett danskt tal och skriv det med siffror — träna in halvtreds, halvfjerds och de andra lömska tiotalen.',
-      lead: 'Lyssna och skriv talet med siffror. Danska säger entalet först — syvogtyve är 27 — och här nöter du tills det sitter.',
+      lead: 'Lyssna och skriv talet med siffror. Danskan säger entalet först — syvogtyve är 27 — och här nöter du tills det sitter.',
       levelLegend: 'Nivå',
       levels: {
         '0-20': '0–20',

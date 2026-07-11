@@ -3,6 +3,7 @@ import {
   DRILL_MAX_REQUEUES,
   advance,
   createDrill,
+  isBlankAttempt,
   outcomeOf,
   reveal,
   submit,
@@ -209,6 +210,23 @@ describe('advance and completion', () => {
     expect(s.bestCombo).toBe(1);
     expect(s.missedIds).toEqual(['i1']);
     expect(s.startedAt).toBe(T0);
+  });
+});
+
+describe('isBlankAttempt', () => {
+  it('flags empty and whitespace-only submits (the double-Enter guard)', () => {
+    // The component drops blank un-revealed answering submits via this
+    // predicate — otherwise a key-repeated Enter after the synchronous
+    // corrective advance would grade the NEXT, unseen card as an SRS miss.
+    expect(isBlankAttempt('')).toBe(true);
+    expect(isBlankAttempt('   ')).toBe(true);
+    expect(isBlankAttempt('\t\n')).toBe(true);
+  });
+
+  it('never flags a real attempt, however wrong or padded', () => {
+    expect(isBlankAttempt('hoppe')).toBe(false);
+    expect(isBlankAttempt(' 42 ')).toBe(false);
+    expect(isBlankAttempt('.')).toBe(false); // punctuation-only is a scored (wrong) attempt
   });
 });
 

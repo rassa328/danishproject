@@ -25,6 +25,7 @@
   import {
     advance,
     createDrill,
+    isBlankAttempt,
     outcomeOf,
     reveal,
     submit,
@@ -113,6 +114,7 @@
   let promptAudioState = $state<'ok' | 'tts' | 'none' | 'blocked' | 'missing'>('ok');
   let input = $state<HTMLInputElement>();
   let doneHeading = $state<HTMLElement>();
+  let emptyMsgEl = $state<HTMLElement>();
 
   const mode = $derived(DRILL_MODES[modeId]);
   const running = $derived(drill !== null && drill.phase !== 'done');
@@ -237,6 +239,10 @@
             : modeId === 'da-dictation'
               ? T.noDictationCards
               : T.noCards;
+      // "Kör igen" after a due run commonly lands here (everything just got
+      // graded) with the done section — and the focused button — unmounted;
+      // without an explicit target, keyboard/SR focus falls to <body>.
+      tick().then(() => emptyMsgEl?.focus());
       return;
     }
     drill = createDrill(items, { size, now: Date.now() });
@@ -303,6 +309,11 @@
     const item = current;
     if (!d || !item) return;
     if (d.phase === 'answering') {
+      // A blank Enter never grades: a double-tap/key-repeat after the
+      // synchronous corrective advance (typed is cleared) would otherwise
+      // write Rating.Again to a card the user never saw. After "Visa ordet",
+      // Enter stays the explicit give-up (scored hint-miss).
+      if (!d.revealed && isBlankAttempt(typed)) return;
       const correct = mode.matches(typed, item);
       // Outcome BEFORE submit(): a reveal makes even a correct retype a hint-miss.
       const outcome = outcomeOf(d, correct);
@@ -331,6 +342,9 @@
         tick().then(() => input?.focus());
       }
     } else if (d.phase === 'corrective') {
+      // A blank retype can never match; ignoring it also keeps the frozen
+      // wrong attempt (lastTyped) on screen for the letter diff.
+      if (isBlankAttempt(typed)) return;
       if (mode.matches(typed, item)) {
         drill = submit(d, true); // ungraded retype advances
         afterAdvance();
@@ -404,6 +418,8 @@
     // Never hijack typing — the input handles its own keys (Enter via the form).
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+    // Never swallow browser/OS shortcuts (Cmd/Ctrl+R must stay a reload).
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (running && mode.prompt.replayable && e.key.toLowerCase() === 'r') {
       e.preventDefault();
       void playPrompt();
@@ -453,7 +469,9 @@
 {/snippet}
 
 {#snippet answerLine(item: DrillItem)}
-  <p class="da" lang={danishInput || mode.prompt.lang === 'da' ? 'da' : undefined}>
+  <!-- The lang follows the ANSWER's language (the input's), never the
+       prompt's: in da→sv the answer is the Swedish gloss. -->
+  <p class="da" lang={danishInput ? 'da' : undefined}>
     {item.answer}
     {#if item.audio?.kind === 'clip'}
       <SpeakButton text={item.audio.text} audio={item.audio.url} />
@@ -569,7 +587,7 @@
         </label>
         <button type="button" class="cta" onclick={() => void start()}>{T.start}</button>
         {#if loadingDeck}<p class="hint" role="status">{F.loadingDeck}</p>{/if}
-        {#if emptyMsg}<p class="hint" role="status">{emptyMsg}</p>{/if}
+        {#if emptyMsg}<p class="hint" role="status" tabindex="-1" bind:this={emptyMsgEl}>{emptyMsg}</p>{/if}
       {/if}
     </section>
   {/if}
@@ -599,13 +617,14 @@
         {:else if promptAudioState === 'missing'}
           <p class="hint" role="status">{T.numbers.missingAudio}</p>
         {:else}
-          <!-- Plain replay, answer-safe label: never the Danish text or digits. -->
+          <!-- Plain replay, answer-safe label: never the Danish text or digits.
+               No "Tangent R" tooltip: focus lives in the answer input, where R
+               just types an r — the button IS the keyboard path here. -->
           <button
             type="button"
             class="replay"
             onclick={() => void playPrompt()}
             aria-label={F.replay}
-            title={F.replayKeyTitle}
           >{F.replay}</button>
           {#if promptAudioState === 'tts'}<span class="tts-hint" title={F.ttsHintTitle}>{F.ttsHint}</span>{/if}
         {/if}
@@ -632,6 +651,12 @@
             {T.answerLabel} <strong lang={danishInput ? 'da' : undefined}>{current.answer}</strong>
             {#if lastTyped}&nbsp;· {T.youWrote} {lastTyped}{/if}
           </p>
+        {:else if drill.revealed}
+          <!-- "Visa ordet" must be announced too — the visual answerLine below
+               sits outside this live region, so SR users would hear nothing. -->
+          <p class="summary">
+            {T.answerLabel} <strong lang={danishInput ? 'da' : undefined}>{current.answer}</strong>
+          </p>
         {/if}
       </div>
 
@@ -654,7 +679,11 @@
         {@render glossary(current)}
       {/if}
 
-      <form onsubmit={(e) => { e.preventDefault(); submitAnswer(); }}>
+      <!-- novalidate: the numeric pattern would otherwise block submission of
+           "1 994" (Swedish thousands space) with a native, non-Swedish bubble
+           before normalizeDigits() ever ran. The pattern attr stays for the
+           legacy-iOS numeric keypad. -->
+      <form novalidate onsubmit={(e) => { e.preventDefault(); submitAnswer(); }}>
         <label class="vh" for="drill-answer">{mode.input.label}</label>
         <input
           id="drill-answer"
@@ -709,8 +738,10 @@
   .modes { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3); display: flex; gap: var(--sp-3); flex-wrap: wrap; margin: 0; }
   .modes legend { font-size: var(--step--1); color: var(--muted); }
   .modes label { display: inline-flex; align-items: center; gap: 0.3em; font-size: var(--step--1); min-height: var(--min-tap); }
-  .pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--step--1); }
-  select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: var(--min-tap); }
+  /* flex-wrap + max-widths: a long lesson title in the source <select> must
+     wrap inside the card, not push past the viewport on 360px phones. */
+  .pick { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--step--1); flex-wrap: wrap; max-width: 100%; }
+  select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); min-height: var(--min-tap); max-width: 100%; }
   .cta { border: none; cursor: pointer; font-size: var(--step-0); }
   .tagline { margin: 0; font-size: var(--step--1); }
 

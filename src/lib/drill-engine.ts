@@ -112,3 +112,13 @@ export function advance(s: DrillState): DrillState {
 export function outcomeOf(s: DrillState, correct: boolean): DrillOutcome {
   return s.revealed ? 'hint' : correct ? 'correct' : 'wrong';
 }
+
+/** True for a blank (empty/whitespace-only) submit. The component must DROP
+ *  blank un-revealed `answering` submits instead of grading them: the
+ *  corrective retype advances synchronously with the input cleared, so a
+ *  double-tapped or key-repeated Enter would otherwise land on the NEXT,
+ *  never-seen card and write an SRS Again for it. Reveal→Enter stays the
+ *  explicit give-up path (still scored as a hint-miss). */
+export function isBlankAttempt(typed: string): boolean {
+  return typed.trim().length === 0;
+}

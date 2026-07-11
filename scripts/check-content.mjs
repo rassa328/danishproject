@@ -22,6 +22,7 @@ import Papa from 'papaparse';
 // Node >=22.18 strips types natively, so importing the runtime id helpers keeps
 // this check byte-identical with the ids the app derives (no copied hash).
 import { deriveId, nfc } from '../src/lib/audio-id.ts';
+import { numberToTokens, priceToTokens, yearToTokens } from '../src/lib/danish-numbers.ts';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const lessonsDir = root + 'src/content/lessons';
@@ -141,9 +142,10 @@ if (missingWarn > 10) warnings.push(`…and ${missingWarn - 10} more missing pra
 // reality either 404s at runtime (true without a clip) or keeps a playable
 // level needlessly disabled (false with one) — both are reconcile bugs, so
 // they ERROR. Missing recordings themselves are expected (the manifest doubles
-// as the recording checklist) and only WARN with a count; per-level detail
-// lives in the number-audio unit tests. Same tracked-vs-disk rule as above:
-// in CI an untracked local clip must not count as present.
+// as the recording checklist) and only WARN — listing WHICH levels the current
+// flags keep disabled (plan §4), so the recording loop's feedback is in the
+// build output. Same tracked-vs-disk rule as above: in CI an untracked local
+// clip must not count as present.
 const numberManifestPath = root + 'src/data/number-audio.json';
 if (!existsSync(numberManifestPath)) {
   errors.push('src/data/number-audio.json missing — run: npm run tts -- --numbers --reconcile-only');
@@ -168,9 +170,30 @@ if (!existsSync(numberManifestPath)) {
   if (drift > 10) errors.push(`…and ${drift - 10} more number-audio present-flag drifts`);
   if (drift > 0) errors.push('number-audio manifest is stale — re-run: npm run tts -- --numbers --reconcile-only');
   if (unrecorded > 0) {
+    // Which /tal levels the current `present` flags keep disabled. The atom
+    // ranges MIRROR number-audio.ts atomsForLevel (that module pulls in the
+    // browser-only url.ts/webaudio.ts, so it can't be imported under plain
+    // Node); the gen-sweep unit test guards the range sync on the app side.
+    const levelNeeds = new Map();
+    const need = (level, tokens) => {
+      const set = levelNeeds.get(level) ?? new Set();
+      for (const t of tokens) set.add(t);
+      levelNeeds.set(level, set);
+    };
+    for (let n = 0; n <= 20; n++) need('0-20', numberToTokens(n));
+    for (let n = 20; n <= 90; n += 10) need('tiotal', numberToTokens(n));
+    for (let n = 0; n <= 99; n++) need('0-99', numberToTokens(n));
+    for (let n = 100; n <= 999; n++) need('stora-tal', numberToTokens(n));
+    for (let y = 1900; y <= 2099; y++) need('stora-tal', yearToTokens(y));
+    for (let kr = 2; kr <= 999; kr++) need('stora-tal', priceToTokens(kr));
+    const disabled = [...levelNeeds]
+      .filter(([, set]) => ![...set].every((w) => atoms[w]?.present === true))
+      .map(([id]) => id);
     warnings.push(
       `number-audio: ${unrecorded} of ${Object.keys(atoms).length} atoms lack clips — ` +
-        `some /tal levels stay disabled until they are recorded`,
+        (disabled.length
+          ? `disabled /tal levels: ${disabled.join(', ')}`
+          : 'all /tal levels are still playable'),
     );
   }
 }

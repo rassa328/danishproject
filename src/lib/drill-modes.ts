@@ -20,6 +20,7 @@ import type { Direction } from './storage.ts';
 import { NUMBER_LEVELS, normalizeDigits, type NumberLevelId } from './danish-numbers.ts';
 import { levelAvailable, type NumberAudioManifest } from './number-audio.ts';
 import type { GroupMatch } from './deck-groups.ts';
+import { UI } from './strings.ts';
 
 export type DrillModeId = 'sv-da' | 'da-dictation' | 'da-sv' | 'number-dictation';
 
@@ -90,22 +91,23 @@ const ALT_INTRO = /^(?:även:|el\.)\s*/iu;
 
 /** Swedish answers accepted for da→sv typing. The curated `acceptedSv` column
  *  wins when present; otherwise a heuristic parse of the free-text gloss:
- *  split on '/', strip parentheticals (harvesting 'även:'/'el.' alternatives),
- *  normalizeTyped each, dedupe, drop empties. */
+ *  strip parentheticals (harvesting 'även:'/'el.' alternatives) over the WHOLE
+ *  gloss FIRST, then split the remainder on '/', normalizeTyped each, dedupe,
+ *  drop empties. Parens must go before the split: a '/' inside a parenthetical
+ *  ('byta (tåg/buss)') would otherwise break the paren match and leak garbage
+ *  fragments like 'byta (tåg' as the only accepted answers. */
 export function acceptedSwedish(card: Card): string[] {
   const raw: string[] = [];
   if (card.acceptedSv?.length) {
     raw.push(...card.acceptedSv);
   } else {
-    for (const part of card.swedish.split('/')) {
-      const alts: string[] = [];
-      const main = part.replace(PAREN, (_m, inner: string) => {
-        const intro = ALT_INTRO.exec(inner.trim());
-        if (intro) alts.push(...inner.trim().slice(intro[0].length).split(/[,;]/));
-        return ' ';
-      });
-      raw.push(main, ...alts);
-    }
+    const alts: string[] = [];
+    const main = card.swedish.replace(PAREN, (_m, inner: string) => {
+      const intro = ALT_INTRO.exec(inner.trim());
+      if (intro) alts.push(...inner.trim().slice(intro[0].length).split(/[,;]/));
+      return ' ';
+    });
+    raw.push(...main.split('/'), ...alts);
   }
   return [...new Set(raw.map(normalizeTyped).filter((s) => s.length > 0))];
 }
@@ -146,8 +148,19 @@ function buildWordCards(
   return queue.slice(0, deps.size);
 }
 
+/** The corrective phase displays item.answer verbatim ('Rätt svar: …') and
+ *  gates advancing on matches() — so a verbatim retype of the DISPLAYED string
+ *  must always pass, even when it is a multi-variant form ('midlertidig /
+ *  midlertidigt') or a gloss with parentheticals that the accepted-set parse
+ *  would otherwise reject. */
+const matchesDisplayAnswer = (typed: string, item: DrillItem): boolean => {
+  const t = normalizeTyped(typed);
+  return t.length > 0 && t === normalizeTyped(item.answer);
+};
+
 const wordMatches = (typed: string, item: DrillItem): boolean =>
-  matchTyped(typed, item.card ?? { danish: item.answer, accepted: [] });
+  matchTyped(typed, item.card ?? { danish: item.answer, accepted: [] }) ||
+  matchesDisplayAnswer(typed, item);
 
 const itemAudio = (item: DrillItem): DrillAudio | null => item.audio ?? null;
 
@@ -179,8 +192,8 @@ function buildNumberItems(deps: DrillBuildDeps): DrillItem[] {
 
 // ---- the registry ----
 
-// Input labels/placeholders are per-mode DATA (part of the §3.2 config shape),
-// not page chrome — chrome copy lives in strings.ts UI.drill.
+// Input labels/placeholders come from strings.ts (UI.drill.input, per mode) —
+// ALL user-facing Swedish copy is centralized there (plan §2.7).
 export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
   'sv-da': {
     id: 'sv-da',
@@ -190,8 +203,7 @@ export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
       inputmode: 'text',
       liveRemap: true,
       charHelper: true,
-      label: 'Skriv på danska',
-      placeholder: 'Skriv på danska…',
+      ...UI.drill.input['sv-da'],
     },
     srs: { direction: 'produce', gradeFor: gradeForOutcome },
     buildItems: (deps) =>
@@ -207,8 +219,7 @@ export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
       inputmode: 'text',
       liveRemap: true,
       charHelper: true,
-      label: 'Skriv ordet du hör',
-      placeholder: 'Skriv på danska…',
+      ...UI.drill.input['da-dictation'],
     },
     srs: { direction: 'listen', gradeFor: gradeForOutcome },
     buildItems: (deps) =>
@@ -226,8 +237,7 @@ export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
       inputmode: 'text',
       liveRemap: false,
       charHelper: false,
-      label: 'Skriv betydelsen på svenska',
-      placeholder: 'Skriv på svenska…',
+      ...UI.drill.input['da-sv'],
     },
     srs: { direction: 'recognize', gradeFor: gradeForOutcome },
     buildItems: (deps) =>
@@ -236,7 +246,8 @@ export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
     matches: (typed, item) => {
       const t = normalizeTyped(typed);
       if (t.length === 0) return false;
-      return item.card ? acceptedSwedish(item.card).includes(t) : t === normalizeTyped(item.answer);
+      if (matchesDisplayAnswer(typed, item)) return true; // the full gloss as shown
+      return item.card ? acceptedSwedish(item.card).includes(t) : false;
     },
   },
   'number-dictation': {
@@ -247,8 +258,7 @@ export const DRILL_MODES: Record<DrillModeId, DrillModeConfig> = {
       inputmode: 'numeric',
       liveRemap: false,
       charHelper: false,
-      label: 'Skriv talet med siffror',
-      placeholder: 't.ex. 42',
+      ...UI.drill.input['number-dictation'],
     },
     srs: null, // no SRS for numbers in v1 (plan §3.1)
     buildItems: buildNumberItems,

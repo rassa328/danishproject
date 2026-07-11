@@ -90,6 +90,19 @@ describe('acceptedSwedish', () => {
     expect(acceptedSwedish(c)).toEqual(['moln']);
   });
 
+  it('strips parentheticals BEFORE splitting, so "/" inside parens cannot leak garbage', () => {
+    // Regression: split-first turned 'byta (tåg/buss)' into the unanswerable
+    // ['byta (tåg', 'buss)'] — soft-locking the corrective phase (31 committed
+    // cards, incl. starter "skifte").
+    const c = card('skifte', { swedish: 'byta (tåg/buss)' });
+    expect(acceptedSwedish(c)).toEqual(['byta']);
+  });
+
+  it('still splits on "/" outside parens when the gloss also has parentheticals', () => {
+    const c = card('lav', { swedish: 'kort (om person/låg) / lag' });
+    expect(acceptedSwedish(c)).toEqual(['kort', 'lag']);
+  });
+
   it('normalizes, dedupes and drops empties', () => {
     const c = card('x', { swedish: '  Hoppa / hoppa. / (vardagligt) ' });
     expect(acceptedSwedish(c)).toEqual(['hoppa']);
@@ -222,6 +235,31 @@ describe('per-mode matches()', () => {
     expect(m('sprängas', item)).toBe(true);
     expect(m('springa', item)).toBe(false);
     expect(m('   ', item)).toBe(false);
+  });
+
+  it('every word mode also accepts the FULL displayed answer verbatim', () => {
+    // Regression: the corrective phase shows item.answer and gates advancing
+    // on matches() — retyping the shown string must never be rejected (it was,
+    // for multi-variant danish fields and glosses with '/'/parentheticals).
+    const multi = card('midlertidig', {
+      danish: 'midlertidig / midlertidigt',
+      swedish: 'temporär / temporärt',
+      audio: 'audio/x.mp3',
+    });
+    for (const mode of ['sv-da', 'da-dictation'] as const) {
+      const item = toItem(mode, multi);
+      expect(DRILL_MODES[mode].matches('midlertidig / midlertidigt', item)).toBe(true);
+      expect(DRILL_MODES[mode].matches('midlertidigt', item)).toBe(true); // variants still work
+    }
+    const gloss = card('hoppe', { swedish: 'hoppa (även: brista, sprängas)' });
+    const daSv = DRILL_MODES['da-sv'].matches;
+    expect(daSv('hoppa (även: brista, sprängas)', toItem('da-sv', gloss))).toBe(true);
+    // …but the old garbage fragments stay rejected.
+    const slash = toItem('da-sv', card('skifte', { swedish: 'byta (tåg/buss)' }));
+    expect(daSv('byta', slash)).toBe(true);
+    expect(daSv('byta (tåg/buss)', slash)).toBe(true); // the displayed gloss
+    expect(daSv('byta (tåg', slash)).toBe(false);
+    expect(daSv('buss)', slash)).toBe(false);
   });
 
   it('number dictation compares normalized digits', () => {
