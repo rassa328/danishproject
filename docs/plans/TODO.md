@@ -35,6 +35,15 @@ Recorded 2026-07-11 from a live review of the deployed site.
   `strings.ts:97`, done-screen link. Needs a verb that matches what lessons
   are (listening/doing): e.g. "Gå till lektionerna →" — user picks the wording.
 
+- [ ] **Fast flip-review mode (game-like).** You get a word, think or say the
+  answer to yourself — no typing. Enter (or tap) reveals; then knew-it /
+  didn't-know-it as a binary: swipe right / → / Enter = yes, swipe left / ← =
+  no. Built for fast repetition through many words. Word audio on reveal as a
+  **toggle**. Same spirit as the coming typing drill (drill-engine plan) —
+  coordinate: `strings.ts` is in that plan's write_set, and its blip/feedback
+  modules may be reusable. Plan proposal drafted 2026-07-11; awaiting the
+  prompt-direction decision and approval.
+
 ## Home page
 
 - [ ] **Redesign or remove the "Daglig praktik" block (DailyMission + InputLog).**
