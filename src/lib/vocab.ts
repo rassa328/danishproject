@@ -15,6 +15,12 @@ export interface Card {
   pos: Pos;
   exampleDa?: string;
   exampleSv?: string;
+  /** Learner-facing dictionary note: gender (en/et), irregular plurals,
+   *  alternative Swedish translations, false-friend (falsk vän) warnings,
+   *  register. It is shown verbatim to the learner, so it MUST NEVER reference
+   *  the user, the conversation/prompt, or how the entry was created — no
+   *  "användaren skrev …", no correction/transcription meta-commentary. Describe
+   *  the word, never the process that produced the row. */
   note?: string;
   deck: string;
   cefr: Cefr;
