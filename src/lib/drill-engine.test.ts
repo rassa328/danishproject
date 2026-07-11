@@ -3,6 +3,7 @@ import {
   DRILL_MAX_REQUEUES,
   advance,
   createDrill,
+  extendQueue,
   isBlankAttempt,
   outcomeOf,
   reveal,
@@ -13,7 +14,12 @@ import type { DrillItem } from './drill-modes.ts';
 
 const T0 = 1_750_000_000_000; // injected clock (ms epoch)
 
-const item = (id: string): DrillItem => ({ id, prompt: `sv-${id}`, answer: `da-${id}` });
+const item = (id: string): DrillItem => ({
+  id,
+  sub: 'sv-da',
+  prompt: `sv-${id}`,
+  answer: `da-${id}`,
+});
 const items = (n: number): DrillItem[] => Array.from({ length: n }, (_, i) => item(`i${i}`));
 const drill = (n = 3, size?: number): DrillState =>
   createDrill(items(n), size === undefined ? { now: T0 } : { now: T0, size });
@@ -95,10 +101,10 @@ describe('correct flow: combo and stats', () => {
   });
 });
 
-describe('wrong flow: corrective phase and requeue', () => {
-  it('drops to corrective and requeues a COPY of the item at the END', () => {
+describe('wrong flow: feedback-miss phase and requeue', () => {
+  it('drops to feedback-miss and requeues a COPY of the item at the END', () => {
     const s = submit(drill(3), false);
-    expect(s.phase).toBe('corrective');
+    expect(s.phase).toBe('feedback-miss');
     expect(queueIds(s)).toEqual(['i0', 'i1', 'i2', 'i0']);
     expect(s.queue[3]).toEqual(s.queue[0]);
     expect(s.queue[3]).not.toBe(s.queue[0]); // a copy, not the same object
@@ -108,13 +114,14 @@ describe('wrong flow: corrective phase and requeue', () => {
     expect(s.firstTryCorrect).toBe(0);
   });
 
-  it('corrective gates the advance: wrong retypes stall, a correct one advances ungraded', () => {
+  it('has no retype gate: submit is a no-op, advance() leaves the panel', () => {
     const s = submit(drill(3), false);
-    expect(submit(s, false)).toBe(s); // still corrective, nothing rescored
-    const next = submit(s, true);
+    expect(submit(s, false)).toBe(s); // typing anything never rescores…
+    expect(submit(s, true)).toBe(s); // …not even the correct word
+    const next = advance(s); // Enter/"Vidare" → the component advances
     expect(next.phase).toBe('answering');
     expect(next.idx).toBe(1);
-    expect(next.answered).toBe(1); // the retype is NOT a scored attempt
+    expect(next.answered).toBe(1); // the panel visit is NOT a scored attempt
     expect(next.firstTryCorrect).toBe(0);
   });
 
@@ -122,8 +129,7 @@ describe('wrong flow: corrective phase and requeue', () => {
     // Single-item run missed on every encounter: 1 original + 2 requeued copies.
     let s = createDrill([item('a')], { now: T0 });
     for (let i = 0; i < 3; i++) {
-      s = submit(s, false); // miss
-      s = submit(s, true); // corrective retype → advance
+      s = advance(submit(s, false)); // miss → continue past the panel
     }
     expect(queueIds(s)).toEqual(['a', 'a', 'a']);
     expect(s.requeues).toEqual({ a: DRILL_MAX_REQUEUES });
@@ -134,9 +140,9 @@ describe('wrong flow: corrective phase and requeue', () => {
 
   it('keeps missedIds unique and in first-miss order', () => {
     let s = drill(2);
-    s = submit(submit(s, false), true); // miss i0
-    s = submit(submit(s, false), true); // miss i1
-    s = submit(submit(s, false), true); // miss the requeued i0 copy
+    s = advance(submit(s, false)); // miss i0
+    s = advance(submit(s, false)); // miss i1
+    s = advance(submit(s, false)); // miss the requeued i0 copy
     expect(s.missedIds).toEqual(['i0', 'i1']);
   });
 });
@@ -145,15 +151,15 @@ describe('hint (reveal)', () => {
   it('reveals only while answering; a no-op in other phases', () => {
     const s = reveal(drill(2));
     expect(s.revealed).toBe(true);
-    const corrective = submit(drill(2), false);
-    expect(reveal(corrective)).toBe(corrective);
+    const missed = submit(drill(2), false);
+    expect(reveal(missed)).toBe(missed);
     const feedback = submit(drill(2), true);
     expect(reveal(feedback)).toBe(feedback);
   });
 
   it('a correct answer AFTER a reveal still scores as a miss', () => {
     const s = submit(reveal(drill(2)), true);
-    expect(s.phase).toBe('corrective');
+    expect(s.phase).toBe('feedback-miss');
     expect(s.combo).toBe(0);
     expect(s.missedIds).toEqual(['i0']);
     expect(s.requeues).toEqual({ i0: 1 });
@@ -162,7 +168,7 @@ describe('hint (reveal)', () => {
   });
 
   it('advance resets the reveal flag for the next item', () => {
-    const s = submit(submit(reveal(drill(2)), true), true); // hint-miss, retype, advance
+    const s = advance(submit(reveal(drill(2)), true)); // hint-miss → continue
     expect(s.idx).toBe(1);
     expect(s.revealed).toBe(false);
   });
@@ -202,7 +208,7 @@ describe('advance and completion', () => {
     // 2 items: i0 clean, i1 missed then its requeued copy answered clean.
     let s = drill(2);
     s = advance(submit(s, true)); // i0 correct
-    s = submit(submit(s, false), true); // i1 miss + retype
+    s = advance(submit(s, false)); // i1 miss → continue past the panel
     s = advance(submit(s, true)); // requeued i1 copy correct
     expect(s.phase).toBe('done');
     expect(s.answered).toBe(3);
@@ -213,11 +219,40 @@ describe('advance and completion', () => {
   });
 });
 
+describe('extendQueue (the Flöde top-up)', () => {
+  it('appends items without touching idx, phase or stats', () => {
+    let s = advance(submit(drill(2), true)); // answering i1
+    s = extendQueue(s, items(2).map((i) => ({ ...i, id: `x-${i.id}` })));
+    expect(queueIds(s)).toEqual(['i0', 'i1', 'x-i0', 'x-i1']);
+    expect(s.idx).toBe(1);
+    expect(s.phase).toBe('answering');
+    expect(s.answered).toBe(1);
+  });
+
+  it('keeps done out of reach while top-ups arrive before the queue drains', () => {
+    let s = drill(1, 1);
+    s = extendQueue(s, [item('b')]); // topped up while answering the last item
+    s = advance(submit(s, true));
+    expect(s.phase).toBe('answering'); // not done — the appended item is next
+    expect(s.queue).toHaveLength(2);
+  });
+
+  it('is a no-op on done and for empty batches, and never mutates its input', () => {
+    const done = advance(submit(drill(1), true));
+    expect(extendQueue(done, [item('b')])).toBe(done);
+    const s = deepFreeze(drill(2));
+    expect(extendQueue(s, [])).toBe(s);
+    const grown = extendQueue(s, [item('c')]);
+    expect(grown.queue).toHaveLength(3);
+    expect(s.queue).toHaveLength(2);
+  });
+});
+
 describe('isBlankAttempt', () => {
   it('flags empty and whitespace-only submits (the double-Enter guard)', () => {
     // The component drops blank un-revealed answering submits via this
-    // predicate — otherwise a key-repeated Enter after the synchronous
-    // corrective advance would grade the NEXT, unseen card as an SRS miss.
+    // predicate — otherwise a key-repeated Enter after continuing past the
+    // miss panel would grade the NEXT, unseen card as an SRS miss.
     expect(isBlankAttempt('')).toBe(true);
     expect(isBlankAttempt('   ')).toBe(true);
     expect(isBlankAttempt('\t\n')).toBe(true);

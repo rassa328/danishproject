@@ -3,13 +3,15 @@ import { withBase } from '../lib/url.ts';
 import { UI } from '../lib/strings.ts';
 
 const path = Astro.url.pathname.replace(/\/$/, '');
+// Zen renders as a dot-in-circle icon (last entry) — aria-label + title carry
+// its name (user decision 2026-07-11: minimal mark in the nav, calm inside).
 const links = [
   { href: withBase(''), label: UI.nav.home, match: 'exact' as const },
   { href: withBase('lektioner'), label: UI.nav.lessons, match: 'prefix' as const },
   { href: withBase('flashcards'), label: UI.nav.flashcards, match: 'prefix' as const },
   { href: withBase('ordlista'), label: UI.nav.wordlist, match: 'prefix' as const },
-  { href: withBase('skriv'), label: UI.nav.write, match: 'prefix' as const },
   { href: withBase('tal'), label: UI.nav.numbers, match: 'prefix' as const },
+  { href: withBase('zen'), label: UI.nav.zen, match: 'prefix' as const, icon: true },
 ];
 const norm = (href: string) => href.replace(/\/$/, '');
 const isActive = (l: (typeof links)[number]) =>
@@ -22,9 +24,26 @@ const isActive = (l: (typeof links)[number]) =>
     {
       links.map((l) => (
         <li>
-          <a href={l.href} aria-current={isActive(l) ? 'page' : undefined}>
-            {l.label}
-          </a>
+          {'icon' in l && l.icon ? (
+            <a
+              class="icon-link"
+              href={l.href}
+              aria-label={UI.nav.zenLabel}
+              title={l.label}
+              aria-current={isActive(l) ? 'page' : undefined}
+            >
+              {/* Dot-in-circle: currentColor so hover/active states come free. */}
+              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
+                <circle cx="8" cy="8" r="2" fill="currentColor" />
+              </svg>
+              <span class="vh">{l.label}</span>
+            </a>
+          ) : (
+            <a href={l.href} aria-current={isActive(l) ? 'page' : undefined}>
+              {l.label}
+            </a>
+          )}
         </li>
       ))
     }
@@ -78,5 +97,25 @@ const isActive = (l: (typeof links)[number]) =>
     font-weight: 600;
     text-decoration: underline;
     text-underline-offset: 4px;
+  }
+  /* The Zen icon: aligned to the text links; no underline (nothing to
+     underline), current/hover state carried by the stroke color instead. */
+  ul a.icon-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  ul a.icon-link svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+  }
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 </style>

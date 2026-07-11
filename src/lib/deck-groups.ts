@@ -169,7 +169,12 @@ export type GroupMatch =
   | { kind: 'decks'; decks: string[] } // a starter theme = a set of deck names
   | { kind: 'praksisAll' } // the whole 5000-word deck (frequency-ordered)
   | { kind: 'praksisPos'; pos: Pos } // one part-of-speech slice of the deck
-  | { kind: 'praksisTheme'; theme: string }; // one super-theme slice (praksisThemeOf)
+  | { kind: 'praksisTheme'; theme: string } // one super-theme slice (praksisThemeOf)
+  // Multi-set selection (the Zen drill): a card matches when it carries ANY of
+  // the tags (picked lessons) OR matches ANY of the nested matches (picked
+  // groups). buildQueue treats it as a normal scheduled pool — only the 'all'
+  // kind gets the due-only special case, so flashcards are unaffected.
+  | { kind: 'union'; tags: string[]; matches: GroupMatch[] };
 
 export interface StudyGroup {
   id: string;
@@ -203,6 +208,8 @@ export function matchesGroup(c: Card, m: GroupMatch): boolean {
       return isPraksis(c) && c.pos === m.pos;
     case 'praksisTheme':
       return isPraksis(c) && praksisThemeOf(c.deck) === m.theme;
+    case 'union':
+      return m.tags.some((t) => c.tags.includes(t)) || m.matches.some((mm) => matchesGroup(c, mm));
   }
 }
 

@@ -10,9 +10,10 @@ import { UI } from '../lib/strings.ts';
 
 // Like flashcards.astro: only the small starter deck is serialized into island
 // props — the praksis deck is fetched lazily by the island when a session
-// needs it (due-source with non-starter records, or any tag). Groups carry
-// match descriptors, not cards. Lessons feed the "Från lektion" picker: only
-// those with a word list, deep-linkable via their first vocab tag.
+// needs it (due-source with non-starter records, sets, free roam or any tag).
+// Groups carry match descriptors, not cards; together with the lessons they
+// feed the multi-select set picker (lessons deep-link via their first vocab
+// tag). The old /skriv route redirects here (astro.config.mjs).
 const groups = buildStudyGroups(allCards, praksisUnique);
 const lessonEntries = await getCollection('lessons', ({ data }) => !data.draft);
 const lessons = sortLessons(lessonEntries).flatMap((l) => {
