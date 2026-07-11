@@ -97,10 +97,13 @@ function stopCurrent(): void {
  *  Returns 'blocked' if the browser refused autoplay (no user gesture yet) —
  *  callers should then offer an explicit play button instead of assuming the
  *  clip was heard. Returns 'cancelled' if a newer speak() superseded this one
- *  before it produced sound (callers can ignore that outcome). Never throws. */
+ *  before it produced sound (callers can ignore that outcome). Never throws.
+ *  Default resolution is at playback START; `awaitEnd: true` resolves when the
+ *  sound finishes instead (for sequential playback, e.g. "hun" then "hund") —
+ *  superseded-while-playing then reports 'cancelled'. */
 export async function speak(
   text: string,
-  opts: { audioUrl?: string; rate?: number } = {}
+  opts: { audioUrl?: string; rate?: number; awaitEnd?: boolean } = {}
 ): Promise<SpeakOutcome> {
   const seq = ++speakSeq;
   stopCurrent();
@@ -111,6 +114,16 @@ export async function speak(
       if (opts.rate !== undefined) audio.playbackRate = opts.rate;
       currentAudio = audio;
       await audio.play();
+      if (opts.awaitEnd) {
+        const el = audio;
+        // 'pause' also fires when a newer speak()'s stopCurrent() halts us —
+        // the seq re-check below turns that into 'cancelled'.
+        await new Promise<void>((resolve) => {
+          el.addEventListener('ended', () => resolve(), { once: true });
+          el.addEventListener('pause', () => resolve(), { once: true });
+        });
+        if (seq !== speakSeq) return 'cancelled';
+      }
       return 'audio';
     } catch (err) {
       // Only clear our own element: a newer speak() may already have replaced
@@ -139,6 +152,15 @@ export async function speak(
     u.lang = voice.lang || 'da-DK';
     u.rate = 0.95 * (opts.rate ?? 1);
     s.speak(u);
+    if (opts.awaitEnd) {
+      // 'end' fires on natural completion AND on cancel(); some engines emit
+      // 'error' instead when cancelled — resolve on either, then re-check seq.
+      await new Promise<void>((resolve) => {
+        u.onend = () => resolve();
+        u.onerror = () => resolve();
+      });
+      if (seq !== speakSeq) return 'cancelled';
+    }
     return 'tts';
   } catch {
     return 'none';

@@ -34,7 +34,9 @@
   --correct: #1a7f37;
   --warn: #8a6d00;
   --warn-bg: #fff8e1;
-  --due: #0969da;
+  /* The Dannebrog cross stays white in BOTH modes (dark --accent-contrast is
+     near-black, so it can't serve). Used by CelebrationFlag. */
+  --flag-cross: #ffffff;
 
   /* Derived surfaces. Defined via var(--text) so they track light/dark
      automatically — never hardcode CanvasText (it ignores our dark theme). */
@@ -49,12 +51,11 @@
     --text: #f1ede5;
     --muted: #b8b2a4; /* lifted for >7:1 on dark --surface (was #a9a394) */
     --border: #34302a;
-    --accent: #ff6b6b;
+    --accent: #f4566a; /* Dannebrog tint — AA: 5.60 on --bg, 5.05 on --surface, 5.29 under --accent-contrast */
     --accent-contrast: #1a1a1a;
     --correct: #3fb950;
     --warn: #e3b341;
     --warn-bg: #2b2410;
-    --due: #58a6ff;
   }
 }
 
@@ -83,6 +84,8 @@ h2 { font-size: var(--step-2); line-height: 1.25; margin: var(--sp-8) 0 var(--sp
 h3 { font-size: var(--step-1); margin: var(--sp-6) 0 var(--sp-2); }
 
 a { color: var(--accent); }
+/* :not([class]) guard: a bare a:hover (0,1,1) would beat .card { color: inherit } (0,1,0). */
+a:not([class]):hover { color: color-mix(in oklab, var(--accent) 75%, var(--text)); }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 
@@ -132,6 +135,42 @@ input[type='text']:focus {
   border: 1px solid var(--border);
   border-radius: var(--radius);
 }
+
+/* Ghost letters (Æ Ø Å) behind index-page headers — Danish typography as the
+   screen's one decorative reference. Shared here so the two consumers
+   (lektioner, ordlista) can't drift. isolation + z-index:-1 keeps the letters
+   behind the heading but in front of the page background; overflow kills
+   horizontal scroll at 320px. A real aria-hidden span (not ::before) is
+   guaranteed silent in AT. */
+.ghost-head {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.ghost-head .ghost {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  font-weight: 700;
+  font-size: clamp(4rem, 18vw, 8rem);
+  line-height: 1;
+  white-space: nowrap;
+  color: color-mix(in oklab, var(--text) 5%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+@media (prefers-color-scheme: dark) {
+  .ghost-head .ghost { color: color-mix(in oklab, var(--text) 7%, transparent); }
+}
+@media print {
+  .ghost-head .ghost { display: none; }
+}
+
+/* The one accent-filled control. Shared by the home hero and lesson-end CTA. */
+.cta { display: inline-block; padding: var(--sp-3) var(--sp-6); background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius); text-decoration: none; font-weight: 600; min-height: var(--min-tap); }
+.cta:hover { filter: brightness(1.08); }
 
 .callout {
   background: var(--warn-bg);

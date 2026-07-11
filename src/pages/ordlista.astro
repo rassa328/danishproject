@@ -45,8 +45,11 @@ const totalWords = cardCount + praksisUniqueCount;
 ---
 
 <BaseLayout title={UI.wordlist.title} description={UI.wordlist.description(totalWords)}>
-  <h1>{UI.wordlist.title}</h1>
-  <p class="lead">{UI.wordlist.lead(cardCount, totalWords)}</p>
+  <header class="ghost-head">
+    <span class="ghost" aria-hidden="true">Æ Ø Å</span>
+    <h1>{UI.wordlist.title}</h1>
+    <p class="lead">{UI.wordlist.lead(cardCount, totalWords)}</p>
+  </header>
 
   <OrdlistaSearch client:idle starter={searchStarter} />
 

@@ -8,6 +8,7 @@ import { UI } from '../lib/strings.ts';
 import ProgressSummary from '../components/ProgressSummary.svelte';
 import DailyMission from '../components/DailyMission.svelte';
 import InputLog from '../components/InputLog.svelte';
+import HeroSample from '../components/HeroSample.svelte';
 
 // Curated {danish, audio} pairs the daily mission can weave in — the audio ref
 // makes each focus word click-to-hear (small payload: two fields per card).
@@ -26,15 +27,13 @@ const lessonCount = (await getCollection('lessons', ({ data }) => !data.draft)).
   title="Dansk för svenskar"
   description="Lär dig danska som svensktalande (B1–B2): uttal, falska vänner, tal och lyssnarförståelse."
 >
-  <p class="kicker">Dansk for svenskere</p>
-  <h1>Lär dig <span lang="da">dansk</span> — på riktigt</h1>
-  <p class="lead">
-    Du läser redan danska. Det svåra är att <strong>höra</strong> och
-    <strong>uttala</strong> det: stød, blødt d, det vigesimala talsystemet,
-    falska vänner och talad danska. Den här sidan tränar just det.
-  </p>
+  <section class="hero">
+    <h1>{UI.home.heroTitle}</h1>
+    <p class="lead">{UI.home.heroLead}</p>
+    <a class="cta" href={withBase('lektioner')}>{UI.home.heroCta}</a>
+    <HeroSample client:idle />
+  </section>
 
-  <p class="path-hint">{UI.progress.homeHint}</p>
   <ProgressSummary client:idle total={totalWords} />
 
   <div class="cards">
@@ -65,10 +64,11 @@ const lessonCount = (await getCollection('lessons', ({ data }) => !data.draft)).
   </section>
 
   <style>
-    .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--muted); margin: 0 0 var(--sp-2); }
-    h1 span[lang='da'] { color: var(--accent); }
-    .lead { font-size: var(--step-1); color: var(--muted); }
-    .path-hint { margin: var(--sp-6) 0 0; font-weight: 600; }
+    /* Generous whitespace: the hero is the screen's one Danish reference
+       (the waveform sample) — everything else stays quiet. */
+    .hero { margin: var(--sp-8) 0 var(--sp-12); }
+    .hero h1 { margin-bottom: var(--sp-3); }
+    .lead { font-size: var(--step-1); color: var(--muted); margin: 0 0 var(--sp-6); max-width: 34rem; }
     .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-4); }
     .card { position: relative; display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
     .card:hover { border-color: var(--accent); }

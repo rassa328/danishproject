@@ -7,6 +7,7 @@ import LessonAudio from '../components/LessonAudio.svelte';
 import LessonProgress from '../components/LessonProgress.svelte';
 import Checkpoint from '../components/Checkpoint.svelte';
 import MinimalPairDrill from '../components/MinimalPairDrill.svelte';
+import Waveform from '../components/Waveform.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
 type LessonRef = { id: string; title: string };
@@ -106,6 +107,11 @@ const topicLabel: Record<string, string> = {
   </article>
   <div id="lesson-end" aria-hidden="true"></div>
 
+  {/* Decorative waveform divider between prose and the interactive tail.
+      Deliberately NO client: directive — the SVG is server-rendered with
+      pulse=0 and ships zero JS. */}
+  <div class="divider" aria-hidden="true"><Waveform size="divider" /></div>
+
   <LessonAudio clips={lessonAudio} client:idle />
 
   {/* Stød discrimination drill — belongs to the stød lesson only. Its pair
@@ -182,9 +188,9 @@ const topicLabel: Record<string, string> = {
     .prose :global(.da-clickable:hover), .prose :global(.da-clickable:focus-visible) { text-decoration-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
     .prose :global(.da-clickable:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
     .prose :global(.da-clickable.is-playing) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
+    .divider { display: flex; justify-content: center; margin: var(--sp-8) auto; }
     .practice { margin-top: var(--sp-8); }
-    .cta { display: inline-block; padding: var(--sp-3) var(--sp-6); background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius); text-decoration: none; font-weight: 600; min-height: var(--min-tap); }
-    .cta:hover { filter: brightness(1.08); }
+    /* .cta styles live in global.css (shared with the home hero). */
     .vocab-link { margin-top: var(--sp-3); margin-bottom: 0; color: var(--muted); font-size: var(--step--1); }
     .chip { display: inline-block; margin: 0 var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-pill); text-decoration: none; font-size: var(--step--1); }
   </style>

@@ -23,6 +23,17 @@ export const UI = {
     wordlist: 'Ordlista',
   },
 
+  home: {
+    heroTitle: 'Förstå danskar när de faktiskt pratar',
+    heroLead: 'Du läser redan danska — här tränar du örat och uttalet: stød, blødt d och talad danska.',
+    heroCta: 'Börja med lektionerna',
+    samplePlay: 'Hör skillnaden',
+    // Rendered as <span lang="da">{sampleWordsDa}</span> — {sampleCaption}
+    sampleWordsDa: 'hun · hund',
+    sampleCaption: 'stødet är hela skillnaden.',
+    sampleAria: 'Lyssna på danska: hun och hund',
+  },
+
   flashcards: {
     title: 'Flashcards',
     // No "FSRS" acronym — describe the benefit in plain Swedish instead.
@@ -60,7 +71,7 @@ export const UI = {
     replay: 'Spela igen',
     // Autoplay was blocked (no user gesture yet) — an explicit play button
     // starts the clip and the session continues normally.
-    play: '▶ Spela',
+    play: 'Spela',
     noPromptAudio: 'Ingen dansk röst i den här webbläsaren — ljudet kan inte spelas.',
     skipCard: 'Hoppa över (utan att gradera)',
     slowReplay: 'Långsammare (0,75×)',
@@ -221,7 +232,7 @@ export const UI = {
     heading: 'Hör du stødet?',
     intro:
       'Spela klippet och välj vilket ord du hörde. Orden skiljs bara av stødet — precis det ditt svenska öra behöver träna.',
-    play: '▶ Spela klippet',
+    play: 'Spela klippet',
     playAgain: 'Spela igen',
     round: (i: number, n: number) => `Omgång ${i} av ${n}`,
     listenFirst: 'Spela klippet först — välj sedan.',
@@ -238,7 +249,6 @@ export const UI = {
     words: (started: number, total: number) => `${started} av ${total} ord påbörjade`,
     due: (n: number) => (n === 1 ? '1 ord att repetera' : `${n} ord att repetera`),
     dueNone: 'Inget att repetera just nu',
-    homeHint: 'Börja med en lektion, träna sedan orden med flashcards.',
     streak: (n: number) => (n === 1 ? '🔥 1 dag i rad' : `🔥 ${n} dagar i rad`),
     streakNone: 'Ingen svit än — repetera i dag för att starta en.',
   },

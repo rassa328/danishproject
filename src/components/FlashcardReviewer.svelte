@@ -6,6 +6,8 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import Waveform from './Waveform.svelte';
+  import CelebrationFlag from './CelebrationFlag.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
   import { DUE_ALL_GROUP_ID, type GroupMatch, type StudyGroup } from '../lib/deck-groups.ts';
   import { fetchPraksis, praksisCache } from '../lib/praksis-client.ts';
@@ -63,6 +65,13 @@
   let wasCorrect = $state(false);
   let reviewed = $state(0);
   let warning = $state('');
+  // Waveform sweep counter for the listen-mode replay button.
+  let promptPulse = $state(0);
+  // The site's ONE animated moment: true only when 'done' was EARNED by grading
+  // the last card (grade() sets it; start() clears it). A boolean, not {#key} —
+  // the done screen remounts on settings-save/repeat-round and a key would
+  // re-fire the flag unearned.
+  let celebrate = $state(false);
   let container = $state<HTMLElement>();
   let input = $state<HTMLInputElement>();
 
@@ -188,6 +197,7 @@
     const outcome = await speak(text, opts);
     if (outcome === 'cancelled') return;
     promptAudioState = outcome === 'audio' ? 'ok' : outcome;
+    if (outcome === 'audio' || outcome === 'tts') promptPulse++;
   }
 
   // Slow replay of the revealed word in 'speak' mode (compare against your own
@@ -200,7 +210,8 @@
   }
 
   /** Advance past an unplayable listen card WITHOUT grading it (no forced
-   *  "Again" on a card the learner never got to hear). */
+   *  "Again" on a card the learner never got to hear). Deliberately does NOT
+   *  set `celebrate`: a session that ends by skipping wasn't earned. */
   function skipCard() {
     if (phase !== 'prompt') return;
     idx++;
@@ -272,6 +283,9 @@
   let startToken = 0;
 
   async function start(free = false) {
+    // Any restart (repeat-due, free practice, settings-save) voids the earned
+    // state — only grade() flipping to 'done' re-arms the celebration.
+    celebrate = false;
     // Scheduling lives in lib/session.ts (pure + unit-tested); the component
     // just supplies the store, clock and current picker state. Store satisfies
     // SrsView structurally; Settings carries the newPerDay/reviewPerDay limits.
@@ -368,8 +382,10 @@
       reviewed++;
       idx++;
       typed = '';
-      if (idx >= queue.length) phase = 'done';
-      else {
+      if (idx >= queue.length) {
+        phase = 'done';
+        celebrate = true; // earned: the session's last card was graded
+      } else {
         phase = 'prompt';
         afterPrompt();
       }
@@ -535,6 +551,7 @@
           <p>{T.noListenCards}</p>
         {:else}
           <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : isDueAll ? T.dueAllEmpty : T.doneEmpty}</h2>
+          {#if celebrate}<CelebrationFlag />{/if}
           {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
           <p class="started">{UI.progress.words(store.startedCount(), totalCards)}</p>
           {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
@@ -557,6 +574,11 @@
       </div>
     {:else if current}
       <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
+      <!-- reviewed/(reviewed+remaining), not idx/queue.length: reinsertAgain grows the
+           queue mid-session and would make an index-based bar jump backwards. -->
+      <div class="progress-track" aria-hidden="true">
+        <div class="progress-fill" style={`width: ${Math.round((reviewed / Math.max(1, reviewed + remaining)) * 100)}%`}></div>
+      </div>
 
       {#if direction === 'listen' || direction === 'listen-sentence'}
         <p class="prompt-listen">{direction === 'listen' ? T.listenPrompt : T.listenSentencePrompt}</p>
@@ -571,10 +593,12 @@
         {:else if promptAudioState === 'blocked'}
           <!-- Autoplay denied (no user gesture yet): an explicit play instead of
                pretending the clip was heard. The click is the gesture. -->
-          <button type="button" class="replay" onclick={() => playPrompt()}>{T.play}</button>
+          <button type="button" class="replay" onclick={() => playPrompt()}>
+            <Waveform size="icon" pulse={promptPulse} /> {T.play}
+          </button>
         {:else}
           <button type="button" class="replay" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
-            <span aria-hidden="true">🔊</span> {T.replay}
+            <Waveform size="icon" pulse={promptPulse} /> {T.replay}
           </button>
           {#if direction === 'listen-sentence'}
             <button type="button" class="replay" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
@@ -679,7 +703,22 @@
   .dir label { display: inline-flex; align-items: center; gap: 0.3em; font-size: var(--step--1); }
   .reviewer { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--sp-6); min-height: 16rem; }
   .reviewer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .progress { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-4); }
+  .progress { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-1); }
+  .progress-track {
+    height: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--subtle-border);
+    margin: 0 0 var(--sp-4);
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .progress-fill { transition: width 200ms ease; }
+  }
   .prompt { font-size: var(--step-2); font-weight: 600; margin: 0 0 var(--sp-2); }
   .prompt-listen { font-size: var(--step-1); margin: 0 0 var(--sp-2); }
   .hint { color: var(--muted); font-size: var(--step--1); margin: var(--sp-1) 0; }
@@ -711,7 +750,7 @@
   @media (prefers-reduced-motion: no-preference) {
     .answer { animation: fade 120ms ease-out; }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-    .done h2 { animation: pop 320ms ease-out; }
-    @keyframes pop { 0% { transform: scale(0.96); opacity: 0; } 60% { transform: scale(1.02); } 100% { transform: scale(1); opacity: 1; } }
+    /* No entrance animation on the done heading: the celebration flag
+       (earned completions only) is the site's one animated moment. */
   }
 </style>

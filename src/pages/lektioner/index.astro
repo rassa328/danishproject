@@ -13,8 +13,11 @@ const lessonIds = lessons.map((l) => l.id);
 ---
 
 <BaseLayout title={UI.nav.lessons} description="Korta danska lektioner för svenskar: uttal, falska vänner och tal.">
-  <h1>{UI.nav.lessons}</h1>
-  <p class="lead">{UI.lessons.indexLead}</p>
+  <header class="ghost-head">
+    <span class="ghost" aria-hidden="true">Æ Ø Å</span>
+    <h1>{UI.nav.lessons}</h1>
+    <p class="lead">{UI.lessons.indexLead}</p>
+  </header>
   <LessonsProgress client:idle ids={lessonIds} />
 
   {

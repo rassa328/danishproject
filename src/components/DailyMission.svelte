@@ -3,6 +3,7 @@
   // The prompt (and optional focus words) are chosen deterministically by date so
   // they're stable through the day and rotate tomorrow; completion is persisted.
   import { onMount } from 'svelte';
+  import Waveform from './Waveform.svelte';
   import { Store } from '../lib/storage.ts';
   import { localDayIso, dayNumber } from '../lib/day.ts';
   import { speak } from '../lib/speech.ts';
@@ -23,6 +24,8 @@
   let mission = $state('');
   let words = $state<FocusWord[]>([]);
   let done = $state(false);
+  // Per-word waveform sweep counters (keyed by the Danish form).
+  let pulses = $state<Record<string, number>>({});
 
   const pick = <X,>(arr: X[], seed: number, n = 1): X[] => {
     const out: X[] = [];
@@ -44,9 +47,12 @@
     done = store.isMissionDone(today);
   });
 
-  function hear(w: FocusWord) {
+  async function hear(w: FocusWord) {
     // Clip when committed, Web Speech da-DK otherwise (speech.ts degrades).
-    void speak(w.danish, w.audio ? { audioUrl: withBase(w.audio) } : {});
+    const outcome = await speak(w.danish, w.audio ? { audioUrl: withBase(w.audio) } : {});
+    if (outcome === 'audio' || outcome === 'tts') {
+      pulses = { ...pulses, [w.danish]: (pulses[w.danish] ?? 0) + 1 };
+    }
   }
 
   function toggle() {
@@ -70,7 +76,7 @@
             lang="da"
             onclick={() => hear(w)}
             title={T.hearWord(w.danish)}
-          >{w.danish} <span class="icon" aria-hidden="true">🔊</span></button>
+          >{w.danish} <span class="icon"><Waveform size="icon" pulse={pulses[w.danish] ?? 0} /></span></button>
         {/each}
       </p>
     {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Waveform from './Waveform.svelte';
   import { speak, hasDanishVoice } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
 
@@ -20,6 +21,7 @@
 
   let available = $state(true);
   let fellBack = $state(false); // last playback used Web Speech, not a curated clip
+  let pulse = $state(0); // waveform sweep counter — bump only when sound starts
 
   onMount(async () => {
     available = !!audio || (await hasDanishVoice());
@@ -29,12 +31,13 @@
     const outcome = await speak(text, audio ? { audioUrl: withBase(audio) } : {});
     if (outcome === 'none') available = false;
     fellBack = outcome === 'tts';
+    if (outcome === 'audio' || outcome === 'tts') pulse += 1;
   }
 </script>
 
 {#if available}
   <button type="button" class="speak" onclick={play} aria-label={ariaLabel ?? `${label} på danska: ${text}`}>
-    <span aria-hidden="true">🔊</span> {label}
+    <Waveform size="icon" {pulse} /> {label}
   </button>{#if fellBack}<span
       class="tts-hint"
       title="Spelades med webbläsarens talsyntes — inspelat klipp saknas eller kunde inte spelas"

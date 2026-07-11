@@ -12,6 +12,7 @@
   // runtime and unavailable pairs are skipped (never a robot-voice fallback
   // pretending to demonstrate stød).
   import { onMount } from 'svelte';
+  import Waveform from './Waveform.svelte';
   import { speak } from '../lib/speech.ts';
   import { withBase } from '../lib/url.ts';
   import { lessonAudioId, spanAudioId } from '../lib/audio-id.ts';
@@ -73,6 +74,7 @@
   let pair = $state<Pair | null>(null);
   let side = $state<0 | 1>(0);
   let finished = $state(false);
+  let pulse = $state(0);
   let lastPair: Pair | null = null;
 
   const playing = $derived(pair ? [pair.a, pair.b][side]! : null);
@@ -113,10 +115,13 @@
     answered = null;
   }
 
-  function play() {
+  async function play() {
     if (!playing) return;
-    void speak(playing.text, { audioUrl: withBase(playing.clip) });
+    // Unlock the answer buttons at the CLICK, not at playback start — awaiting
+    // speak() first would let a fast double-click race the gating.
     played = true;
+    const outcome = await speak(playing.text, { audioUrl: withBase(playing.clip) });
+    if (outcome === 'audio' || outcome === 'tts') pulse += 1;
   }
 
   function answer(i: 0 | 1) {
@@ -153,7 +158,7 @@
     {:else if pair}
       <p class="round">{T.round(round, ROUNDS)}</p>
       <p>
-        <button type="button" class="play" onclick={play}>{played ? T.playAgain : T.play}</button>
+        <button type="button" class="play" onclick={play}><Waveform size="icon" {pulse} /> {played ? T.playAgain : T.play}</button>
       </p>
       <div class="choices">
         {#each [pair.a, pair.b] as v, i (v.clip)}
