@@ -1,0 +1,289 @@
+{
+  "generated": "2026-07-11 16:19",
+  "roles_reviewed": [
+    {
+      "role": "danish-linguistic",
+      "ran_ok": true,
+      "summary": "Reviewed all 324 Swedish-side edits + 18 whole-row removals across praksis-deck.csv and starter-deck.csv. Product invariant (ADR-001) verified programmatically and holds: no Danish headword and no audio/audio_example value changed in any surviving row — all edits are Swedish-side only; the 18 removals drop whole unique rows. Overall quality is high — most edits correct real errors (false friends, wrong meat cuts, wrong species/tools/ingredients). Found 7 entries where the new gloss/note is a regression: 1 high (clear deck-theme mismatch), 3 medium (wrong/imported sense or false grammatical claim), 3 low (deck-context drift / imprecision). All 7 are in praksis-deck.csv. The 18 removals are out of the gloss-accuracy lens (no new gloss to judge); they are unique rare/oddly-placed B2 entries, not duplicates.",
+      "finding_count": 7
+    },
+    {
+      "role": "swedish-linguistic",
+      "ran_ok": true,
+      "summary": "Reviewed all 324 Swedish-side edits and 18 removals in praksis-deck.csv and starter-deck.csv against HEAD. Danish and audio columns are unchanged in every modified pair; notes use curly quotes so no CSV field is broken. The overwhelming majority of edits improve Swedish quality (de-Danglishing, false-friend fixes, slash→comma, removing stray Danish words like \"Hvad\"/\"Jo\" from note fields, adding accurate grammar/usage notes). A handful of edits, however, replaced correct idiomatic Swedish with Danish calques or non-standard forms. Five findings, all in praksis-deck.csv (2 medium, 3 low); starter-deck.csv edits are clean.",
+      "finding_count": 5
+    },
+    {
+      "role": "learning-value",
+      "ran_ok": true,
+      "summary": "Reviewed the full applied diff (306 Swedish-side modifications + 18 whole-row removals) through a pedagogical lens for Swedish learners. No product-invariant violations: in every modified pair the Danish headword and both audio columns are unchanged; only swedish/note/example_sv/accepted fields were touched. The great majority of edits improve learning value (added register/vulgarity warnings on luder, fuck det, pisseirriterende, tøs, sgu; sharper false-friend notes on betænksom, gribe an, vandskræk, kandidat, frikadelle, guldsmed). Of the 18 removals, ~12 are well-justified dedup/inflected-form cleanups where the base lemma survives: riget→rige, vejer→veje, kraniet→kranium, forelske→forelske sig, krak→taburet/skammel, strømhvirvel→hvirvel, tegnestiftholder→tegnestift, sparkle→spartle, sprage→sprutte/knitre. Problems found: one HIGH factual regression (svensknøgle), a handful of gloss regressions, and a few genuine losses of legitimate distinct vocabulary with no surviving sibling (notably kørvel). Details in findings. All findings are in the praksis deck.",
+      "finding_count": 7
+    },
+    {
+      "role": "dataset-integrity",
+      "ran_ok": true,
+      "summary": "Batch-001 is structurally clean across both CSVs. Both files parse with a strict CSV reader; every row has the exact column count (praksis=13, starter=12) with no malformed rows or broken quoting (embedded commas/semicolons/curly quotes escape correctly; zero literal double-quotes). Row counts reconcile: praksis 4988->4970 (-18 removals, all in praksis), starter 225->225. The 18 removed audio IDs match removed-rows.txt exactly (none extra/missing) and were dropped as whole rows without corrupting neighbors (0 spurious added keys, all remaining rows keep correct column count). Of 306 modified rows (297 praksis + 9 starter, reconciling the 324 minus / 306 plus diff lines), ZERO changed any protected column: danish, example_da, pos, cefr, tags, deck, rank, audio, and audio_example are byte-identical to HEAD, so the ADR-001 audio invariant holds and no audio/ID reference was altered. audio is unique/non-empty in HEAD and no audio value was added or changed on any edited row. 16 accepted-field edits: 14 clears (incl. Hvad->'' and Jo->'') correctly removing prompt-equal values, plus 2 additions of Danish alternate spellings; accepted==danish count is 0 in both files. No orphaning: no code/JSON/manifest references the removed rows' audio IDs or headwords, the two CSVs are the only vocab data, and every removed row's deck retains >=3 sibling rows so no deck was emptied. No findings.",
+      "finding_count": 0
+    },
+    {
+      "role": "audio-compatibility",
+      "ran_ok": true,
+      "summary": "CLEAN — no audio-compatibility (ADR-001) violations. Reviewed all modified pairs in batch-001 across both CSVs via two independent methods: (1) parsing the frozen unified diff and pairing rows by their unique audio-hash filename, and (2) directly comparing HEAD vs working-tree CSVs keyed by audio filename (no reliance on diff parsing). Both agree exactly. praksis: 297 modified pairs + 18 whole-row removals + 0 additions (4988 -> 4970 data rows). starter: 9 modified pairs + 0 removals + 0 additions (225 -> 225). In every one of the 306 modified pairs the danish headword (col1), example_da (col4), audio (col12/col11), and audio_example columns are BYTE-IDENTICAL between original and applied rows; only Swedish-side fields (swedish/note/example_sv/accepted) changed. Zero danish changes and zero example_da changes were found — stated explicitly. Because 'added audio keys = 0' in both files, no row's audio value was altered (a changed audio would appear as a phantom drop+add). The 18 removed praksis rows match removed-rows.txt exactly and correctly drop whole rows (audio-safe). All rows are well-formed (13 cols praksis / 12 cols starter; no quoting/embedded-newline anomalies).",
+      "finding_count": 0
+    },
+    {
+      "role": "validation-build",
+      "ran_ok": true,
+      "summary": "Both LENS commands PASS. `node scripts/check-content.mjs` → exit 0 (\"Content check passed: 16 lessons, 17 vocab tags, 5077 distinct card ids, 5815 audio refs, 0 missing\"). `npm test` → exit 0 (16 files, 251/251 tests green). The pre-existing `number-audio` warning about disabled /tal levels is unrelated to this batch (it concerns number-audio atoms, not the praksis/starter vocab decks). Deep invariant review (HEAD vs working tree joined on the unique audio-hash key, 0 duplicate keys) found 0 violations across all 306 modified rows: danish, example_da, audio, audio_example, pos, deck, cefr, tags, rank all byte-identical; only Swedish-side fields changed — fully consistent with ADR-001. CSV integrity clean: praksis 4971 rows all 13 cols, starter 226 rows all 12 cols, 0 malformed rows. 18 removed praksis rows confirmed gone, none of their audio hashes referenced elsewhere in src/, no dangling audio refs. One bookkeeping note: the applied diff contains 306 Swedish-side edits (297 praksis + 9 starter), not the stated 324; 306 + 18 removals = 324, so the manifest folded removals into the edit count.",
+      "finding_count": 1
+    }
+  ],
+  "confirmed_findings": [
+    {
+      "entry_id": "rask / praksis-adjektiver-fart-b1",
+      "danish": "rask",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "concerns": [
+        "[danish-linguistic/high] Deck-theme mismatch — the exact 'speed deck re-glossed to healthy' pattern. Deck praksis-adjektiver-fart-b1 is the speed/pace deck (siblings: rap 'snabb', adræt, lynhurtig 'blixtsnabb', hastig, træg, langsommelig). Danish 'rask' has a speed sense ('quick, brisk' — i rask tempo, en rask beslutning) and an unrelated health sense ('recovered/well' — blive rask). HEAD glossed it 'rask (snabb, kvick)', the correct speed sense. The edit replaced it with 'frisk' (= healthy), the unrelated sense, which does not fit a speed deck and discards the intended meaning.  (suggested: Restore the speed/pace sense, e.g. 'rask (snabb, kvick)' or 'kvick, rask (snabb)'. Do not gloss as 'frisk'.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "medium",
+        "rationale": "Confirmed against the diff (praksis-deck.csv line 34): HEAD \"rask (snabb, kvick)\" → applied \"frisk\"; Danish headword and audio unchanged, so it's a valid Swedish-side edit to judge on merits. Deck praksis-adjektiver-fart-b1 is verifiably a speed/pace-adjective deck — every sibling is a pace word (rap→snabb, lynhurtig→blixtsnabb, hastig→hastig (snabb), kvik→kvick (pigg, snabb), træg→trög, adræt→vig (smidig)). Danish 'rask' is a genuine polyseme: speed sense (brisk/quick — i rask tempo, raske skridt) and health sense (recovered/well — blive rask). HEAD glossed the speed sense (fits the deck). The edit's 'frisk' is Swedish for 'healthy' — the unrelated health sense — which is off-theme for a speed deck and discards the intended pace meaning the card teaches. Not a false translation (frisk is a real sense of rask) but the wrong sense for this deck, degrading deck coherence and mis-teaching within the speed context. The concern holds; the original was correct and on-theme.",
+        "recommended_action": "revert-to-original",
+        "suggested_value": "rask (snabb, kvick)"
+      }
+    },
+    {
+      "entry_id": "brovten / praksis-humoer-nuancer-b2",
+      "danish": "brovten",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "concerns": [
+        "[danish-linguistic/medium] False grammatical claim + internal contradiction. 'brovten' is a verbal NOUN in Danish (the -en substantive of the verb 'brovte' = to brag/bluster; cf. råben, banden, 'gøren og laden'); the adjective form is 'brovtende'. The row still has pos='noun', yet the new note asserts \"'Brovten' är ett adjektiv på danska, inte ett substantiv\" and the gloss was changed from the correct noun 'skryt (mallighet)' to Swedish adjectives 'skrytsam, skrävlande'. The note teaches an incorrect fact and contradicts the pos field.  (suggested: Keep it as a noun: restore a noun gloss such as 'skryt, skrävel' and remove the false 'adjektiv, inte substantiv' note (or reword it to point to the adjective 'brovtende').)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "medium",
+        "rationale": "Verified directly from the frozen diff (praksis HEAD line 4771 → working line 4755). Danish col (\"brovten\") and audio col are unchanged, so no recording-invariant breach; the problem is purely Swedish-side. \"brovten\" is genuinely a Danish NOUN — the -en verbal noun of the verb \"brovte\" (to brag/bluster), same formation as råben, banden, \"gøren og laden\" (common gender). The deck itself confirms this: line 1929 already has \"brovte\",\"skryta\",\"verb\", so \"brovten\" is its nominalization. The applied edit is internally contradictory and pedagogically wrong: (1) it keeps pos='noun' yet adds a note claiming the opposite, \"'Brovten' är ett adjektiv på danska, inte ett substantiv\" (a false grammatical fact taught to learners); (2) it downgraded a correct noun gloss \"skryt (mallighet)\" to two Swedish ADJECTIVES \"skrytsam, skrävlande\". The original HEAD row was already correct with an empty note, so the edit strictly made the entry worse. Severity medium: single obscure B2 entry, but it actively teaches an incorrect rule and self-contradicts the pos field.",
+        "recommended_action": "revert-to-original",
+        "suggested_value": "\"brovten\",\"skryt (mallighet)\",\"noun\",...,\"\" (empty note) — i.e., restore the HEAD row: noun gloss \"skryt (mallighet)\" and no note. (If a note is wanted instead of reverting: gloss \"skryt, skrävel\" with note \"Verbalsubstantiv av 'brovte' (skryta); adjektivet är 'brovtende'.\")"
+      }
+    },
+    {
+      "entry_id": "håndrod / praksis-skelet-knogler-b2",
+      "danish": "håndrod",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "concerns": [
+        "[danish-linguistic/low] Bones-deck imprecision + questionable note. In the skeleton deck, Danish 'håndrod' = the carpus (carpal-bone region at the base of the hand; DDO: 'den inderste del af hånden ... carpus'). The edit reglosses it as 'handflatans nedre del (vid handleden)' — a palm/soft-tissue surface description rather than the skeletal carpus. The note also equates Swedish 'handlov' with Danish 'håndled', but Swedish anatomical 'handloven' normally denotes the carpus (≈ håndrod), so that pairing is muddled. (The edit does usefully signal håndrod ≠ wrist.)  (suggested: Prefer a carpus gloss for the bones deck, e.g. 'handloven/handroten (carpus)'; re-check the note's 'svenska handled/handlov = håndled' equivalence.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "medium",
+        "rationale": "Verified independently against the diff (praksis-deck.csv line 949→950) and multiple dictionary sources. The original row was correct: Danish \"håndrod\" = carpus (the eight carpal bones, the root/base of the hand; DDO/Den Store Danske), and Swedish \"handlov\" (latin: carpus, = handlovsben/karpalben; Swedish Wikipedia) is the exact cognate — both mean the carpus. \"handrot\" is a Swedish synonym. Separately, Danish \"håndled\" = Swedish \"handled\" = the wrist (radiocarpal) joint.\n\nThe edit therefore degrades a correct entry two ways: (1) it replaces the precise, in-style cognate gloss \"handlov\" with \"handflatans nedre del (vid handleden)\", a soft-tissue palm-surface description that mischaracterizes a carpal-bone entry in a bones/skeleton deck (siblings follow the \"cognate (clarifier)\" pattern, e.g. \"kranium (skalle)\"). (2) The new note states håndrod \"är inte samma sak som ... svenska handled/handlov\" — listing \"handlov\" among the non-equivalents. That is factually wrong: handlov IS håndrod. The note manufactures a false friend out of a true cognate, in the very anatomical register the deck uses. The håndrod≠håndled part of the note is the only correct half.\n\nThe reviewer's core concern holds and is understated (\"low\"/\"muddled\"): this is an introduced factual error, not mere imprecision. The ADR-001 invariant is fine — Danish headword and audio (da-0356031b9634bd.mp3) are unchanged; only Swedish-side fields changed. Adversarial counterpoint (colloquial \"handlov\" ≈ wrist) doesn't rescue it: the anatomical/dictionary sense governs a B2 skeleton deck, and the edit both threw away the correct cognate and added a note asserting the opposite of the truth. Severity medium rather than low because a false statement was added; not higher because it is a single low-frequency (unranked) B2 card and the nuance is subtle.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "swedish: handloven/handroten (carpus)\nnote: Danska håndrod = svenska handloven/handroten (carpus), de åtta handlovsbenen där handen möter underarmen. Ska inte förväxlas med danska håndled = svenska handled (själva handledsleden). [Swedish-side only; Danish headword \"håndrod\" and audio unchanged. A simple revert-to-original — bare gloss \"handlov\", empty note — is an acceptable fallback, since the original was already correct; the further-fix is preferred only to keep the legitimately useful håndrod≠håndled disambiguation the audit was reaching for, minus the false handlov claim.]"
+      }
+    },
+    {
+      "entry_id": "smiske / praksis-grine-graede-b2",
+      "danish": "smiske",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "concerns": [
+        "[danish-linguistic/low] Deck-context drift — the 'smile' component was lost. Deck praksis-grine-graede-b2 concerns laugh/smile facial expressions. Danish 'smiske' = to smile in an ingratiating/servile way (DDO: 'smile på en indsmigrende, servil måde'). HEAD's 'flina inställsamt' (grin ingratiatingly) captured the smile. The edit's 'fjäska, smöra' (fawn / suck up) keeps the ingratiating idea but drops the smile/facial-expression element that anchors the word in this deck.  (suggested: Keep a smile element, e.g. 'le inställsamt, fjäska' or 'flina/le inställsamt'.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "low",
+        "rationale": "Verified against patch lines 447/448: only the Swedish gloss changed (flina inställsamt → fjäska, smöra); Danish headword \"smiske\" and audio (da-03186aad518741.mp3) are unchanged, so no invariant is broken. The concern holds up linguistically: Danish \"smiske\" is fundamentally an ingratiating/servile SMILE — dictionary evidence shows smiskende ≈ smilende (smiling) with a servile overtone. The deck praksis-grine-graede-b2 is organized entirely around facial expressions and laugh/cry vocalizations (fnise, smågrine, vrænge, skære ansigt, plire, klemme et smil frem, etc.), and smiske belongs there for its smile component. The applied gloss \"fjäska, smöra\" (fawn/butter up) is accurate for the pragmatic force but drops the facial-expression element, making the card an anomaly in its deck. Notably the same audit KEPT the smile for the sibling adjective smørret (\"självbelåten, inställsamt leende\", patch line 2277), so dropping it here is internally inconsistent. Severity is low, not higher, because the applied gloss is not factually wrong — a learner would still grasp the fawning sense; it is impoverished, not misleading. HEAD's \"flina\" was itself an imperfect fit (flina has a mocking/smirking overtone unlike the servile smiske), so a plain revert is not the best remedy — restoring a smile element alongside the fawning sense is.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "le inställsamt, fjäska"
+      }
+    },
+    {
+      "entry_id": "bjæffe / praksis-tale-maader-b2",
+      "danish": "bjæffe",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "concerns": [
+        "[danish-linguistic/low] Deck-context drift toward the literal sense. Deck praksis-tale-maader-b2 is ways of (human) speaking; there Danish 'bjæffe' = to snap / answer curtly and grumpily (DDO sense 2). HEAD's 'snäsa, bjäbba' (snap curtly / talk back) fit that. The edit's 'gläfsa, skälla' (yelp / bark — the literal dog sense, DDO sense 1) is less fitting for a human ways-of-speaking deck.  (suggested: Restore the figurative speech sense, e.g. 'snäsa, fräsa (åt någon)'; 'skälla' is acceptable only in its scold sense.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "low",
+        "rationale": "Verified in the diff: HEAD \"snäsa, bjäbba\" → applied \"gläfsa, skälla\"; Danish headword and audio (da-0eadb0abe085d2.mp3) unchanged, so no ADR-001 issue — only the allowed Swedish field changed. But the concern is legitimate. Deck praksis-tale-maader-b2 is human ways of speaking (siblings: fnyse=fnysa, mukke=knota/knorra, vrisse=snäsa/snäsa till, hulke=snyfta, skråle=skråla, snøvle=sluddra), so the intended sense of bjæffe is DDO sense 2 (svare kort, brysk og gnavent = answer curtly/brusquely/grumpily), the figurative human sense. HEAD's \"snäsa, bjäbba\" (snap curtly / talk back) matched that. The edit's \"gläfsa, skälla\" are both primarily canine (yelp / bark); glossed bare without particles (gläfsa åt / skälla ut/på), they default to the literal dog-sound reading (DDO sense 1) and diverge from the deck's own figurative pattern (cf. vrisse=snäsa). This is a genuine but minor precision regression — not a false meaning (bjæffe does literally mean bark), just poorer fitness for a human-speech deck.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "snäsa, fräsa (åt någon)"
+      }
+    },
+    {
+      "entry_id": "remonce",
+      "danish": "remonce",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "swedish-linguistic"
+      ],
+      "concerns": [
+        "[swedish-linguistic/low] \"remons\" is not an attested Swedish word; it is a Swedishized respelling of Danish \"remonce\". HEAD had the clean, natural gloss \"smörfyllning (i wienerbröd)\", which was clearer for a Swedish learner.  (suggested: Use a Swedish description, e.g. \"smörfyllning (av smör och socker)\", or keep \"remonce\" marked as the Danish term rather than inventing \"remons\".)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "low",
+        "rationale": "Structural invariants are fine: the Danish headword (remonce) and audio (audio/da-017fafc4f1f698.mp3) are unchanged; only the Swedish column changed, so there is no ADR-001 violation. But the concern holds up. HEAD had a clean, immediately-understandable native gloss \"smörfyllning (i wienerbröd)\". The applied edit leads with \"remons (fyllning av smör och socker)\", where \"remons\" is an unattested Swedishization of the Danish headword — it occurs in exactly one row across both decks (grep-confirmed) and is not real Swedish; comparable pastry entries in the same deck use plain Swedish (e.g. spandauer → \"wienerbröd med kräm\"). Leading a learner-facing Swedish gloss with a fabricated Swedish word risks the learner adopting \"remons\" as if it were Swedish. It is only low severity because the meaning still survives via the parenthetical and the added composition detail (\"smör och socker\") is itself a genuine improvement over HEAD — but the invented lead word is a real regression.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "smörfyllning (av smör och socker, i wienerbröd)"
+      }
+    },
+    {
+      "entry_id": "vandskræk",
+      "danish": "vandskræk",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "swedish-linguistic"
+      ],
+      "concerns": [
+        "[swedish-linguistic/low] The gloss \"vattuskräck\" is an archaic/dialectal form that historically denotes rabies (hydrophobia) — precisely the outdated sense the accompanying note says modern Danish \"vandskræk\" no longer means. The gloss and its own note are internally inconsistent; modern Swedish is \"vattenskräck\".  (suggested: Change the gloss to \"vattenskräck\" (fear of water), matching the note.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "low",
+        "rationale": "Verified against the diff (praksis-deck.csv:952-953 in patch / line 2114 working tree): swedish \"rabies (vattuskräck)\" -> \"vattuskräck\", plus a new note; Danish headword and audio unchanged, so no ADR-001 issue. The concern holds up linguistically: \"vattuskräck\" uses the archaic compound form \"vattu-\" and is the lexicalized Swedish calque of hydrophobia historically denoting rabies — exactly the sense the new note says modern Danish \"vandskræk\" no longer carries. The note relegates rabies to \"äldre\" usage while the standalone gloss is the very word that connotes rabies, so gloss and note are internally inconsistent. The modern, unambiguous term for \"fear of water\" is \"vattenskräck\". Severity is low because the note correctly states the modern meaning (learner not truly misled) and \"vattuskräck\" is still parseable as water-fear. Do not revert: the original \"rabies (vattuskräck)\" glossed the word as rabies outright and is strictly worse. Best action is a small Swedish-side polish to the gloss.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "vattenskräck"
+      }
+    },
+    {
+      "entry_id": "rask",
+      "danish": "rask",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "learning-value"
+      ],
+      "concerns": [
+        "[learning-value/medium] Gloss changed from \"rask (snabb, kvick)\" to \"frisk\", but the row sits in praksis-adjektiver-FART-b1 (speed adjectives, alongside rap/adræt/behændig). The new health gloss now contradicts its own category and drops the brisk/quick sense this slot is meant to teach. It also erases the partial false-friend cue (Swedish 'rask' = quick vs Danish 'rask' = healthy) that made the entry valuable.  (suggested: Keep the speed sense the slot needs, e.g. \"rask, kvick (snabb); äv. frisk\", or move the row out of the -fart- category if you want 'frisk' to be the headline gloss.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "medium",
+        "rationale": "Verified against the applied diff (patch line 34): gloss changed from \"rask (snabb, kvick)\" to \"frisk\"; Danish headword \"rask\" and audio are unchanged, so ADR-001 is fine. But the row lives in praksis-adjektiver-fart-b1, a speed/agility category whose members are all quickness adjectives (rap, kvik, adræt, lynhurtig, hastig, træg...). Danish \"rask\" has two common senses — brisk/quick and healthy(sund). The audit replaced the category-relevant speed sense with the health sense while leaving the row in the -fart- category, so the gloss now contradicts its own slot and drops the very sense the slot exists to teach (plus the Sv rask=quick / Da rask=also healthy cue). \"frisk\" is a valid translation of one sense, not a factual error, so this is a data-coherence/pedagogy problem, not an invariant breach — hence medium, not high. Best resolution keeps both senses led by the speed sense (the original was itself incomplete, lacking the health sense), so a further fix beats a plain revert.",
+        "recommended_action": "apply-further-fix",
+        "suggested_value": "rask, kvick (snabb); äv. frisk (sund)"
+      }
+    },
+    {
+      "entry_id": "brovten",
+      "danish": "brovten",
+      "file": "/Users/rasmussamuelson/claude/src/data/vocab/praksis-deck.csv",
+      "roles": [
+        "learning-value"
+      ],
+      "concerns": [
+        "[learning-value/medium] Gloss changed from the noun \"skryt (mallighet)\" to the adjectives \"skrytsam, skrävlande\", with an added note \"'Brovten' är ett adjektiv på danska, inte ett substantiv.\" — yet the pos column still reads \"noun\". Danish 'brovten' is a noun (= skryt/pralen; the adjective/participle is 'brovtende'), so the edit is both internally contradictory (pos=noun vs note=adjective) and factually wrong.  (suggested: Revert the gloss to the noun \"skryt (skrävel)\" and drop the note; if an adjective sense was intended, change the headword to 'brovtende' and set pos=adj — but do not leave pos/note/gloss disagreeing.)"
+      ],
+      "verdict": {
+        "is_real_problem": true,
+        "severity": "medium",
+        "rationale": "Confirmed against the diff. HEAD row: \"brovten\",\"skryt (mallighet)\",\"noun\",...,\"\" (no note). Applied row: swedish→\"skrytsam, skrävlande\" plus a new note \"'Brovten' är ett adjektiv på danska, inte ett substantiv.\" while pos stays \"noun\". Danish and audio columns are unchanged, so scope is fine, but the content is wrong. Danish brovten is a noun — the deverbal noun of brovte (the deck itself has \"brovte\",\"skryta\",\"verb\" at line 1929/1936), following the standard verb-stem+-en pattern (cf. råben, snakken). It means skryt/pralen. The adjective/present participle is the separate word brovtende (= skrytsam/skrävlande). So the edit (a) is factually wrong, reglossing a noun with two adjectives and asserting in the note that it is an adjective, and (b) is internally contradictory, since pos still says noun while the note and gloss claim adjective. The original HEAD row was correct and consistent; the batch degraded it.",
+        "recommended_action": "revert-to-original",
+        "suggested_value": "skryt (mallighet)  [and clear the note to \"\"]"
+      }
+    }
+  ],
+  "dismissed_findings": [
+    {
+      "danish": "nip",
+      "entry_id": "nip / praksis-mængder-portioner-b2",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "verdict_rationale": "The concern does not hold up against the authoritative dictionary. Den Danske Ordbog defines the noun \"nip\" as \"the act of sipping food or (especially) drink; a small amount of food or drink one carefully ingests,\" and gives the real example \"smag til med ... et nip sukker\" (= \"a nip/pinch of sugar\"). So \"nip\" genuinely covers a small measured amount of a dry food (salt/sugar), which Swedish naturally renders as \"nypa\" (en nypa socker/salt) — not only the sip-of-drink sense. The reviewer's flat claim that \"nip does NOT mean a pinch; Danish for a pinch is knivspids\" is contradicted by DDO's own \"et nip sukker\" citation (knivspids is a synonym/overlap, not a replacement). The applied gloss \"nypa; smutt\" captures BOTH of DDO's uses — nypa for the small-amount-of-food use, smutt for the sip-of-drink use — and is especially apt in this deck (praksis-mængder-portioner-b2, quantities/portions), where \"et nip sukker/salt\" is the relevant teachable usage. HEAD's \"klunk (liten smutt)\" led with \"klunk\" (a gulp/swig), which slightly overstates a \"nip\" and covered only the drink side; the edit is therefore at least as accurate, not \"less accurate.\" Diff is otherwise clean: Danish headword, pos, and both audio columns unchanged, so ADR-001 is respected. The only residual nuance is stylistic — DDO emphasizes the drink/sip sense (\"especially drink\"), so an ideal gloss might lead with \"smutt/klunk\" and keep \"nypa\" second — but that is an optional ordering polish, not a correctness defect. Skeptic's verdict: not a real problem."
+    },
+    {
+      "danish": "svensknøgle",
+      "entry_id": "svensknøgle / praksis-vaerktoejskasse-b2",
+      "roles": [
+        "danish-linguistic"
+      ],
+      "verdict_rationale": "The reviewer's factual premise is incorrect. In conventional Danish, 'svensknøgle' denotes the adjustable spanner (the J.P. Johansson Swedish-type wrench), synonymous with 'skiftenøgle' and 'skruenøgle' — not a pipe wrench. Danish Wikipedia opens by equating the three terms (\"En svensknøgle, skruenøgle eller skiftenøgle er et stykke spændeværktøj til firkantede og sekskantede bolthoveder og møtrikker\"), and handyman.dk states svensknøgle and skiftenøgle are \"used interchangeably about the same tool.\" The pipe wrench is 'rørtang' (a.k.a. papegøjetang), a distinct tool; only toothed svensknøgle variants can secondarily double as one. Its correct Swedish equivalent is 'skiftnyckel'. Verified diff (patch lines 997-998 / working-tree line 2165): only the Swedish gloss changed rörtång→skiftnyckel; Danish headword and audio (da-06531b57b285f8.mp3) are unchanged, so ADR-001 holds. Thus the applied edit is a CORRECTION — the original 'rörtång' was the misleading gloss. The resulting skiftenøgle and svensknøgle both mapping to 'skiftnyckel' is linguistically accurate (genuine Danish synonyms; Swedish has a single word), not a duplication error. The batch also coherently refined the adjacent skruenøgle to \"skruvnyckel (skiftnyckel)\". The concern does not hold up."
+    },
+    {
+      "danish": "mundfuld",
+      "entry_id": "mundfuld",
+      "roles": [
+        "swedish-linguistic",
+        "learning-value"
+      ],
+      "verdict_rationale": "The reviewers' entire case rests on the claim that \"munfull\" is not a standard Swedish word but a non-Swedish calque of Danish \"mundfuld\". That claim is factually false. \"munfull\" is a documented Swedish word: it has a current entry in SO (Svensk ordbok / Svenska Akademiens ordbok, svenska.se id=153119) and coverage in SAOB, and synonymer.se glosses it as \"en munfull (vatten osv.) så mycket som ryms i munnen\" (a mouthful; as much as fits in the mouth), synonyms mun/munsbit/tugga/klunk. It is the direct cognate of Danish mundfuld (mund+fuld ↔ mun+full) and denotes the mouth-filling quantity — a good fit for this deck's theme (praksis-mængder-portioner = quantities/portions), and applicable to liquids too, unlike munsbit which specifically means a food morsel and carries a strong figurative \"easy task\" sense. Structurally the edit is clean: only the Swedish column changed; the Danish headword (mundfuld), pos, and audio (audio/da-0b78266184a42d.mp3) are unchanged, so ADR-001 is not touched. The edit therefore swapped one valid idiomatic Swedish gloss for another valid, dictionary-attested one that is arguably a tighter cognate match — a lateral/neutral change, not a correctness regression. The concern does not hold up under inspection."
+    },
+    {
+      "danish": "ildebefindende",
+      "entry_id": "ildebefindende",
+      "roles": [
+        "swedish-linguistic"
+      ],
+      "verdict_rationale": "The reviewer's central claim — that \"illabefinnande\" is a Danglish calque and not established Swedish — is factually incorrect. \"illabefinnande\" is a genuine Swedish word (listed in SAOB/svenska.se, Tyda, synonymer.se, ordguru, Runeberg; real usage in Reverso). It means general \"malaise/feeling unwell\" and is the lexical antonym of \"välbefinnande,\" directly parallel to how Danish ildebefindende is the antonym of velbefindende — a cognate, not a calque. It is semantically MORE precise for ildebefindende than \"illamående,\" which specifically means nausea. Crucially, the deck already glosses Danish \"kvalme\" as \"illamående\" (praksis line 4804), so HEAD's \"illamående/sjukdomskänsla\" conflated ildebefindende with kvalme. The applied edit correctly disambiguates: \"illabefinnande\" (malaise) + \"plötslig sjukdomskänsla\" (accurate, reviewer concedes it's fine), removing the collision. The reviewer's proposed fix (restore \"illamående\") would re-introduce that conflation. Structurally the edit is clean: Danish col and both audio cols are unchanged; only the Swedish gloss changed. The only sliver of merit is that \"illabefinnande\" is somewhat formal/less common for a B1–B2 learner, but it's paired with the plain \"plötslig sjukdomskänsla\" so meaning is clear and precision is gained. Not a real problem."
+    },
+    {
+      "danish": "rødgrød",
+      "entry_id": "rødgrød",
+      "roles": [
+        "swedish-linguistic"
+      ],
+      "verdict_rationale": "Verified the \"-\"/\"+\" pair (praksis line 173): only the Swedish column changed, \"rödgröt (bärgröt)\" → \"dansk bärkräm\"; Danish headword \"rødgrød\" and audio \"audio/da-00574477d0c9da.mp3\" are unchanged, so no ADR-001 recording-mismatch risk and the batch rule is respected. The reviewer's linguistic concern does not hold up under deck context: (1) the praksis deck has a consistent \"dansk X\"/\"(dansk …)\" convention for Danish-specialty foods (frikadelle→\"dansk pannbiff\", koldskål→\"kall kärnmjölksdessert (dansk sommarrätt)\", a38/ymer→\"…dansk syrad mjölkprodukt\", remoulade→\"remouladsås (dansk dressing)\"), so \"dansk bärkräm\" is idiomatic house-style, not a loose one-off; (2) \"kräm\" is already an accepted dessert term in this same deck (linsekage/spandauer→\"…med kräm\", creme→\"kräm (bakelsefyllning)\"), and Swedish \"kräm\" (blåbärskräm/fruktkräm/hallonkräm) is a well-established thickened-fruit-dessert category, making \"bärkräm\" a transparent, natural compound — the claim that it is \"not established\" is weak; (3) rødgrød is a starch-thickened berry dessert eaten with cream, texturally a \"kräm\" rather than a grainy \"gröt\", so \"bärkräm\" is arguably more accurate than the original \"bärgröt\". The reviewer's own alternative merely re-adds the near-identical cognate \"rödgröt\", which is a stylistic preference, not a correctness fix. The applied gloss is well-formed, accurate, and deck-consistent."
+    },
+    {
+      "danish": "svensknøgle",
+      "entry_id": "svensknøgle",
+      "roles": [
+        "learning-value"
+      ],
+      "verdict_rationale": "The reviewer's factual premise is wrong. In Danish, \"svensknøgle\" is the ADJUSTABLE wrench, not the pipe wrench. Multiple authoritative sources confirm this: Danish Wikipedia states svensknøgle/skruenøgle/skiftenøgle are three synonyms for the adjustable wrench patented by J.P. Johansson in 1892 (the adjustable-spanner patent), with Swedish equivalent \"skiftnyckel\", and lists rørtang (rörtång) as a separate tool. Danish Wiktionary defines it as \"indstillelig skruenøgle\" (adjustable wrench), with cross-language equivalents English \"monkey wrench\" and French \"clé à molette\" — both the adjustable wrench, not the pipe wrench. Danish retailers (Biltema, GlobalTools, XL-BYG, KS Tools) file svensknøgle under \"justerbare skiftenøgler\" (adjustable wrenches). Therefore the ORIGINAL gloss \"rörtång\" was the actual mistranslation (adjustable wrench mislabeled as pipe wrench), and the batch edit to \"skiftnyckel\" is a correction. The reviewer inverted the meaning. The \"duplicate/erased distinction\" objection also fails: svensknøgle, skiftenøgle and skruenøgle genuinely are Danish synonyms, so glossing them all with \"skiftnyckel\" is accurate lexicography — and it defuses exactly the false-friend trap a Swede falls into by assuming \"svensk-\" names a different tool. The diff itself is clean and invariant-compliant: only the Swedish gloss changed (rörtång→skiftnyckel); the Danish headword \"svensknøgle\" and audio (audio/da-06531b57b285f8.mp3) are untouched, so ADR-001 is preserved."
+    },
+    {
+      "danish": "kørvel",
+      "entry_id": "kørvel",
+      "roles": [
+        "learning-value"
+      ],
+      "verdict_rationale": "The kørvel/körvel row is a clean, pure removal (patch line 2247: a \"-\" with no matching \"+\"), it appeared only once in HEAD (praksis-deck.csv:4881), and it has no duplicate/sibling anywhere — verified via grep of both HEAD and the working CSV. The entry is factually correct (körvel = kørvel = chervil). However, the reviewer's framing (\"clean cognate gloss\" = reason to keep) is exactly backwards for a learning app aimed at Swedish speakers: körvel↔kørvel differ only by ö/ø and are the most transparent Danish-Swedish cognate among all ~21 herbs, i.e. near-zero learning value. That is consistent with the dominant pattern in the other 17 removed rows, which are mostly transparent cognates (riget/riket, forsegling/försegling, telefonbog/telefonbok, frøblanding/fröblandning, strømhvirvel/strömvirvel, vejer/väger). Row removals were an explicitly sanctioned part of batch-001, no incorrect data was introduced, and no product invariant is affected (removing a row does not change any Danish↔audio binding; the mp3 merely becomes orphaned). The pruning pattern is imperfect (timian/timjan, safran/saffran are equally transparent yet kept), so the removal is a debatable curation choice — but a plausible, defensible rationale exists, so the \"unjustified loss\" concern does not clearly hold up. The deck still covers the spice/herb topic with ~20 entries. This is a minor curation-consistency nit, not a defect in the applied edit."
+    },
+    {
+      "danish": "telefonbog",
+      "entry_id": "telefonbog",
+      "roles": [
+        "learning-value"
+      ],
+      "verdict_rationale": "Independently verified against the frozen diff, removed-rows.txt, HEAD, and the working CSV. telefonbog was cleanly removed as a whole row (diff line 474 is a bare '-' with no '+'; grep -c on the working tree = 0), so there is no mechanical corruption of Danish/audio to flag. The reviewer's central justification — \"no 'telefon*' entry remains in the deck\" — is factually false: the working tree still contains telefonsvarer (same deck, praksis-telefon-komm-b1) and telefonrør (praksis-telefon-komm-b2) as literal telefon-prefixed siblings, and the praksis-telefon-komm-b1 deck retains 13 entries plus a rich b2 counterpart (abonnement, høretelefoner, trådløs, optaget, taletid, etc.). The word is therefore not orphaned. On merit, telefonbog/telefonbok is a near-identical transparent cognate — the reviewer concedes it is \"transparent\" — which carries minimal learning value for a Swedish speaker learning Danish, and printed phone directories are dated. Culling it is consistent with an audit that removes low-value/niche items, and it was correctly glossed either way. The concern does not hold up."
+    },
+    {
+      "danish": "nip",
+      "entry_id": "nip",
+      "roles": [
+        "learning-value"
+      ],
+      "verdict_rationale": "The concern rests on a false factual premise. Den Danske Ordbog lists two noun senses for Danish \"nip\": (1) \"en lille smule af noget; så meget som man kan have mellem to fingre\" (a little bit of something; as much as one can hold between two fingers) with the examples \"et nip sukker\"/\"et nip salt\" — i.e., exactly a pinch; and (2) the sip sense (nippe til drikke; tår/slurk). Swedish \"nypa\" (en nypa salt = the amount held between two fingers) is a precise gloss for DDO sense 1, and \"smutt\" (sip) covers sense 2. Two independent DDO lookups returned identical verbatim definitions. Contrary to the reviewer, \"nip\" DOES carry the pinch sense, and it is DDO's primary (sense-1) meaning, so leading with \"nypa\" is well-ordered. The new gloss \"nypa; smutt\" therefore captures both dictionary senses accurately and is an improvement over the original \"klunk (liten smutt)\", which used \"klunk\" (gulp/swig — a larger quantity than nip denotes) and covered only the sip sense. Diff verified: Danish headword and audio (da-10e9decd95d51d.mp3) unchanged; only the Swedish gloss changed (patch lines 456/457; working line 976 vs HEAD line 979). The mængder-portioner (quantities/portions) deck slot fits both small-quantity senses, so there is no misleading placement."
+    }
+  ],
+  "non_entry_findings": [
+    {
+      "file": "/Users/rasmussamuelson/.claude/jobs/0855c8a8/tmp/applied-diff.patch",
+      "severity": "low",
+      "issue": "Count mismatch vs the stated batch manifest: the prompt claims '324 Swedish-side edits + 18 whole-row removals', but the applied diff actually contains 306 Swedish-side edits (297 praksis + 9 starter) plus 18 removals. The '+' content lines in the patch (306) and the join-based comparison both agree on 306 edits. 306 + 18 = 324, so the manifest's '324 edits' appears to double-count the 18 removed rows as edits. Not a build/validation failure — the diff is internally consistent and all invariants hold — but the manifest edit count is overstated by 18.",
+      "suggested_fix": "Correct the manifest/report to state 306 Swedish-side edits + 18 removals (324 total affected HEAD rows), rather than 324 edits + 18 removals.",
+      "role": "validation-build"
+    }
+  ]
+}

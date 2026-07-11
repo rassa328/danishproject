@@ -1,0 +1,17 @@
+{
+  "manifest_entries": 5095,
+  "expected_shards": 40,
+  "completed_shards": 40,
+  "reviewed_entries": 5095,
+  "primary_coverage_percent": 100,
+  "duplicate_primary_ids": 0,
+  "missing_primary_ids": 0,
+  "unexpected_primary_ids": 0,
+  "decisions": {
+    "keep": 4893,
+    "improve": 191,
+    "replace": 5,
+    "merge": 5,
+    "remove": 1
+  }
+}
