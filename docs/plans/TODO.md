@@ -28,16 +28,17 @@ Recorded 2026-07-11 from a live review of the deployed site.
   reveal key, so Enter-Enter walks the deck without ever grading — easy to
   accidentally skip a card you meant to grade. Maybe a tiny guard (ignore
   Enter ~300 ms after reveal), maybe over-engineering. Decide then.
-  ⚠ Note text lives in `strings.ts` — inside the drill-engine plan's
-  write_set; sequence or coordinate.
+  ⚠ 2026-07-11 15:43: drill-engine plan is DONE — the `strings.ts` write_set
+  block is lifted; this item is unblocked.
 - [x] **Typed answers: map Swedish letters to Danish.** DONE 2026-07-11
   (plan `done/swedish-letter-folding.md`): `ä`→`æ`, `ö`→`ø`, digraph `ae`→`æ`
   accepted at comparison time in `matchTyped`/`matchCloze` (typed side only,
   exact match tried first). Not included: `oe`→`ø` (not requested), live
   input-field transform (possible follow-up).
-  ⚠ Still open: the drill-engine plan builds its own `src/lib/char-map.ts` —
-  the two mappings should eventually be one shared module (coordinate with
-  that plan's owner).
+  ⚠ Still open (2026-07-11 15:43: char-map.ts now EXISTS — drill-engine done):
+  `src/lib/char-map.ts` (input-side live remap) and `session.ts` `foldSwedish`
+  (comparison-side) are two deliberate layers today; unify into one shared
+  module eventually.
 - [ ] **"Repetera förfallna" is a dead button when nothing is due.** On the
   "Inga kort att repetera just nu" screen the button (`FlashcardReviewer.svelte:570`)
   is clickable but `start(false)` rebuilds an empty queue and re-renders the
@@ -65,9 +66,9 @@ Recorded 2026-07-11 from a live review of the deployed site.
     tint, ~60 px threshold; Nej/Ja buttons as fallback; reduced-motion snaps.
   - Word-clip autoplay at reveal as a **persisted toggle** (speaker button in
     the reviewer header).
-  - Constraint: needs `strings.ts`, which is in the active drill-engine
-    plan's write_set — sequence after it or coordinate the one-file overlap;
-    its blip/feedback modules may be reusable.
+  - Constraint lifted 2026-07-11 15:43 (drill-engine done): `strings.ts` is
+    free, and the drill's `blip.ts`/`webaudio.ts` + DrillEngine feedback
+    patterns are now real modules to reuse.
 
 ## Home page
 

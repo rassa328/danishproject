@@ -2,7 +2,8 @@
 title: Gamified typing-drill engine + number dictation drill
 owner: claude-main
 branch: main
-status: active
+status: done
+closed: 2026-07-11 15:43
 write_set:
   - src/lib/char-map.ts
   - src/lib/char-map.test.ts
@@ -41,6 +42,21 @@ opened: 2026-07-11
 <!-- 2026-07-11 14:08: ownership taken over from main2-non-workflow by claude-main on the
      user's direct instruction (original owner idle; user confirmed no other agent active).
      Execution starting now, phases per §5. -->
+<!-- DONE 2026-07-11 15:43. Commits: cc7bd8f (phases 1-2: pure libs, 118 new tests),
+     f894006 (phases 3-5: island + pages + manifest), 996d387 (24 confirmed findings from a
+     29-finding adversarial review fixed, +6 regression tests). Final: astro check clean,
+     251 tests green, build green (23 pages), package.json deps unchanged. NOT pushed.
+     Deliberate deviations from this spec (all recorded in commit messages):
+     · §3.2 island props: lazy praksis fetch (FlashcardReviewer pattern) instead of the full
+       5k-card union as props — preserves the 1.82MB→205KB page-weight fix.
+     · Combo blip REPLACES the correct blip on every 5th (no stacked tones).
+     · stora-tal price generator range 2-999 kr — avoids 'en kroner'; add a 'krone' atom
+       later if singular prices are wanted.
+     · Manifest one-atom-per-line for clean diffs.
+     Open user actions: record the 92 missing number atoms (src/data/number-audio.json is
+     the checklist; only 'tiotal' level playable today) or run npm run tts -- --numbers
+     with Azure creds; teacher-verify the formal year reading (§8); optionally curate
+     accepted_sv CSV columns for da→sv (heuristic gloss parsing is live). -->
 <!-- Executor note 2026-07-11: §2.2's "normalizeTyped never folds æ/ø/å" predates the
      swedish-letter-folding change (done/swedish-letter-folding.md): matchTyped/matchCloze now
      accept ä→æ/ö→ø as a comparison-time second chance. Harmless here — the drill remaps
