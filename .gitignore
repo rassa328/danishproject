@@ -26,3 +26,7 @@ pnpm-debug.log*
 # Claude Code local settings
 .claude/
 .DS_Store
+
+# Coordination documents must always be versioned.
+!docs/
+!docs/**

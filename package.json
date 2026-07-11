@@ -12,6 +12,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "plans:check": "node scripts/plans-check.mjs",
     "pretest": "node scripts/check-content.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
