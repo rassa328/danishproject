@@ -7,11 +7,7 @@ import {
 } from './number-audio.ts';
 import { NUMBER_ATOMS, NUMBER_LEVELS } from './danish-numbers.ts';
 import { lessonAudioId } from './audio-id.ts';
-
-// TODO (plan §6, later phase): committed-manifest drift guard — once
-// src/data/number-audio.json exists, add a test asserting every id =
-// lessonAudioId(word), every key ∈ NUMBER_ATOMS, and every NUMBER_ATOMS
-// atom appears in the file.
+import committed from '../data/number-audio.json';
 
 /** Fixture manifest with real lessonAudioId-derived ids; `absent` entries are
  *  listed but present:false (recording checklist row without a clip). */
@@ -155,5 +151,26 @@ describe('levelAvailable', () => {
     expect(levelAvailable('stora-tal', noKroner)).toBe(false);
     expect(levelAvailable('0-99', noKroner)).toBe(true);
     expect(levelAvailable('tiotal', noKroner)).toBe(true);
+  });
+});
+
+describe('committed manifest (src/data/number-audio.json)', () => {
+  // Drift guard (plan §6): the manifest is GENERATED (npm run tts -- --numbers
+  // --reconcile-only) from NUMBER_ATOMS, so a hand edit or an atom-set change
+  // in danish-numbers.ts without a re-run must fail here. `present` flags are
+  // checked against disk by scripts/check-content.mjs, not this test.
+  const atoms: NumberAudioManifest['atoms'] = committed.atoms;
+
+  it('lists exactly NUMBER_ATOMS, in atom order (stable diffs)', () => {
+    // Order-sensitive on purpose — implies set equality both ways AND keeps
+    // the checklist/diff ordering the generator writes.
+    expect(Object.keys(atoms)).toEqual([...NUMBER_ATOMS]);
+  });
+
+  it('derives every id via lessonAudioId and every file as <id>.mp3', () => {
+    for (const [word, entry] of Object.entries(atoms)) {
+      expect(entry.id).toBe(lessonAudioId(word));
+      expect(entry.file).toBe(`${entry.id}.mp3`);
+    }
   });
 });

@@ -1,0 +1,33 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DrillEngine from '../components/DrillEngine.svelte';
+import { getCollection } from 'astro:content';
+import { allCards } from '../lib/decks.ts';
+import { praksisUnique } from '../lib/praksis.ts';
+import { buildStudyGroups } from '../lib/deck-groups.ts';
+import { sortLessons } from '../lib/lessons.ts';
+import { UI } from '../lib/strings.ts';
+
+// Like flashcards.astro: only the small starter deck is serialized into island
+// props — the praksis deck is fetched lazily by the island when a session
+// needs it (due-source with non-starter records, or any tag). Groups carry
+// match descriptors, not cards. Lessons feed the "Från lektion" picker: only
+// those with a word list, deep-linkable via their first vocab tag.
+const groups = buildStudyGroups(allCards, praksisUnique);
+const lessonEntries = await getCollection('lessons', ({ data }) => !data.draft);
+const lessons = sortLessons(lessonEntries).flatMap((l) => {
+  const tag = l.data.vocabTags[0];
+  return tag ? [{ id: l.id, title: l.data.title, tag }] : [];
+});
+---
+
+<BaseLayout title={UI.drill.title} description={UI.drill.description}>
+  <h1>{UI.drill.title}</h1>
+  <p class="lead">{UI.drill.lead}</p>
+
+  <DrillEngine client:idle kind="words" cards={allCards} groups={groups} lessons={lessons} />
+
+  <style>
+    .lead { color: var(--muted); }
+  </style>
+</BaseLayout>

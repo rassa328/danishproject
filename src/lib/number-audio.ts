@@ -16,6 +16,7 @@ import {
   type NumberLevelId,
 } from './danish-numbers.ts';
 import { withBase } from './url.ts';
+import { getAudioContext } from './webaudio.ts';
 
 export type NumberAudioManifest = {
   atoms: Record<string, { id: string; file: string; present: boolean }>;
@@ -88,29 +89,9 @@ export interface NumberAudioPlayer {
 }
 
 // ---------------------------------------------------------------------------
-// Impure WebAudio half — module-level state so ALL players share one context,
-// one decode cache and one no-overlap sequence.
-
-// Lazy shared AudioContext, SSR-safe. NOTE: a later phase may extract this
-// into src/lib/webaudio.ts as getAudioContext(); keep the semantics identical.
-let sharedCtx: AudioContext | null | undefined; // undefined = not yet attempted
-
-function getContext(): AudioContext | null {
-  if (sharedCtx !== undefined) return sharedCtx;
-  sharedCtx = null;
-  if (typeof window !== 'undefined') {
-    const w = window as Window & { webkitAudioContext?: typeof AudioContext };
-    const Ctor = window.AudioContext ?? w.webkitAudioContext;
-    if (Ctor) {
-      try {
-        sharedCtx = new Ctor();
-      } catch {
-        /* stays null — play() reports 'blocked' */
-      }
-    }
-  }
-  return sharedCtx;
-}
+// Impure WebAudio half — module-level state so ALL players share one context
+// (the app-wide singleton from webaudio.ts), one decode cache and one
+// no-overlap sequence.
 
 // Decoded-buffer cache keyed by clip id. Promises are cached (not buffers) so
 // concurrent preload+play of the same atom fetch/decode only once.
@@ -154,7 +135,7 @@ export function createNumberAudioPlayer(m: NumberAudioManifest): NumberAudioPlay
 
     async preload(tokens) {
       const ids = planClips(tokens, m);
-      const ctx = getContext();
+      const ctx = getAudioContext();
       if (!ids || !ctx) return;
       await Promise.all(ids.map((id) => loadBuffer(ctx, id).catch(() => undefined)));
     },
@@ -164,7 +145,7 @@ export function createNumberAudioPlayer(m: NumberAudioManifest): NumberAudioPlay
       if (!ids) return 'missing';
       const seq = ++playSeq;
       stopSources();
-      const ctx = getContext();
+      const ctx = getAudioContext();
       if (!ctx) return 'blocked';
       let buffers: AudioBuffer[];
       try {

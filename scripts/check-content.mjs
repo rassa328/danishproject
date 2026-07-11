@@ -135,6 +135,46 @@ for (const ref of warnRefs) {
 }
 if (missingWarn > 10) warnings.push(`…and ${missingWarn - 10} more missing praksis audio files`);
 
+// ---- number-audio manifest ----
+// The /tal drill composes numbers from committed atom clips (never TTS) and
+// gates its levels on the manifest's `present` flags. A flag that drifts from
+// reality either 404s at runtime (true without a clip) or keeps a playable
+// level needlessly disabled (false with one) — both are reconcile bugs, so
+// they ERROR. Missing recordings themselves are expected (the manifest doubles
+// as the recording checklist) and only WARN with a count; per-level detail
+// lives in the number-audio unit tests. Same tracked-vs-disk rule as above:
+// in CI an untracked local clip must not count as present.
+const numberManifestPath = root + 'src/data/number-audio.json';
+if (!existsSync(numberManifestPath)) {
+  errors.push('src/data/number-audio.json missing — run: npm run tts -- --numbers --reconcile-only');
+} else {
+  const { atoms } = JSON.parse(readFileSync(numberManifestPath, 'utf8'));
+  let drift = 0;
+  let unrecorded = 0;
+  for (const [word, entry] of Object.entries(atoms)) {
+    const onDisk = hasAudio(`audio/${entry.file}`);
+    if (entry.present !== onDisk) {
+      drift++;
+      if (drift <= 10) {
+        errors.push(
+          entry.present
+            ? `number-audio: '${word}' marked present but public/audio/${entry.file} is missing/untracked`
+            : `number-audio: '${word}' has a clip at public/audio/${entry.file} but is marked present:false`,
+        );
+      }
+    }
+    if (!entry.present) unrecorded++;
+  }
+  if (drift > 10) errors.push(`…and ${drift - 10} more number-audio present-flag drifts`);
+  if (drift > 0) errors.push('number-audio manifest is stale — re-run: npm run tts -- --numbers --reconcile-only');
+  if (unrecorded > 0) {
+    warnings.push(
+      `number-audio: ${unrecorded} of ${Object.keys(atoms).length} atoms lack clips — ` +
+        `some /tal levels stay disabled until they are recorded`,
+    );
+  }
+}
+
 // ---- report ----
 for (const w of warnings) console.warn(`⚠ ${w}`);
 if (errors.length) {

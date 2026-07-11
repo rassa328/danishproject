@@ -9,17 +9,25 @@
 // Idempotent: existing clips are skipped (no API call). Pass --force to redo all.
 // After generating, the vocab CSV's `audio` / `audio_example` columns are
 // rewritten to base-relative paths the UI resolves via withBase().
+//
+// The /tal number drill's atom clips are a separate task:
+//
+//   npm run tts -- --numbers                    synthesize missing atom clips
+//   npm run tts -- --numbers --reconcile-only   rebuild the manifest from disk
+//                                               (offline — no Azure key needed)
 
 import { readFile, writeFile, mkdir, access, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Papa from 'papaparse';
-import { deriveId, nfc, audioKey, spanAudioId } from '../src/lib/vocab.ts';
+import { deriveId, nfc, audioKey, spanAudioId, lessonAudioId } from '../src/lib/vocab.ts';
+import { NUMBER_ATOMS } from '../src/lib/danish-numbers.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const AUDIO_DIR = path.join(ROOT, 'public/audio');
 const LESSONS_DIR = path.join(ROOT, 'src/content/lessons');
 const MANIFEST_PATH = path.join(ROOT, 'src/data/lesson-audio.json');
+const NUMBER_MANIFEST_PATH = path.join(ROOT, 'src/data/number-audio.json');
 
 // Selectable decks. Default 'starter' also does lesson-prose clips (the curated
 // content). The big 'praksis' deck (5000 words) is opt-in and SHOULD be gated:
@@ -55,6 +63,8 @@ const REGION = process.env.AZURE_SPEECH_REGION;
 const VOICE = process.env.AZURE_SPEECH_VOICE || 'da-DK-ChristelNeural';
 const FORCE = process.argv.includes('--force');
 const ALL_CLIPS = process.argv.includes('--all-clips'); // opt in to voicing a whole big deck
+const NUMBERS = process.argv.includes('--numbers'); // number-drill atom clips instead of decks
+const RECONCILE_ONLY = process.argv.includes('--reconcile-only'); // numbers: manifest refresh, no Azure
 const DECK_SEL = argVal('--deck') || 'starter'; // 'starter' | 'praksis' | 'all'
 const LIMIT = intArg('--limit'); // cap clips per deck (0 = no cap)
 const MAX_RANK = intArg('--max-rank'); // only ranked rows with rank <= N (0 = all)
@@ -303,12 +313,70 @@ async function processLessons(): Promise<Stats> {
   return stats;
 }
 
+/** Rebuild src/data/number-audio.json from NUMBER_ATOMS × disk. Ids reuse
+ *  lessonAudioId (pos-less), so the number clips already voiced for lesson 03
+ *  (tyve … halvfems, syvogtyve, …) count as present without re-synthesis.
+ *  EVERY atom is listed — `present: false` rows double as the user's recording
+ *  checklist (word → target filename). One atom per line, in NUMBER_ATOMS
+ *  order, so a newly recorded clip diffs as a single flipped flag. */
+async function reconcileNumberManifest(): Promise<void> {
+  const lines: string[] = [];
+  let present = 0;
+  for (const word of NUMBER_ATOMS) {
+    const id = lessonAudioId(word);
+    const file = `${id}.mp3`;
+    const has = await exists(path.join(AUDIO_DIR, file));
+    if (has) present++;
+    lines.push(`    ${JSON.stringify(word)}: { "id": "${id}", "file": "${file}", "present": ${has} }`);
+  }
+  await writeFile(NUMBER_MANIFEST_PATH, `{\n  "atoms": {\n${lines.join(',\n')}\n  }\n}\n`);
+  console.log(`Number atoms: ${present} of ${NUMBER_ATOMS.length} clips on disk → src/data/number-audio.json`);
+}
+
+/** One clip per number atom (compound granularity: 'syvoghalvfems' is ONE clip,
+ *  never spliced). The /tal drill composes larger numbers from these at
+ *  runtime — clips only, never TTS in the browser. */
+async function processNumbers(): Promise<Stats> {
+  const clips: Clip[] = NUMBER_ATOMS.map((word) => ({
+    file: path.join(AUDIO_DIR, `${lessonAudioId(word)}.mp3`),
+    text: word,
+  }));
+  // Manifest reflects disk even when a run fails midway (same finally pattern
+  // as processDeck's CSV reconcile).
+  try {
+    return await generateClips(clips);
+  } finally {
+    await reconcileNumberManifest();
+  }
+}
+
 async function main() {
+  // Offline manifest refresh: derive every atom's `present` flag from disk and
+  // rewrite the manifest. No Azure key, no network — safe to run anywhere.
+  if (RECONCILE_ONLY) {
+    if (!NUMBERS) {
+      console.error('--reconcile-only belongs to the --numbers task (nothing else has an offline manifest).');
+      process.exit(1);
+    }
+    await reconcileNumberManifest();
+    return;
+  }
+
   if (!KEY || !REGION) {
     console.error('Missing AZURE_SPEECH_KEY and/or AZURE_SPEECH_REGION. See .env.example.');
     process.exit(1);
   }
   await mkdir(AUDIO_DIR, { recursive: true });
+
+  // Numbers are their own task (they aren't deck rows or lesson spans).
+  if (NUMBERS) {
+    console.log('=== Number atoms (/tal drill) ===');
+    const s = await processNumbers();
+    console.log(`  ${s.generated} generated, ${s.skipped} skipped, ${s.failed} failed.`);
+    console.log(`\nDone. Voice: ${VOICE}. Clips in public/audio/.`);
+    if (s.failed) process.exit(1);
+    return;
+  }
 
   // Guard against accidentally voicing the entire 5000-word praksis deck
   // (~75–125 MB of mp3s committed). Require an explicit gate or opt-in.

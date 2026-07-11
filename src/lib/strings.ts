@@ -21,6 +21,8 @@ export const UI = {
     lessons: 'Lektioner',
     flashcards: 'Flashcards',
     wordlist: 'Ordlista',
+    write: 'Skriv',
+    numbers: 'Tal',
   },
 
   home: {
@@ -115,6 +117,91 @@ export const UI = {
       import: 'Importera backup',
       imported: 'Backup importerad.',
       importError: 'Kunde inte läsa backup-filen.',
+    },
+  },
+
+  // Typing drill (/skriv) + number dictation (/tal) — one shared engine island.
+  // Reuse flashcards.* verbatim where the wording already fits: replay, play,
+  // slowReplay, charHelper, saveError, correct/incorrect, listenPrompt,
+  // replayKeyTitle, confirmRestart. Only drill-specific copy lives here.
+  drill: {
+    title: 'Skrivövning',
+    description:
+      'Skriv orden på danska i högt tempo — varje rätt svar hörs direkt med äkta danskt uttal.',
+    lead: `Ett kort i taget: skriv svaret och tryck Enter. Rätt svar spelas upp direkt, och blir det fel ser du exakt vilka bokstäver som skilde. ${PROGRESS_NOTE}.`,
+    // .vh label behind the skeleton placeholders while the island hydrates.
+    loading: 'Laddar övningen…',
+
+    // Session setup (before "Starta").
+    modeLegend: 'Läge',
+    modes: {
+      'sv-da': 'Svenska → danska',
+      'da-dictation': 'Diktat — lyssna och skriv',
+      'da-sv': 'Danska → svenska',
+    },
+    sourceLegend: 'Vad vill du öva?',
+    sourceDue: 'Att repetera (förfallna)',
+    sourceLesson: 'Från lektion',
+    lessonLabel: 'Lektion:',
+    cardCount: 'Antal kort',
+    start: 'Starta',
+    noDue: 'Inget förfallet just nu — allt är repeterat. Välj en lektion i stället.',
+    noCards: 'Inga kort att öva med det här valet. Prova en annan lektion eller ett annat läge.',
+    noDictationCards:
+      'Diktat behöver inspelat ljud, och det saknas för de här orden. Prova ett annat läge.',
+
+    // In-run. Dictation reuses flashcards.listenPrompt as its prompt line.
+    progress: (i: number, total: number) => `Kort ${i} av ${total}`,
+    writePrompt: 'Skriv på danska:',
+    meaningPrompt: 'Vad betyder ordet? Skriv på svenska:',
+    input: {
+      da: { label: 'Skriv ordet på danska', placeholder: 'Skriv på danska…' },
+      sv: { label: 'Skriv betydelsen på svenska', placeholder: 'Skriv på svenska…' },
+      digits: { label: 'Skriv talet med siffror', placeholder: 't.ex. 97' },
+    },
+    submit: 'Svara',
+    enterHint: 'Enter skickar svaret.',
+    hint: 'Visa ordet (räknas som miss)',
+    answerLabel: 'Rätt svar:',
+    youWrote: 'Du skrev:',
+    typeItOnce: 'Skriv ordet rätt en gång för att gå vidare',
+    requeued: 'Kortet kommer tillbaka i slutet av omgången.',
+    comboLabel: 'I rad',
+
+    // End screen.
+    doneTitle: 'Omgång klar!',
+    accuracy: 'Rätt på första försöket',
+    totalTime: 'Total tid',
+    bestCombo: 'Bästa svit',
+    missedHeading: 'Det här krånglade',
+    noMisses: 'Allt rätt på första försöket — snyggt!',
+    runAgain: 'Kör igen',
+
+    // The /tal page. Number clips are real recordings only — levels whose
+    // clips aren't on disk yet are disabled with an explanation, never TTS.
+    numbers: {
+      title: 'Sifferdiktat',
+      description:
+        'Hör ett danskt tal och skriv det med siffror — träna in halvtreds, halvfjerds och de andra lömska tiotalen.',
+      lead: 'Lyssna och skriv talet med siffror. Danska säger entalet först — syvogtyve är 27 — och här nöter du tills det sitter.',
+      levelLegend: 'Nivå',
+      levels: {
+        '0-20': '0–20',
+        'tiotal': 'Tiotal',
+        '0-99': '0–99',
+        'stora-tal': 'Stora tal',
+      },
+      levelHints: {
+        '0-20': 'Grunderna: nul till tyve.',
+        'tiotal': 'Tiotalen 20–90: halvtreds, tres, halvfjerds, firs, halvfems.',
+        '0-99': 'Hela spannet — med entalet först.',
+        'stora-tal': 'Hundratal, årtal och priser.',
+      },
+      listenPrompt: '🎧 Lyssna och skriv talet med siffror:',
+      digitsHint: 'Skriv bara siffror, t.ex. 97 eller 1994.',
+      missingAudio: 'Ljudklipp för den här nivån saknas ännu — nivån är avstängd.',
+      noLevels:
+        'Sifferdiktatet spelar bara riktiga inspelningar — ingen talsyntes — och klippen är inte inspelade ännu. Titta in igen snart.',
     },
   },
 

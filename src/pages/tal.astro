@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DrillEngine from '../components/DrillEngine.svelte';
+import manifest from '../data/number-audio.json';
+import { UI } from '../lib/strings.ts';
+
+// Number dictation needs no cards at all — just the committed clip manifest.
+// The island gates each level on full clip coverage (real recordings only,
+// never TTS) and disables the rest with a Swedish note.
+---
+
+<BaseLayout title={UI.drill.numbers.title} description={UI.drill.numbers.description}>
+  <h1>{UI.drill.numbers.title}</h1>
+  <p class="lead">{UI.drill.numbers.lead}</p>
+
+  <DrillEngine client:idle kind="numbers" manifest={manifest} />
+
+  <style>
+    .lead { color: var(--muted); }
+  </style>
+</BaseLayout>
