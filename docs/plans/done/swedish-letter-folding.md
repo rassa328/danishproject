@@ -2,7 +2,7 @@
 title: Accept Swedish-typed ä/ö/ae for Danish æ/ø in typed answers
 owner: claude-main
 branch: main
-status: active
+status: done
 write_set:
   - src/lib/session.ts
   - src/lib/session.test.ts

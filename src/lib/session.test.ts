@@ -356,10 +356,18 @@ describe('matchTyped/matchCloze: punctuation tolerance (fix A)', () => {
     expect(matchTyped('løbe', c('hoppe', ['springe']))).toBe(false);
   });
 
-  it('keeps æ/ø/å significant — Swedish-letter spellings stay WRONG', () => {
-    expect(matchTyped('läse.', c('læse'))).toBe(false);
-    expect(matchTyped('bocker', c('bøger'))).toBe(false);
+  it('accepts Swedish-keyboard spellings for æ/ø (ä→æ, ö→ø, ae→æ)', () => {
+    expect(matchTyped('läse.', c('læse'))).toBe(true);
+    expect(matchTyped('laese', c('læse'))).toBe(true);
+    expect(matchTyped('kön', c('køn'))).toBe(true);
+    expect(matchTyped('sätte sig', c('sætte sig'))).toBe(true);
+  });
+
+  it('never folds plain letters or other accents — real mistakes stay wrong', () => {
+    expect(matchTyped('bocker', c('bøger'))).toBe(false); // plain o is not ö
+    expect(matchTyped('lase', c('låse'))).toBe(false); // plain a is not å
     expect(matchTyped('gá', c('gå'))).toBe(false);
+    expect(matchTyped('læse', c('läse'))).toBe(false); // fold is typed-side only
   });
 
   it('keeps INTERNAL punctuation significant and rejects punctuation-only input', () => {
@@ -371,6 +379,7 @@ describe('matchTyped/matchCloze: punctuation tolerance (fix A)', () => {
   it('matchCloze compares the exact blanked surface form, case/edge-punct tolerant', () => {
     expect(matchCloze('øl.', 'Øl')).toBe(true);
     expect(matchCloze('løber', 'løber')).toBe(true);
+    expect(matchCloze('löber', 'løber')).toBe(true); // Swedish fold applies here too
     expect(matchCloze('løbe', 'løber')).toBe(false); // lemma is NOT enough
     expect(matchCloze('', 'løber')).toBe(false);
   });

@@ -15,15 +15,14 @@ Recorded 2026-07-11 from a live review of the deployed site.
   digit *shortcuts* as a separate decision, but the labels should go, and
   **Enter in the revealed phase should grade Good and advance** (today Enter
   does nothing after reveal — only digits work).
-- [ ] **Typed answers: map Swedish letters to Danish.** `ä` → `æ`, `ö` → `ø`,
-  and the digraph `ae` → `æ` (presumably `oe` → `ø` too — confirm). `å` stays
-  `å`; the å/ä/ö keys must keep working (Swedish keyboard has no æ/ø).
-  ⚠ This **reverses a deliberate design decision**: `src/lib/session.ts:27-34`
-  explicitly refuses to fold ä/ö so that Swedish spellings count as wrong.
-  User has now overruled that. Decide: fold at comparison time, or live-map in
-  the input field as you type (the latter also teaches the Danish spelling).
-  ⚠ Overlaps the active drill-engine plan (`src/lib/char-map.ts` in its
-  write_set) — same mapping problem, should be one shared module.
+- [x] **Typed answers: map Swedish letters to Danish.** DONE 2026-07-11
+  (plan `done/swedish-letter-folding.md`): `ä`→`æ`, `ö`→`ø`, digraph `ae`→`æ`
+  accepted at comparison time in `matchTyped`/`matchCloze` (typed side only,
+  exact match tried first). Not included: `oe`→`ø` (not requested), live
+  input-field transform (possible follow-up).
+  ⚠ Still open: the drill-engine plan builds its own `src/lib/char-map.ts` —
+  the two mappings should eventually be one shared module (coordinate with
+  that plan's owner).
 - [ ] **"Repetera förfallna" is a dead button when nothing is due.** On the
   "Inga kort att repetera just nu" screen the button (`FlashcardReviewer.svelte:570`)
   is clickable but `start(false)` rebuilds an empty queue and re-renders the

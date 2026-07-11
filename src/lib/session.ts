@@ -23,10 +23,17 @@ function shuffle<T>(a: T[], rng: Rng): T[] {
 // Edge punctuation a typed answer may harmlessly include or omit: "løbe." for
 // "løbe", or "hvad så" for a stored "hvad så?", is not a memory lapse. Applied
 // symmetrically to BOTH sides, so stored phrases ending in ?/! still match.
-// INTERNAL punctuation stays significant, and — crucially — æ/ø/å are never
-// folded to ä/ö: a Swedish spelling must still count as wrong (normalizeAnswer
-// guarantees that; this only trims the edges it produced).
+// INTERNAL punctuation stays significant.
 const EDGE_PUNCT = /^[\s.,!?…;:'"«»“”‘’]+|[\s.,!?…;:'"«»“”‘’]+$/gu;
+
+// Swedish-keyboard spellings accepted for the Danish letters (user decision
+// 2026-07-11, docs/plans/done/swedish-letter-folding.md — reverses the earlier
+// no-fold rule): ä→æ, ö→ø, digraph ae→æ; å is shared. Folds the TYPED side
+// only, and only as a second chance after the exact comparison, so stored
+// answers that legitimately contain "ae" still match unfolded. Plain o/a and
+// other accents (á…) never fold — those remain real spelling mistakes.
+const foldSwedish = (s: string): string =>
+  s.replaceAll('ä', 'æ').replaceAll('ö', 'ø').replaceAll('ae', 'æ');
 
 /** normalizeAnswer (NFC, trim, lowercase, collapse spaces — never folds æ/ø/å)
  *  plus leading/trailing punctuation stripped. For TYPED answers only; stored
@@ -34,17 +41,25 @@ const EDGE_PUNCT = /^[\s.,!?…;:'"«»“”‘’]+|[\s.,!?…;:'"«»“”�
 export const normalizeTyped = (s: string): string => normalizeAnswer(s).replace(EDGE_PUNCT, '');
 
 /** True if the learner's typed answer matches any accepted Danish form of the
- *  card, tolerating edge punctuation on either side. */
+ *  card, tolerating edge punctuation on either side and Swedish-keyboard
+ *  spellings of æ/ø (see foldSwedish). */
 export function matchTyped(typed: string, card: Pick<Card, 'danish' | 'accepted'>): boolean {
   const t = normalizeTyped(typed);
-  return t.length > 0 && acceptedAnswers(card).some((a) => normalizeTyped(a) === t);
+  if (t.length === 0) return false;
+  const accepted = acceptedAnswers(card).map((a) => normalizeTyped(a));
+  if (accepted.includes(t)) return true;
+  const folded = foldSwedish(t);
+  return folded !== t && accepted.includes(folded);
 }
 
 /** Cloze grading: the typed answer must be the exact in-context surface form
- *  that was blanked (not just any accepted lemma), modulo case/edge punctuation. */
+ *  that was blanked (not just any accepted lemma), modulo case/edge punctuation
+ *  and Swedish-keyboard spellings of æ/ø. */
 export function matchCloze(typed: string, answer: string): boolean {
   const t = normalizeTyped(typed);
-  return t.length > 0 && t === normalizeTyped(answer);
+  if (t.length === 0) return false;
+  const a = normalizeTyped(answer);
+  return t === a || foldSwedish(t) === a;
 }
 
 // ---- session queue assembly ----
