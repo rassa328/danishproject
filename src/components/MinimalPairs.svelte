@@ -24,19 +24,39 @@
   }
   const { pairs, caption }: Props = $props();
 
-  // Glyph geometry (template §8c/§8d): utan-stød 3 bars 6/12/8 grey; med-stød
-  // 4 bars 6/12/4/9 with the 3rd red.
-  const UTAN = [
-    { h: 6, dip: false },
-    { h: 12, dip: false },
-    { h: 8, dip: false },
-  ];
-  const MED = [
-    { h: 6, dip: false },
-    { h: 12, dip: false },
-    { h: 4, dip: true },
-    { h: 9, dip: false },
-  ];
+  // Per-word deterministic waveform. Each displayed word gets its OWN bar shape,
+  // seeded from its text, instead of two shared glyphs — so the stød page shows a
+  // distinct wave per word. Pure/deterministic (no RNG at render): SSR and client
+  // markup stay identical, same discipline as lib/waveform.ts. The semantic
+  // invariant is preserved: med-stød words keep exactly one red `dip` bar (the
+  // stød dip); utan-stød words have none.
+  type Bar = { h: number; dip: boolean };
+  function hashStr(s: string): number {
+    let h = 2166136261; // FNV-1a
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(seed: number): () => number {
+    let a = seed;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function barsFor(word: string, withDip: boolean): Bar[] {
+    const rand = mulberry32(hashStr(word) || 1);
+    const count = 5 + Math.floor(rand() * 2); // 5 or 6 bars
+    // The med-stød dip sits on an interior bar (never the first/last).
+    const dipIndex = withDip ? 1 + Math.floor(rand() * (count - 2)) : -1;
+    return Array.from({ length: count }, (_, i) =>
+      i === dipIndex ? { h: 4, dip: true } : { h: 6 + Math.round(rand() * 8), dip: false },
+    );
+  }
 
   // Which cell is currently animating, and a monotonic counter to restart the
   // CSS sweep on repeat plays of the same cell.
@@ -65,6 +85,8 @@
     {#each pairs as pair, i (i)}
       {@const keyA = `${i}-a`}
       {@const keyB = `${i}-b`}
+      {@const barsA = barsFor(pair.a, false)}
+      {@const barsB = barsFor(pair.b, true)}
       <div class="mp-row">
         <span class="mp-cell">
           <button
@@ -77,7 +99,7 @@
             {pair.a}
             <span class="glyph" class:playing={playingKey === keyA} aria-hidden="true">
               {#key playingKey === keyA ? pulse : 0}
-                {#each UTAN as bar, j (j)}
+                {#each barsA as bar, j (j)}
                   <span class="bar" style={`height:${bar.h}px;animation-delay:${j * 55}ms`}></span>
                 {/each}
               {/key}
@@ -96,7 +118,7 @@
             {pair.b}
             <span class="glyph" class:playing={playingKey === keyB} aria-hidden="true">
               {#key playingKey === keyB ? pulse : 0}
-                {#each MED as bar, j (j)}
+                {#each barsB as bar, j (j)}
                   <span class="bar" class:dip={bar.dip} style={`height:${bar.h}px;animation-delay:${j * 55}ms`}
                   ></span>
                 {/each}

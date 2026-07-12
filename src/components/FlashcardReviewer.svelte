@@ -6,7 +6,6 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
-  import Waveform from './Waveform.svelte';
   import CelebrationFlag from './CelebrationFlag.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
   import { DUE_ALL_GROUP_ID, type GroupMatch, type StudyGroup } from '../lib/deck-groups.ts';
@@ -81,6 +80,13 @@
   // Deck popover open/closed (replaces the old native <select> dropdown). The
   // pill's hover/open visual is handled in CSS; only "open" needs to be state.
   let pickerOpen = $state(false);
+  // Cloze mode: the Swedish sentence is a hidden hint that fades up on click.
+  let hintOpen = $state(false);
+
+  // Listen-mode voice graph (template §speaker): pure-gray span bars. The word
+  // graph is 7 bars; the sentence graph is longer (per design override).
+  const VOICE_BARS = [10, 22, 34, 26, 34, 18, 10];
+  const VOICE_BARS_LONG = [8, 18, 30, 22, 34, 26, 32, 16, 28, 20, 34, 14, 24];
 
   const now = () => new Date();
   const current = $derived(queue[idx]);
@@ -95,6 +101,13 @@
   const clozeText = $derived(direction === 'cloze' && current ? clozeSentence(current) : null);
   // Is the due-only cross-deck group selected? (Drives its plain empty state.)
   const isDueAll = $derived(groups.find((g) => g.id === selectedGroupId)?.match.kind === 'all');
+  // The listen-mode voice graph: longer bars for the sentence exercise.
+  const voiceBars = $derived(direction === 'listen-sentence' ? VOICE_BARS_LONG : VOICE_BARS);
+  // Reset the cloze hint whenever the shown card changes.
+  $effect(() => {
+    idx;
+    hintOpen = false;
+  });
 
   // Session state set by start(), so we don't re-filter the 5000+ card union
   // on every render/card: the raw active pool (distractor source), its size (for
@@ -699,7 +712,15 @@
 
         <div class="drill">
           {#if direction === 'listen' || direction === 'listen-sentence'}
-            <p class="prompt-caption">{direction === 'listen' ? T.listenPrompt : T.listenSentencePrompt}</p>
+            {#snippet voiceGraph()}
+              <span class="voice-wave" aria-hidden="true">
+                {#key promptPulse}
+                  {#each voiceBars as h, j (j)}
+                    <span class="voice-bar" style={`height:${h}px;animation-delay:${j * 55}ms`}></span>
+                  {/each}
+                {/key}
+              </span>
+            {/snippet}
             <!-- Plain replay (not SpeakButton): its aria-label must NOT contain the
                  Danish text, or a screen reader would announce the answer before
                  the learner attempts the exercise. -->
@@ -711,22 +732,25 @@
             {:else if promptAudioState === 'blocked'}
               <!-- Autoplay denied (no user gesture yet): an explicit play instead of
                    pretending the clip was heard. The click is the gesture. -->
-              <button type="button" class="wf-btn wf-icon" onclick={() => playPrompt()} aria-label={T.play}>
-                <Waveform size="icon" pulse={promptPulse} />
+              <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.play}>
+                {@render voiceGraph()}
               </button>
+              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{T.slowSpeed}</button>
             {:else}
-              <button type="button" class="wf-btn wf-icon" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
-                <Waveform size="icon" pulse={promptPulse} />
+              <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
+                {@render voiceGraph()}
               </button>
-              {#if direction === 'listen-sentence'}
-                <button type="button" class="slow" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
-              {/if}
+              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{T.slowSpeed}</button>
               {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
             {/if}
           {:else if direction === 'cloze'}
             <p class="prompt-caption">{T.clozePrompt}</p>
             <p class="prompt prompt-cloze" lang="da">{clozeText?.text}</p>
-            <p class="prompt-ex">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
+            {#if hintOpen}
+              <p class="prompt-ex hint-open">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
+            {:else}
+              <button type="button" class="hint-toggle" onclick={() => (hintOpen = true)}>{T.clozeHint}</button>
+            {/if}
           {:else}
             <p class="prompt">{current.swedish}</p>
             {#if current.exampleSv}<p class="prompt-ex">{current.exampleSv}</p>{/if}
@@ -743,12 +767,12 @@
               <p class="prompt-caption instr">{T.speakPrompt}</p>
               <span class="hairline" aria-hidden="true"></span>
               <div class="reveal-row">
-                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSpeak}>{T.speakReveal}</button>
+                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSpeak}>{T.speakReveal} <span class="key" aria-hidden="true">enter</span></button>
               </div>
             {:else if direction === 'listen-sentence'}
               <span class="hairline" aria-hidden="true"></span>
               <div class="reveal-row">
-                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSelf}>{T.listenSentenceReveal}</button>
+                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSelf}>{T.listenSentenceReveal} <span class="key" aria-hidden="true">enter</span></button>
               </div>
             {:else}
               <form class="answer-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
@@ -765,23 +789,28 @@
                   spellcheck={false}
                   placeholder={T.placeholder}
                 />
-                <button type="submit" class="text-btn reveal-btn">{T.reveal}</button>
+                <p class="charbar">
+                  {#each ['æ', 'ø', 'å'] as ch}
+                    <button type="button" class="char" onclick={() => insertChar(ch)} aria-label={`Infoga ${ch}`}>{ch}</button>
+                  {/each}
+                </p>
+                <button type="submit" class="text-btn reveal-btn">{T.reveal} <span class="key" aria-hidden="true">enter</span></button>
               </form>
-              <p class="charbar">
-                <span class="char-help">{T.charHelper}</span>
-                {#each ['æ', 'ø', 'å'] as ch}
-                  <button type="button" class="char" onclick={() => insertChar(ch)} aria-label={`Infoga ${ch}`}>{ch}</button>
-                {/each}
-              </p>
             {/if}
           {:else}
-            <div class="answer" aria-live="polite">
+            <div class="answer" class:correct={!selfGraded && wasCorrect} aria-live="polite">
               {#if !selfGraded}
-                <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
-                  {wasCorrect ? T.correct : T.incorrect}
-                </p>
+                <!-- Wordless feedback: a green hairline on a correct answer; the
+                     struck-through attempt on a wrong one; nothing on an empty
+                     miss. The verdict word stays for screen readers only. -->
+                <span class="vh">{wasCorrect ? T.correct : T.incorrect}</span>
+                {#if wasCorrect}
+                  <span class="ok-line" aria-hidden="true"></span>
+                {:else if typed.trim()}
+                  <p class="attempt" lang="da" aria-hidden="true">{typed}</p>
+                {/if}
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
+              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{T.slowSpeed}</button>{/if}</p>
               {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
@@ -1048,6 +1077,25 @@
   }
   .prompt-cloze { font-size: 24px; }
   .prompt-ex { margin: 12px 0 0; font-size: 14px; color: var(--mut2); }
+  /* Cloze: the Swedish sentence is a hidden hint that fades up on click. */
+  .hint-toggle {
+    margin: 12px 0 0;
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--mut4);
+    cursor: pointer;
+  }
+  .hint-toggle:hover { color: var(--mut2); border: none; }
+  @media (prefers-reduced-motion: no-preference) {
+    .prompt-ex.hint-open { animation: hintFadeUp 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+  }
+  @keyframes hintFadeUp {
+    from { transform: translateY(6px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
   .hint { color: var(--mut2); font-size: 13px; margin: 10px 0 0; }
 
   /* Text-only buttons (reveal / skip / done actions). Overrides global button. */
@@ -1061,27 +1109,44 @@
   }
   .text-btn:hover { color: var(--ink); border: none; }
 
-  /* Waveform replay button (listen modes). */
-  .wf-btn {
+  /* Voice-graph replay button (listen modes) — larger pure-gray span bars. */
+  .voice-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    height: 52px;
     margin-top: 14px;
-    padding: 8px 10px;
+    padding: 12px 10px;
     background: none;
     border: none;
-    color: var(--mut1);
-    font-size: 14px;
     cursor: pointer;
   }
-  .wf-btn:hover { color: var(--ink); border: none; }
+  .voice-wave { display: inline-flex; align-items: center; gap: 4px; }
+  .voice-bar {
+    flex: none;
+    width: 4.5px;
+    border-radius: 3px;
+    background: var(--bars);
+    transform-origin: center;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .voice-bar { animation: voicePulse 500ms ease-in-out both; }
+  }
+  @keyframes voicePulse {
+    0% { transform: scaleY(1); }
+    50% { transform: scaleY(1.35); }
+    100% { transform: scaleY(1); }
+  }
+  /* 0.75× slow-replay: small, subtle, mono — sits just below the graph. */
   .slow {
-    margin-top: 8px;
+    margin-top: 2px;
     background: none;
     border: none;
-    padding: 4px 8px;
-    color: var(--mut2);
-    font-size: 13px;
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--mut4);
     cursor: pointer;
   }
   .slow:hover { color: var(--ink); border: none; }
@@ -1091,6 +1156,8 @@
   .hairline { display: block; width: 168px; height: 1px; background: var(--bd3); margin-top: 30px; }
   .reveal-row { margin-top: 30px; }
   .reveal-btn { margin-top: 16px; }
+  /* The "enter" key hint on reveal buttons — smaller, mono, a darker tone. */
+  .key { font-family: var(--font-mono); font-size: 10px; color: var(--mut4); }
 
   /* ---- Känn igen: stacked choice pills ---- */
   .choices {
@@ -1141,7 +1208,6 @@
     flex-wrap: wrap;
     margin: 18px 0 0;
   }
-  .char-help { width: 100%; text-align: center; color: var(--mut3); font-size: 11px; margin-bottom: 2px; }
   .char {
     font: inherit;
     font-size: 15px;
@@ -1157,9 +1223,41 @@
 
   /* ---- Revealed answer ---- */
   .answer { display: flex; flex-direction: column; align-items: center; width: 100%; }
-  .verdict { margin: 24px 0 0; font-size: 13.5px; font-weight: 600; }
-  .verdict.ok { color: var(--ok); }
-  .verdict.no { color: var(--red); }
+  /* Wordless feedback. Correct: a green hairline above the word that scales in
+     from center, and the whole answer block rises in. Wrong: the struck-through
+     attempt (no animation). Empty miss: nothing. */
+  .ok-line {
+    display: block;
+    width: 30px;
+    height: 2px;
+    border-radius: 1px;
+    margin: 26px auto 0;
+    background: var(--ok);
+    box-shadow: 0 0 12px var(--ok);
+    transform-origin: center;
+  }
+  .attempt {
+    margin: 0 0 6px;
+    font-size: 17px;
+    font-weight: 300;
+    color: var(--mut3);
+    text-decoration: line-through;
+    text-decoration-color: var(--red);
+    text-decoration-thickness: 1px;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .ok-line { animation: hairlineIn 550ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+    .answer.correct { animation: answerRise 480ms cubic-bezier(0.2, 0.8, 0.3, 1) 120ms both; }
+  }
+  @keyframes hairlineIn {
+    0% { transform: scaleX(0); opacity: 0; }
+    60% { transform: scaleX(1.35); }
+    100% { transform: scaleX(1); opacity: 1; }
+  }
+  @keyframes answerRise {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
   .da {
     display: flex;
     align-items: center;

@@ -37,7 +37,12 @@ const searchStarter = allCards.map((c) => ({
   danish: c.danish,
   swedish: c.swedish,
   deck: c.deck,
+  tags: c.tags,
   ...(c.audio ? { audio: c.audio } : {}),
+  ...(c.exampleDa ? { exampleDa: c.exampleDa } : {}),
+  ...(c.exampleSv ? { exampleSv: c.exampleSv } : {}),
+  ...(c.audioExample ? { audioExample: c.audioExample } : {}),
+  ...(c.note ? { note: c.note } : {}),
 }));
 const totalWords = cardCount + praksisUniqueCount;
 ---
@@ -52,6 +57,7 @@ const totalWords = cardCount + praksisUniqueCount;
 
     <OrdlistaSearch client:idle starter={searchStarter} />
 
+    <div id="ordlista-sections">
     {
       sections.map((s) => (
         <section class="theme">
@@ -73,7 +79,8 @@ const totalWords = cardCount + praksisUniqueCount;
       ))
     }
 
-    <p class="list-note">visar de {cardCount} utvalda grundorden</p>
+      <p class="list-note">visar de {cardCount} utvalda grundorden</p>
+    </div>
 
     <WordAudio client:idle />
   </div>
