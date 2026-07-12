@@ -9,6 +9,7 @@
     audio,
     label = 'Lyssna',
     ariaLabel,
+    showLabel = true,
   }: {
     text: string;
     audio?: string;
@@ -17,6 +18,9 @@
      *  text; listening exercises pass e.g. 'Lyssna på ordet' so the answer
      *  isn't leaked to screen readers or tooltip surfaces. */
     ariaLabel?: string;
+    /** When false, render only the waveform glyph (no visible text) — the
+     *  accessible name stays on the aria-label. */
+    showLabel?: boolean;
   } = $props();
 
   let available = $state(true);
@@ -37,7 +41,7 @@
 
 {#if available}
   <button type="button" class="speak" onclick={play} aria-label={ariaLabel ?? `${label} på danska: ${text}`}>
-    <Waveform size="icon" {pulse} /> {label}
+    <Waveform size="icon" {pulse} />{#if showLabel} {label}{/if}
   </button>{#if fellBack}<span
       class="tts-hint"
       title="Spelades med webbläsarens talsyntes — inspelat klipp saknas eller kunde inte spelas"

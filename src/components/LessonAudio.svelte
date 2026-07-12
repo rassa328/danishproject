@@ -23,6 +23,9 @@
     let playing: HTMLElement | null = null;
 
     for (const el of spans) {
+      // Skip Danish words that are already interactive controls (e.g. the
+      // MinimalPairs component's play buttons) — they own their own audio.
+      if (el.closest('button')) continue;
       const text = el.textContent ?? '';
       // A span may override its pronunciation (stød pairs) via data-ipa/data-say;
       // the same override yields the same clip id the generator wrote.

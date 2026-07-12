@@ -14,20 +14,26 @@ vocabTags: ['stoed']
 practiceDirection: 'listen'
 ---
 
+import MinimalPairs from '../../components/MinimalPairs.svelte';
+
 **Stød** är ett kort, knarrigt avbrott i rösten (en glottal "knäpp") som ligger på långa vokaler eller på vokal + *l, m, n, ng, r, v, j*. Svenskan har **tonaccent** (accent 1 och 2) men **inget stød** – och det är just därför svenskar låter svenska när de pratar danska.
 
 Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska ord åt. (Allt nedan utgår från standarddanska/*rigsdansk* – dialekterna söder om *stødgrænsen*, som sønderjyska och de sydligaste öarna, saknar stød.)
 
 ## Minimala par
 
-| Utan stød | Med stød | Betydelse |
-| --- | --- | --- |
-| <span lang="da">hun</span> | <span lang="da">hund</span> | hon / hund |
-| <span lang="da">mor</span> | <span lang="da">mord</span> | mamma / mord |
-| <span lang="da">bønner</span> | <span lang="da">bønder</span> | bönor / bönder |
-| <span lang="da" data-ipa="ˈlɛːsɐ">læser</span> *(en läsare)* | <span lang="da" data-ipa="ˈlɛːʔsɐ">læser</span> *(läser, verb)* | substantivet saknar stød, verbet har det |
-| <span lang="da" data-ipa="ˈhɛnɐ">hænder</span> *(händer/sker)* | <span lang="da" data-ipa="ˈhɛnʔɐ">hænder</span> *(händer, kroppsdelar)* | verbet utan, substantivet med |
-| <span lang="da" data-ipa="ˈanən">anden</span> *(den andra)* | <span lang="da" data-ipa="ˈanʔən">anden</span> *(anden, fågeln)* | "den andra" utan, fågeln med |
+<MinimalPairs
+  client:visible
+  caption="klicka på ett ord för att höra det — äkta danskt stød, inte talsyntes"
+  pairs={[
+    { a: 'hun', b: 'hund', sense: 'hon / hund' },
+    { a: 'mor', b: 'mord', sense: 'mamma / mord' },
+    { a: 'bønner', b: 'bønder', sense: 'bönor / bönder' },
+    { a: 'læser', aIpa: 'ˈlɛːsɐ', aNote: '(en läsare)', b: 'læser', bIpa: 'ˈlɛːʔsɐ', bNote: '(läser, verb)', sense: 'substantivet saknar stød, verbet har det' },
+    { a: 'hænder', aIpa: 'ˈhɛnɐ', aNote: '(händer/sker)', b: 'hænder', bIpa: 'ˈhɛnʔɐ', bNote: '(händer, kroppsdelar)', sense: 'verbet utan, substantivet med' },
+    { a: 'anden', aIpa: 'ˈanən', aNote: '(den andra)', b: 'anden', bIpa: 'ˈanʔən', bNote: '(anden, fågeln)', sense: '"den andra" utan, fågeln med' },
+  ]}
+/>
 
 > Härma **inte** stød med svensk tonaccent – det är den vanligaste signalen som avslöjar en svensk. Stødet är ett röstavbrott, inte en tonhöjning.
 
@@ -36,5 +42,3 @@ Stødet är **betydelseskiljande**: det ensamt kan skilja två annars identiska 
 1. Lyssna efter avbrottet i ord som <span lang="da">hund</span>, <span lang="da">mord</span>, <span lang="da">bønder</span>.
 2. Jämför par-vis – säg <span lang="da">hun</span>/<span lang="da">hund</span> direkt efter varandra.
 3. Överdriv avbrottet i början; det blir naturligare med tiden.
-
-Orden i den här lektionen har **riktiga ljudklipp** – klicka på ett danskt ord för att höra det (äkta danskt stød, inte talsyntes). Också de **likstavade** paren spelas nu med respektive utan stød: klicka på båda cellerna i en rad – t.ex. <span lang="da" data-ipa="ˈanən">anden</span> (den andra) mot <span lang="da" data-ipa="ˈanʔən">anden</span> (fågeln) – och lyssna efter avbrottet i den senare.

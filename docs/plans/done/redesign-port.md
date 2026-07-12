@@ -2,7 +2,7 @@
 title: Port the design-handoff redesign into the Astro app
 owner: rasmussamuelson
 branch: redesign-port
-status: active
+status: done
 write_set:
   - src/
   - public/favicon.svg

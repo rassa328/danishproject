@@ -54,10 +54,8 @@ export const UI = {
       'Kunde inte hämta praksis-orden — övar bara med grundorden just nu. Ladda om sidan för att försöka igen.',
     deckLabel: 'Kortlek:',
     // Deck pill / popover chrome (redesign). `kortUnit` is the count suffix
-    // ("29 KORT"); `swedishLabel` captions the Swedish prompt word; the footer
-    // note explains the auto-picked default deck.
+    // ("29 KORT"); the footer note explains the auto-picked default deck.
     kortUnit: 'KORT',
-    swedishLabel: 'svenska',
     popoverFooter: 'standardleken väljs åt dig',
     directionLegend: 'Riktning',
     write: 'Skriv',
@@ -66,21 +64,21 @@ export const UI = {
     speak: 'Säg',
     cloze: 'Lucka',
     listenSentence: 'Lyssna (mening)',
-    choosePrompt: 'Välj rätt danska ord',
-    listenSentencePrompt: '🎧 Lyssna på hela meningen på danska — tryck sedan för att se den.',
+    choosePrompt: 'välj rätt danska ord',
+    listenSentencePrompt: 'lyssna på meningen',
     listenSentenceReveal: 'Visa meningen',
     comprehendHint: 'Bedöm dig själv: hur mycket förstod du? (1–4)',
-    speakPrompt: '🗣 Säg ordet högt på danska — tryck sedan för att höra det rätta uttalet.',
-    speakReveal: 'Hör uttalet',
+    speakPrompt: 'säg ordet högt',
+    speakReveal: 'Hör uttalet (Enter)',
     selfGradeHint: 'Bedöm dig själv: hur nära var ditt uttal? (1–4)',
     noAudio: 'Ingen dansk röst i den här webbläsaren — uttalet kan inte spelas.',
-    clozePrompt: 'Fyll i ordet som saknas (på danska):',
+    clozePrompt: 'fyll i ordet som saknas',
     noClozeCards: 'Den här kortleken saknar exempelmeningar, så Lucka-läget har inga kort här. Välj en annan kortlek eller ett annat läge.',
     noListenCards: 'Den här kortleken saknar inspelade meningar, så Lyssna (mening)-läget har inga kort här. Välj en annan kortlek eller ett annat läge.',
     charHelper: 'Saknar æ ø å på tangentbordet? Klicka för att infoga:',
     trainingTagPrefix: 'Tränar taggen',
     showAllDecks: 'Visa alla kortlekar',
-    listenPrompt: '🎧 Lyssna och skriv ordet du hör:',
+    listenPrompt: 'lyssna och skriv ordet',
     replay: 'Spela igen',
     // Autoplay was blocked (no user gesture yet) — an explicit play button
     // starts the clip and the session continues normally.
@@ -98,12 +96,12 @@ export const UI = {
     reveal: 'Visa svar (Enter)',
     correct: '✓ Rätt!',
     incorrect: '✗ Inte riktigt',
-    grades: { again: 'Igen', hard: 'Svårt', good: 'Bra', easy: 'Lätt' },
-    gradeKeysHint: 'Tangenterna 1–4 graderar (eller klicka på knapparna).',
+    grades: { again: 'Igen', hard: 'Svårt', good: 'Medel', easy: 'Lätt' },
+    gradeKeysHint: 'tangenterna 1–4 graderar — och styr hur ofta ordet repeteras · klicka på ordet för att höra det',
     wrongHint: 'Fel svar räknas som ”Igen”.',
     saveError: 'Kunde inte spara framsteg — din lagring kan vara full.',
     doneTitle: 'Klart för nu!',
-    doneEmpty: 'Inga kort att repetera just nu',
+    doneEmpty: 'Inget att repetera i den här leken just nu — välj en annan lek eller öva fritt.',
     dueAllEmpty: 'Inget förfallet just nu — allt är repeterat.',
     stillDue: (n: number, mode: string) => `${n} kvar i ${mode} →`,
     toLessons: 'Läs en lektion →',
@@ -261,6 +259,9 @@ export const UI = {
     repeteraSub: 'schemat väljer orden',
     // Whisper above the category cloud (tal + flashcard sets).
     categoryWhisper: 'eller en kategori',
+    // Toggle that reveals / hides the rest of the category grid.
+    fler: 'fler…',
+    farre: 'färre',
     talNote: '0–100',
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
@@ -355,7 +356,7 @@ export const UI = {
     save: 'Spara',
     saved: 'Sparat — gäller nästa omgång.',
     suspendedCount: (n: number) => `Pausade ord: ${n}`,
-    suspendedHint: 'Pausade automatiskt efter många misslyckanden. Bra/Lätt i fri övning återupptar ett ord.',
+    suspendedHint: 'Pausade automatiskt efter många misslyckanden. Medel/Lätt i fri övning återupptar ett ord.',
     resumeAll: 'Återuppta alla',
   },
 
@@ -426,7 +427,7 @@ export const UI = {
     words: (started: number, total: number) => `${started} av ${total} ord påbörjade`,
     due: (n: number) => (n === 1 ? '1 ord att repetera' : `${n} ord att repetera`),
     dueNone: 'Inget att repetera just nu',
-    streak: (n: number) => (n === 1 ? '🔥 1 dag i rad' : `🔥 ${n} dagar i rad`),
+    streak: (n: number) => (n === 1 ? '1 dag i rad' : `${n} dagar i rad`),
     streakNone: 'Ingen svit än — repetera i dag för att starta en.',
   },
 } as const;

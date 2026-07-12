@@ -24,6 +24,10 @@
   import { UI } from '../lib/strings.ts';
 
   const T = UI.flashcards;
+  // Inställningar + Säkerhetskopiera are temporarily hidden from the UI (user
+  // request). `as boolean` keeps the block type-checked (no unreachable-code
+  // error) and its handlers/import referenced; flip to true to restore.
+  const SHOW_SETTINGS = false as boolean;
   // Mode labels for the done screen's "N kvar i {läge}" links (same mapping as
   // SettingsPanel's default-mode picker).
   const MODE_LABEL: Record<Direction, string> = {
@@ -435,6 +439,13 @@
       if (e.key >= '1' && e.key <= '4') {
         e.preventDefault();
         grade(Number(e.key) as ReviewGrade);
+        return;
+      }
+      if (e.key === 'Enter') {
+        // Enter accepts the obvious grade: Igen (1) when the answer was wrong
+        // (2–4 are disabled anyway), Medel (3) when correct or self-graded.
+        e.preventDefault();
+        grade((selfGraded || wasCorrect ? 3 : 1) as ReviewGrade);
       }
       return;
     }
@@ -700,12 +711,12 @@
             {:else if promptAudioState === 'blocked'}
               <!-- Autoplay denied (no user gesture yet): an explicit play instead of
                    pretending the clip was heard. The click is the gesture. -->
-              <button type="button" class="wf-btn" onclick={() => playPrompt()}>
-                <Waveform size="icon" pulse={promptPulse} /> {T.play}
+              <button type="button" class="wf-btn wf-icon" onclick={() => playPrompt()} aria-label={T.play}>
+                <Waveform size="icon" pulse={promptPulse} />
               </button>
             {:else}
-              <button type="button" class="wf-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
-                <Waveform size="icon" pulse={promptPulse} /> {T.replay}
+              <button type="button" class="wf-btn wf-icon" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
+                <Waveform size="icon" pulse={promptPulse} />
               </button>
               {#if direction === 'listen-sentence'}
                 <button type="button" class="slow" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
@@ -717,7 +728,6 @@
             <p class="prompt prompt-cloze" lang="da">{clozeText?.text}</p>
             <p class="prompt-ex">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
           {:else}
-            <p class="prompt-caption">{T.swedishLabel}</p>
             <p class="prompt">{current.swedish}</p>
             {#if current.exampleSv}<p class="prompt-ex">{current.exampleSv}</p>{/if}
           {/if}
@@ -771,9 +781,8 @@
                   {wasCorrect ? T.correct : T.incorrect}
                 </p>
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
-              <p class="sv">{current.swedish}</p>
-              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
+              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
+              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
               <div class="grade-pills">
@@ -789,27 +798,31 @@
       <!-- Helper caption sits below the card (design §8.7), still keyed to the
            revealed state and carrying the same per-mode copy. -->
       {#if phase === 'revealed'}
-        <p class="card-hint">{#if direction === 'listen-sentence'}{T.comprehendHint}{:else if selfGraded}{T.selfGradeHint}{:else if wasCorrect}{T.gradeKeysHint}{:else}{T.wrongHint}{/if}</p>
+        <p class="card-hint">{#if direction === 'listen-sentence'}{T.comprehendHint}{:else if selfGraded}{T.selfGradeHint}{:else}{T.gradeKeysHint}{/if}</p>
       {/if}
     {/if}
 
     {#if warning}<p class="warning" role="alert">{warning}</p>{/if}
   </section>
 
-  <!-- Apply saved settings only when between rounds; mid-round we keep the
-       current queue and they take effect next round (matches the panel copy). -->
-  <div class="panel-wrap">
-    <SettingsPanel {store} onSaved={() => { if (phase === 'done') start(); }} />
-  </div>
+  <!-- Inställningar (SettingsPanel) + Säkerhetskopiera temporarily hidden from
+       the UI (user request). Kept behind {#if false} so the store wiring,
+       import, and export/import handlers stay referenced and re-enabling is a
+       one-line change. Settings still fall back to store.getSettings() defaults. -->
+  {#if SHOW_SETTINGS}
+    <div class="panel-wrap">
+      <SettingsPanel {store} onSaved={() => { if (phase === 'done') start(); }} />
+    </div>
 
-  <details class="backup">
-    <summary>{T.backup.summary}</summary>
-    <p>{T.backup.note}</p>
-    <button onclick={exportBackup}>{T.backup.export}</button>
-    <label class="import">{T.backup.import}
-      <input type="file" accept="application/json" aria-label={T.backup.import} onchange={importBackup} />
-    </label>
-  </details>
+    <details class="backup">
+      <summary>{T.backup.summary}</summary>
+      <p>{T.backup.note}</p>
+      <button onclick={exportBackup}>{T.backup.export}</button>
+      <label class="import">{T.backup.import}
+        <input type="file" accept="application/json" aria-label={T.backup.import} onchange={importBackup} />
+      </label>
+    </details>
+  {/if}
 {/if}
 
 <style>
@@ -1163,7 +1176,6 @@
   }
   /* Primary answer audio reads red; the example's secondary control stays muted. */
   .da :global(.speak) { color: var(--red); font-size: 14px; }
-  .sv { margin: 14px 0 0; font-size: 15px; color: var(--mut1); }
   .ex {
     display: inline-flex;
     align-items: center;
