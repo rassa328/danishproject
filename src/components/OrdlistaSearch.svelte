@@ -199,6 +199,13 @@
     line-height: 1.5;
     color: var(--mut2);
   }
+  /* Match VocabTable's glossary house style: lowercase-first word,
+     translation and example; notes keep normal sentence case. */
+  .da::first-letter,
+  .sv::first-letter,
+  .ex::first-letter {
+    text-transform: lowercase;
+  }
   .note {
     font-size: 13px;
     line-height: 1.55;
