@@ -10,12 +10,22 @@ import { UI } from '../lib/strings.ts';
 ---
 
 <BaseLayout title={UI.drill.numbers.title} description={UI.drill.numbers.description}>
-  <h1>{UI.drill.numbers.title}</h1>
-  <p class="lead">{UI.drill.numbers.lead}</p>
+  <div class="legacy-page">
+    <h1>{UI.drill.numbers.title}</h1>
+    <p class="lead">{UI.drill.numbers.lead}</p>
 
-  <DrillEngine client:idle kind="numbers" manifest={manifest} />
+    <DrillEngine client:idle kind="numbers" manifest={manifest} />
+  </div>
 
   <style>
-    .lead { color: var(--muted); }
+    .legacy-page {
+      flex: 1;
+      width: min(720px, 92vw);
+      margin: 0 auto;
+      padding: 48px 0 var(--sp-12);
+    }
+    .lead {
+      color: var(--mut1);
+    }
   </style>
 </BaseLayout>
