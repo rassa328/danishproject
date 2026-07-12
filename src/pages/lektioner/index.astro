@@ -3,7 +3,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import { getCollection } from 'astro:content';
 import { withBase } from '../../lib/url.ts';
 import { groupByUnit } from '../../lib/lessons.ts';
-import { formatLevel } from '../../lib/format.ts';
 import { UI } from '../../lib/strings.ts';
 import LessonsProgress from '../../components/LessonsProgress.svelte';
 
@@ -13,47 +12,118 @@ const lessonIds = lessons.map((l) => l.id);
 ---
 
 <BaseLayout title={UI.nav.lessons} description="Korta danska lektioner för svenskar: uttal, falska vänner och tal.">
-  <header class="ghost-head">
-    <span class="ghost" aria-hidden="true">Æ Ø Å</span>
-    <h1>{UI.nav.lessons}</h1>
-    <p class="lead">{UI.lessons.indexLead}</p>
-  </header>
-  <LessonsProgress client:idle ids={lessonIds} />
+  <div class="page">
+    <header class="ghost-head">
+      <span class="ghost" aria-hidden="true">Æ Ø Å</span>
+      <h1>{UI.nav.lessons}</h1>
+      <p class="lead">{UI.lessons.indexLead}</p>
+    </header>
+    <LessonsProgress client:idle ids={lessonIds} />
 
-  {
-    units.map((u) => (
-      <section class="unit">
-        <h2>{u.label}</h2>
-        <p class="unit-blurb">{u.blurb}</p>
-        <ul class="lessons">
-          {u.lessons.map((l) => (
-            <li>
-              <a href={withBase(`lektioner/${l.id}`)}>
-                <span class="row">
-                  <span class="badge">{formatLevel(l.data.level)}</span>
-                  <strong>{l.data.title}</strong>
-                  <span class="min">{l.data.estMinutes} min</span>
+    {
+      units.map((u) => (
+        <section class="unit">
+          <h2>{u.label}</h2>
+          <p class="unit-blurb">{u.blurb}</p>
+          <div class="lessons">
+            {u.lessons.map((l) => (
+              <a class="lesson-row" href={withBase(`lektioner/${l.id}`)}>
+                <span class="text">
+                  <span class="title">{l.data.title}</span>
+                  <span class="desc">{l.data.summary}</span>
                 </span>
-                <span class="summary">{l.data.summary}</span>
+                <span class="min">{l.data.estMinutes} min</span>
               </a>
-            </li>
-          ))}
-        </ul>
-      </section>
-    ))
-  }
+            ))}
+          </div>
+        </section>
+      ))
+    }
+  </div>
 
   <style>
-    .lead { color: var(--muted); }
-    .unit { margin-top: var(--sp-8); }
-    .unit h2 { margin-bottom: var(--sp-1); }
-    .unit-blurb { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-4); }
-    .lessons { list-style: none; padding: 0; display: grid; gap: var(--sp-3); }
-    .lessons a { display: block; padding: var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
-    .lessons a:hover { border-color: var(--accent); }
-    .row { display: flex; align-items: center; gap: var(--sp-3); }
-    .badge { background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius-pill); padding: 0 var(--sp-2); font-weight: 600; font-size: 0.75rem; }
-    .min { margin-left: auto; color: var(--muted); font-size: var(--step--1); }
-    .summary { display: block; margin-top: var(--sp-2); color: var(--muted); font-size: var(--step--1); }
+    .page {
+      flex: 1;
+      width: min(720px, 92vw);
+      margin: 0 auto;
+      padding: 48px 0 0;
+      position: relative;
+    }
+    .ghost-head {
+      padding: 8px 0 4px;
+    }
+    .page h1 {
+      position: relative;
+      margin: 0;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: 46px;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+    .lead {
+      position: relative;
+      margin: 12px 0 0;
+      font-size: 15px;
+      color: var(--mut1);
+    }
+
+    .unit {
+      margin-top: 56px;
+    }
+    .unit h2 {
+      margin: 0 0 4px;
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: 23px;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      color: var(--ink);
+    }
+    .unit-blurb {
+      margin: 0 0 8px;
+      font-size: 13.5px;
+      color: var(--mut3);
+    }
+    .lessons {
+      display: flex;
+      flex-direction: column;
+    }
+    .lesson-row {
+      display: flex;
+      align-items: baseline;
+      gap: 18px;
+      padding: 17px 6px;
+      border-bottom: 1px solid var(--bd2);
+      text-decoration: none;
+      color: inherit;
+      transition: background-color 120ms ease;
+    }
+    .lesson-row:hover,
+    .lesson-row:focus-visible {
+      background: var(--card);
+    }
+    .text {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .title {
+      font-size: 15.5px;
+      font-weight: 500;
+      color: var(--ink);
+    }
+    .desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--mut2);
+    }
+    .min {
+      flex: none;
+      font-size: 12.5px;
+      color: var(--mut3);
+    }
   </style>
 </BaseLayout>

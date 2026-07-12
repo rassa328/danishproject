@@ -1,47 +1,76 @@
 ---
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
+import SiteHead from '../components/SiteHead.astro';
 import { withBase } from '../lib/url.ts';
 import { UI } from '../lib/strings.ts';
+import { cardCount } from '../lib/decks.ts';
+import { praksisUniqueCount } from '../lib/praksis.ts';
 
 interface Props {
   title: string;
   description?: string;
 }
 const { title, description } = Astro.props;
-const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
+// Total studyable words, deduped (starter ∪ praksis) — the footer's ordlista
+// count, shown site-wide.
+const totalWords = (cardCount + praksisUniqueCount).toLocaleString('sv-SE');
 ---
 
 <!doctype html>
-<html lang="sv">
+<html lang="sv" data-theme="dark">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
-    <meta name="generator" content={Astro.generator} />
-    {description && <meta name="description" content={description} />}
-    <title>{fullTitle}</title>
+    <SiteHead title={title} description={description} />
   </head>
   <body>
     <a class="skip-link" href="#main">{UI.skipLink}</a>
-    <Nav />
-    <main id="main">
-      <slot />
-    </main>
-    <footer>
-      <p>
-        {UI.footer}
-        <a href={withBase('flashcards')}>flashcards</a>
-      </p>
-    </footer>
+    <div class="site-shell">
+      <Nav />
+      <main id="main"><slot /></main>
+      <footer>
+        <span>{UI.footerAudio}</span>
+        <span aria-hidden="true">·</span>
+        <span>{UI.footerProgress}</span>
+        <span aria-hidden="true">·</span>
+        <a href={withBase('ordlista')}>{UI.footerWordlist(totalWords)}</a>
+      </footer>
+    </div>
     <style>
+      .site-shell {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+      /* Override the global `main` defaults: pages own their content width. */
+      main {
+        max-width: none;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
       footer {
-        max-width: var(--maxw);
-        margin-inline: auto;
-        padding: var(--sp-6) var(--sp-4);
-        border-top: 1px solid var(--border);
-        color: var(--muted);
-        font-size: var(--step--1);
+        display: flex;
+        align-items: baseline;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px 22px;
+        padding: 96px 24px 44px;
+        font-size: 12.5px;
+        color: var(--mut3);
+        text-align: center;
+      }
+      footer a {
+        color: var(--mut3);
+        text-decoration: none;
+        transition: color 120ms ease;
+      }
+      footer a:hover,
+      footer a:focus-visible {
+        color: var(--ink);
       }
     </style>
   </body>

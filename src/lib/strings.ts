@@ -13,7 +13,12 @@ export const UI = {
   brandDa: 'Dansk', // rendered in <span lang="da"> within the wordmark
   brandRest: ' för svenskar',
   skipLink: 'Hoppa till innehåll',
-  footer: `Lär dig danska som svensk · ${PROGRESS_NOTE.toLowerCase()} ·`,
+  // Redesign footer — three centered items (all pages except Zen).
+  footerAudio: 'allt är inläst med dansk röst',
+  footerProgress: PROGRESS_NOTE.toLowerCase(), // 'framsteg sparas i din webbläsare'
+  footerWordlist: (n: string) => `${n} ord i ordlistan`,
+  // Accessible name for the ◐ light/dark toggle in the nav.
+  themeToggle: 'Ljust eller mörkt läge',
 
   nav: {
     menuLabel: 'Huvudmeny',
@@ -29,14 +34,10 @@ export const UI = {
   },
 
   home: {
-    heroTitle: 'Förstå danskar när de faktiskt pratar',
-    heroLead: 'Du läser redan danska — här tränar du örat och uttalet: stød, blødt d och talad danska.',
-    heroCta: 'Börja med lektionerna',
-    samplePlay: 'Hör skillnaden',
-    // Labels under each word's real waveform in the hero.
+    // Labels + aria for the front-page StodCard hun/hund waveform (the only
+    // remaining home.* copy after the redesign; hero text is inline in index).
     sampleWordA: 'hun',
     sampleWordB: 'hund',
-    sampleCaption: 'stødet är hela skillnaden.',
     sampleAria: 'Lyssna på danska: hun och hund',
   },
 
@@ -52,6 +53,12 @@ export const UI = {
     praksisFailed:
       'Kunde inte hämta praksis-orden — övar bara med grundorden just nu. Ladda om sidan för att försöka igen.',
     deckLabel: 'Kortlek:',
+    // Deck pill / popover chrome (redesign). `kortUnit` is the count suffix
+    // ("29 KORT"); `swedishLabel` captions the Swedish prompt word; the footer
+    // note explains the auto-picked default deck.
+    kortUnit: 'KORT',
+    swedishLabel: 'svenska',
+    popoverFooter: 'standardleken väljs åt dig',
     directionLegend: 'Riktning',
     write: 'Skriv',
     listen: 'Lyssna',
@@ -250,6 +257,10 @@ export const UI = {
       'da-sv': { label: 'danska → svenska', sub: 'ser danska · skriver svenska' },
     },
     sources: { repetera: 'repetera', blandat: 'blandat', tal: 'tal' },
+    // Descriptive sub under "repetera" on the deck screen (blandat reuses freeNote).
+    repeteraSub: 'schemat väljer orden',
+    // Whisper above the category cloud (tal + flashcard sets).
+    categoryWhisper: 'eller en kategori',
     talNote: '0–100',
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
@@ -286,8 +297,9 @@ export const UI = {
     title: 'Ordlista',
     description: (total: number) =>
       `Sök bland alla ${total} danska ord, med svensk översättning, exempel och uttal.`,
-    lead: (starter: number, total: number) =>
-      `Sök bland alla ${total} ord som appen tränar. Nedanför hittar du de ${starter} utvalda grundorden som referenslista — klicka på ett danskt ord (eller exempel) för att höra det.`,
+    // Redesign subtitle: total formatted sv-SE ("5 077 ord"). The 225-starter
+    // note now lives in the on-page list footer.
+    lead: (total: number) => `${total.toLocaleString('sv-SE')} ord — klicka på ett danskt ord för att höra det.`,
     // The search island (searches starter ∪ the lazily fetched praksis deck).
     searchLabel: 'Sök ord',
     searchPlaceholder: 'Sök på danska eller svenska…',
@@ -317,7 +329,7 @@ export const UI = {
     prev: '← Föregående',
     next: 'Nästa →',
     backToLesson: '← Tillbaka till lektionen',
-    indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar — grupperade efter tema.',
+    indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar.',
     progress: (done: number, total: number) => `Du har läst ${done} av ${total} lektioner.`,
   },
 

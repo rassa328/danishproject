@@ -74,6 +74,9 @@
   let celebrate = $state(false);
   let container = $state<HTMLElement>();
   let input = $state<HTMLInputElement>();
+  // Deck popover open/closed (replaces the old native <select> dropdown). The
+  // pill's hover/open visual is handled in CSS; only "open" needs to be state.
+  let pickerOpen = $state(false);
 
   const now = () => new Date();
   const current = $derived(queue[idx]);
@@ -137,6 +140,34 @@
     // Remember the picked deck so the next visit resumes it (not always Vardag).
     store.setSettings({ selectedGroupId });
     start();
+  }
+
+  // ---- Deck pill + popover (presentation only; selection still flows through
+  // restartGuarded exactly like the old <select onchange>) ----
+  // Reformat a group label ("Falska vänner (29)") into the pill/popover display:
+  // uppercase name + a "29 KORT" count. Labels without a trailing "(n)" (e.g.
+  // "Att repetera (alla)") just uppercase, with no count column.
+  function deckDisplay(label: string): { name: string; count: string } {
+    const m = label.match(/^(.*?)\s*\((\d+)\)\s*$/);
+    const name = m?.[1];
+    const num = m?.[2];
+    if (name && num) return { name: name.toUpperCase(), count: `${num} ${T.kortUnit}` };
+    return { name: label.toUpperCase(), count: '' };
+  }
+  const selectedGroup = $derived(groups.find((g) => g.id === selectedGroupId));
+  const pillDisplay = $derived(deckDisplay(selectedGroup?.label ?? ''));
+
+  function togglePicker() {
+    pickerOpen = !pickerOpen;
+  }
+
+  /** Pick a deck from the popover. Mirrors the old `<select>`: set the new id,
+   *  then run the same restart guard that reverts to `prevGroup` on cancel. */
+  function pickDeck(id: string) {
+    pickerOpen = false;
+    if (id === selectedGroupId) return;
+    selectedGroupId = id;
+    restartGuarded(() => (selectedGroupId = prevGroup));
   }
 
   // Multiple-choice options for 'recognize' mode (see lib/session.ts for the
@@ -483,46 +514,116 @@
     prevGroup = selectedGroupId;
     ready = true;
     start();
+
+    // Deck popover dismissal: outside pointer-down or Escape closes it. Scoped
+    // to document because the pill/popover live in the header, outside the
+    // reviewer section's own keydown handler.
+    const onDocPointer = (e: PointerEvent) => {
+      if (!pickerOpen) return;
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest('[data-deck-picker]')) pickerOpen = false;
+    };
+    const onDocKey = (e: KeyboardEvent) => {
+      if (pickerOpen && e.key === 'Escape') pickerOpen = false;
+    };
+    document.addEventListener('pointerdown', onDocPointer);
+    document.addEventListener('keydown', onDocKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDocPointer);
+      document.removeEventListener('keydown', onDocKey);
+    };
   });
 </script>
 
 {#if !ready}
-  <p>{T.loading}</p>
+  <div class="head-row"><h1 class="page-title">{T.title}</h1></div>
+  <p class="loading-line">{T.loading}</p>
 {:else}
   {#if fromLesson}
     <p class="from-lesson"><a href={withBase(`lektioner/${fromLesson}`)}>{UI.lessons.backToLesson}</a></p>
   {/if}
-  <div class="bar">
-    {#if tag}
-      <span>{T.trainingTagPrefix} <strong>#{tag}</strong></span>
-      <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
-    {:else}
-      <label>
-        {T.deckLabel}
-        <select bind:value={selectedGroupId} onchange={() => restartGuarded(() => (selectedGroupId = prevGroup))}>
-          {#each groups.filter((g) => !g.optgroup) as g}<option value={g.id}>{g.label}</option>{/each}
-          {#each optgroups as og}
-            <optgroup label={og}>
-              {#each groups.filter((g) => g.optgroup === og) as g}<option value={g.id}>{g.label}</option>{/each}
-            </optgroup>
-          {/each}
-        </select>
-      </label>
-    {/if}
 
-    <fieldset class="dir">
-      <legend class="vh">{T.directionLegend}</legend>
-      <label><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.write}</label>
-      <label><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.recognize}</label>
-      <label><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listen}</label>
-      <!-- Cloze/listen-sentence are gated per deck: a pool with 0 eligible cards
-           disables the radio (with the reason as a tooltip) instead of letting
-           the learner discover an empty session after selecting. -->
-      <label title={listenSentenceCount === 0 ? T.listenSentenceUnavailable : undefined}><input type="radio" name="dir" value="listen-sentence" bind:group={direction} disabled={listenSentenceCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.listenSentence}{#if listenSentenceCount === 0}&nbsp;(0){/if}</label>
-      <label><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.speak}</label>
-      <label title={clozeCount === 0 ? T.clozeUnavailable : undefined}><input type="radio" name="dir" value="cloze" bind:group={direction} disabled={clozeCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} /> {T.cloze}{#if clozeCount === 0}&nbsp;(0){/if}</label>
-    </fieldset>
+  <!-- Header row: serif h1 + deck pill (or the tag bar when deep-linked). -->
+  <div class="head-row">
+    <h1 class="page-title">{T.title}</h1>
+    {#if tag}
+      <span class="tag-bar">
+        <span class="tag-label">{T.trainingTagPrefix} <strong>#{tag}</strong></span>
+        <button type="button" class="linklike" onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
+      </span>
+    {:else}
+      <!-- Deck picker: a mono pill that opens a popover. Selection still runs
+           through restartGuarded (same confirm+revert+persist as the old
+           <select onchange>); the popover mirrors the optgroup structure. -->
+      <span class="deck-picker" data-deck-picker>
+        <button
+          type="button"
+          class="deck-pill"
+          class:open={pickerOpen}
+          title={T.deckLabel}
+          aria-haspopup="true"
+          aria-expanded={pickerOpen}
+          onclick={togglePicker}
+        >
+          {pillDisplay.name}{#if pillDisplay.count} <span class="pill-sep">·</span> {pillDisplay.count}{/if}
+          <span class="pill-caret" aria-hidden="true">▾</span>
+        </button>
+        {#if pickerOpen}
+          <!-- A menu of buttons (not a listbox): buttons are natively focusable
+               and operable by Tab+Enter+Esc; the current deck is marked
+               aria-current. (A real listbox would require arrow-key/roving-tabindex
+               nav + option roles on non-button elements — not what this is.) -->
+          <div class="deck-pop" role="group" aria-label={T.deckLabel}>
+            {#each groups.filter((g) => !g.optgroup) as g}
+              {@const d = deckDisplay(g.label)}
+              <button
+                type="button"
+                class="deck-row"
+                class:selected={g.id === selectedGroupId}
+                aria-current={g.id === selectedGroupId ? 'true' : undefined}
+                onclick={() => pickDeck(g.id)}
+              >
+                <span class="deck-name">{d.name}</span>
+                <span class="deck-meta"><span class="deck-count">{d.count}</span><span class="deck-check" aria-hidden="true">{g.id === selectedGroupId ? '✓' : ''}</span></span>
+              </button>
+            {/each}
+            {#each optgroups as og}
+              <div class="deck-section">{og}</div>
+              {#each groups.filter((g) => g.optgroup === og) as g}
+                {@const d = deckDisplay(g.label)}
+                <button
+                  type="button"
+                  class="deck-row"
+                  class:selected={g.id === selectedGroupId}
+                  aria-current={g.id === selectedGroupId ? 'true' : undefined}
+                  onclick={() => pickDeck(g.id)}
+                >
+                  <span class="deck-name">{d.name}</span>
+                  <span class="deck-meta"><span class="deck-count">{d.count}</span><span class="deck-check" aria-hidden="true">{g.id === selectedGroupId ? '✓' : ''}</span></span>
+                </button>
+              {/each}
+            {/each}
+            <div class="deck-foot">{T.popoverFooter}</div>
+          </div>
+        {/if}
+      </span>
+    {/if}
   </div>
+
+  <!-- Mode pills: the six Direction radios, native dot hidden, label styled as a
+       pill. bind:group/onchange/disabled/title all preserved (§ contract). -->
+  <fieldset class="modes">
+    <legend class="vh">{T.directionLegend}</legend>
+    <label class="mode"><input type="radio" name="dir" value="produce" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.write}</label>
+    <label class="mode"><input type="radio" name="dir" value="recognize" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.recognize}</label>
+    <label class="mode"><input type="radio" name="dir" value="listen" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.listen}</label>
+    <!-- Cloze/listen-sentence are gated per deck: a pool with 0 eligible cards
+         disables the radio (with the reason as a tooltip) instead of letting
+         the learner discover an empty session after selecting. -->
+    <label class="mode" title={listenSentenceCount === 0 ? T.listenSentenceUnavailable : undefined}><input type="radio" name="dir" value="listen-sentence" bind:group={direction} disabled={listenSentenceCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.listenSentence}{#if listenSentenceCount === 0}&nbsp;(0){/if}</label>
+    <label class="mode"><input type="radio" name="dir" value="speak" bind:group={direction} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.speak}</label>
+    <label class="mode" title={clozeCount === 0 ? T.clozeUnavailable : undefined}><input type="radio" name="dir" value="cloze" bind:group={direction} disabled={clozeCount === 0} onchange={() => restartGuarded(() => (direction = prevDirection))} />{T.cloze}{#if clozeCount === 0}&nbsp;(0){/if}</label>
+  </fieldset>
 
   <section
     class="reviewer"
@@ -534,146 +635,161 @@
   >
     {#if praksisNotice}<p class="warning" role="alert">{T.praksisFailed}</p>{/if}
     {#if loadingDeck}
-      <p class="progress" role="status">{T.loadingDeck}</p>
+      <div class="card"><p class="progress" role="status">{T.loadingDeck}</p></div>
     {:else if phase === 'done'}
-      <div class="done">
-        {#if reviewed === 0 && tag && poolSize === 0}
-          <h2 tabindex="-1">{T.doneEmpty}</h2>
-          <p>{T.noTagMatch}</p>
-          <div class="grades">
-            <button onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
-          </div>
-        {:else if reviewed === 0 && filteredReason === 'cloze'}
-          <h2 tabindex="-1">{T.doneEmpty}</h2>
-          <p>{T.noClozeCards}</p>
-        {:else if reviewed === 0 && filteredReason === 'listen'}
-          <h2 tabindex="-1">{T.doneEmpty}</h2>
-          <p>{T.noListenCards}</p>
-        {:else}
-          <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : isDueAll ? T.dueAllEmpty : T.doneEmpty}</h2>
-          {#if celebrate}<CelebrationFlag />{/if}
-          {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
-          <p class="started">{UI.progress.words(store.startedCount(), totalCards)}</p>
-          {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
-          <!-- Contextual next steps: what's still due in this deck per mode
-               (one click switches), or a calm pointer to the lessons. -->
-          {#if doneDue.length > 0}
-            <ul class="next-due">
-              {#each doneDue as d (d.direction)}
-                <li><button type="button" class="linklike" onclick={() => switchDirection(d.direction)}>{T.stillDue(d.count, MODE_LABEL[d.direction])}</button></li>
-              {/each}
-            </ul>
+      <div class="card">
+        <div class="done">
+          {#if reviewed === 0 && tag && poolSize === 0}
+            <h2 tabindex="-1">{T.doneEmpty}</h2>
+            <p>{T.noTagMatch}</p>
+            <div class="done-actions">
+              <button type="button" class="text-btn" onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
+            </div>
+          {:else if reviewed === 0 && filteredReason === 'cloze'}
+            <h2 tabindex="-1">{T.doneEmpty}</h2>
+            <p>{T.noClozeCards}</p>
+          {:else if reviewed === 0 && filteredReason === 'listen'}
+            <h2 tabindex="-1">{T.doneEmpty}</h2>
+            <p>{T.noListenCards}</p>
           {:else}
-            <p class="started"><a href={withBase('lektioner')}>{T.toLessons}</a></p>
+            <h2 tabindex="-1">{reviewed > 0 ? T.doneTitle : isDueAll ? T.dueAllEmpty : T.doneEmpty}</h2>
+            {#if celebrate}<CelebrationFlag />{/if}
+            {#if reviewed > 0}<p>{T.reviewedCount(reviewed)}</p>{/if}
+            <p class="started">{UI.progress.words(store.startedCount(), totalCards)}</p>
+            {#if store.getStreak() > 0}<p class="started">{UI.progress.streak(store.getStreak())}</p>{/if}
+            <!-- Contextual next steps: what's still due in this deck per mode
+                 (one click switches), or a calm pointer to the lessons. -->
+            {#if doneDue.length > 0}
+              <ul class="next-due">
+                {#each doneDue as d (d.direction)}
+                  <li><button type="button" class="linklike" onclick={() => switchDirection(d.direction)}>{T.stillDue(d.count, MODE_LABEL[d.direction])}</button></li>
+                {/each}
+              </ul>
+            {:else}
+              <p class="started"><a href={withBase('lektioner')}>{T.toLessons}</a></p>
+            {/if}
+            <div class="done-actions">
+              <button type="button" class="text-btn" onclick={() => start(false)}>{T.repeatDue}</button>
+              <button type="button" class="text-btn" onclick={() => start(true)}>{T.practiceFree}</button>
+            </div>
           {/if}
-          <div class="grades">
-            <button onclick={() => start(false)}>{T.repeatDue}</button>
-            <button onclick={() => start(true)}>{T.practiceFree}</button>
-          </div>
-        {/if}
+        </div>
       </div>
     {:else if current}
-      <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
-      <!-- reviewed/(reviewed+remaining), not idx/queue.length: reinsertAgain grows the
-           queue mid-session and would make an index-based bar jump backwards. -->
-      <div class="progress-track" aria-hidden="true">
-        <div class="progress-fill" style={`width: ${Math.round((reviewed / Math.max(1, reviewed + remaining)) * 100)}%`}></div>
-      </div>
-
-      {#if direction === 'listen' || direction === 'listen-sentence'}
-        <p class="prompt-listen">{direction === 'listen' ? T.listenPrompt : T.listenSentencePrompt}</p>
-        <!-- Plain replay (not SpeakButton): its aria-label must NOT contain the
-             Danish text, or a screen reader would announce the answer before
-             the learner attempts the exercise. -->
-        {#if promptAudioState === 'none'}
-          <p class="hint" role="status">{T.noPromptAudio}</p>
-          {#if phase === 'prompt'}
-            <button type="button" onclick={skipCard}>{T.skipCard}</button>
-          {/if}
-        {:else if promptAudioState === 'blocked'}
-          <!-- Autoplay denied (no user gesture yet): an explicit play instead of
-               pretending the clip was heard. The click is the gesture. -->
-          <button type="button" class="replay" onclick={() => playPrompt()}>
-            <Waveform size="icon" pulse={promptPulse} /> {T.play}
-          </button>
-        {:else}
-          <button type="button" class="replay" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
-            <Waveform size="icon" pulse={promptPulse} /> {T.replay}
-          </button>
-          {#if direction === 'listen-sentence'}
-            <button type="button" class="replay" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
-          {/if}
-          {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
-        {/if}
-      {:else if direction === 'cloze'}
-        <p class="prompt-listen">{T.clozePrompt}</p>
-        <p class="prompt" lang="da">{clozeText?.text}</p>
-        <p class="hint">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
-      {:else}
-        <p class="prompt">{current.swedish}</p>
-        {#if current.exampleSv}<p class="hint">{current.exampleSv}</p>{/if}
-      {/if}
-
-      {#if phase === 'prompt'}
-        {#if direction === 'recognize'}
-          <div class="choices" role="group" aria-label={T.choosePrompt}>
-            {#each choices as c, i}
-              <button type="button" class="choice" lang="da" title={T.chooseKeyTitle(i + 1)} onclick={() => choose(c)}>{c}</button>
-            {/each}
+      <div class="card">
+        <div class="card-top">
+          <p class="progress" aria-live="polite">{T.progress(idx + 1, queue.length, remaining)}</p>
+          <!-- reviewed/(reviewed+remaining), not idx/queue.length: reinsertAgain grows
+               the queue mid-session and would make an index-based bar jump backwards. -->
+          <div class="progress-track" aria-hidden="true">
+            <div class="progress-fill" style={`width: ${Math.round((reviewed / Math.max(1, reviewed + remaining)) * 100)}%`}></div>
           </div>
-        {:else if direction === 'speak'}
-          <p class="prompt-listen">{T.speakPrompt}</p>
-          <div class="grades">
-            <button type="button" title={T.revealKeyTitle} onclick={revealSpeak}>{T.speakReveal}</button>
-          </div>
-        {:else if direction === 'listen-sentence'}
-          <div class="grades">
-            <button type="button" title={T.revealKeyTitle} onclick={revealSelf}>{T.listenSentenceReveal}</button>
-          </div>
-        {:else}
-          <form onsubmit={(e) => { e.preventDefault(); submit(); }}>
-            <label class="vh" for="answer">{T.inputLabel}</label>
-            <input
-              id="answer"
-              type="text"
-              bind:value={typed}
-              bind:this={input}
-              lang="da"
-              autocomplete="off"
-              autocapitalize="off"
-              autocorrect="off"
-              spellcheck={false}
-              placeholder={T.placeholder}
-            />
-            <button type="submit">{T.reveal}</button>
-          </form>
-          <p class="charbar">
-            <span>{T.charHelper}</span>
-            {#each ['æ', 'ø', 'å'] as ch}
-              <button type="button" class="char" onclick={() => insertChar(ch)} aria-label={`Infoga ${ch}`}>{ch}</button>
-            {/each}
-          </p>
-        {/if}
-      {:else}
-        <div class="answer" aria-live="polite">
-          {#if !selfGraded}
-            <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
-              {wasCorrect ? T.correct : T.incorrect}
-            </p>
-          {/if}
-          <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
-          <p class="sv">{current.swedish}</p>
-          {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
-          {#if current.note}<p class="callout">{current.note}</p>{/if}
-          {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
-          <div class="grades">
-            <button onclick={() => grade(1 as ReviewGrade)}>{T.grades.again} (1)</button>
-            <button onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.hard} (2)</button>
-            <button onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.good} (3)</button>
-            <button onclick={() => grade(4 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}>{T.grades.easy} (4)</button>
-          </div>
-          {#if direction === 'listen-sentence'}<p class="hint">{T.comprehendHint}</p>{:else if selfGraded}<p class="hint">{T.selfGradeHint}</p>{:else if wasCorrect}<p class="hint">{T.gradeKeysHint}</p>{:else}<p class="hint">{T.wrongHint}</p>{/if}
         </div>
+
+        <div class="drill">
+          {#if direction === 'listen' || direction === 'listen-sentence'}
+            <p class="prompt-caption">{direction === 'listen' ? T.listenPrompt : T.listenSentencePrompt}</p>
+            <!-- Plain replay (not SpeakButton): its aria-label must NOT contain the
+                 Danish text, or a screen reader would announce the answer before
+                 the learner attempts the exercise. -->
+            {#if promptAudioState === 'none'}
+              <p class="hint" role="status">{T.noPromptAudio}</p>
+              {#if phase === 'prompt'}
+                <button type="button" class="text-btn" onclick={skipCard}>{T.skipCard}</button>
+              {/if}
+            {:else if promptAudioState === 'blocked'}
+              <!-- Autoplay denied (no user gesture yet): an explicit play instead of
+                   pretending the clip was heard. The click is the gesture. -->
+              <button type="button" class="wf-btn" onclick={() => playPrompt()}>
+                <Waveform size="icon" pulse={promptPulse} /> {T.play}
+              </button>
+            {:else}
+              <button type="button" class="wf-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
+                <Waveform size="icon" pulse={promptPulse} /> {T.replay}
+              </button>
+              {#if direction === 'listen-sentence'}
+                <button type="button" class="slow" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
+              {/if}
+              {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
+            {/if}
+          {:else if direction === 'cloze'}
+            <p class="prompt-caption">{T.clozePrompt}</p>
+            <p class="prompt prompt-cloze" lang="da">{clozeText?.text}</p>
+            <p class="prompt-ex">{current.swedish}{#if current.exampleSv} — {current.exampleSv}{/if}</p>
+          {:else}
+            <p class="prompt-caption">{T.swedishLabel}</p>
+            <p class="prompt">{current.swedish}</p>
+            {#if current.exampleSv}<p class="prompt-ex">{current.exampleSv}</p>{/if}
+          {/if}
+
+          {#if phase === 'prompt'}
+            {#if direction === 'recognize'}
+              <div class="choices" role="group" aria-label={T.choosePrompt}>
+                {#each choices as c, i}
+                  <button type="button" class="choice" lang="da" title={T.chooseKeyTitle(i + 1)} onclick={() => choose(c)}>{c}</button>
+                {/each}
+              </div>
+            {:else if direction === 'speak'}
+              <p class="prompt-caption instr">{T.speakPrompt}</p>
+              <span class="hairline" aria-hidden="true"></span>
+              <div class="reveal-row">
+                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSpeak}>{T.speakReveal}</button>
+              </div>
+            {:else if direction === 'listen-sentence'}
+              <span class="hairline" aria-hidden="true"></span>
+              <div class="reveal-row">
+                <button type="button" class="text-btn reveal-btn" title={T.revealKeyTitle} onclick={revealSelf}>{T.listenSentenceReveal}</button>
+              </div>
+            {:else}
+              <form class="answer-form" onsubmit={(e) => { e.preventDefault(); submit(); }}>
+                <label class="vh" for="answer">{T.inputLabel}</label>
+                <input
+                  id="answer"
+                  type="text"
+                  bind:value={typed}
+                  bind:this={input}
+                  lang="da"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  autocorrect="off"
+                  spellcheck={false}
+                  placeholder={T.placeholder}
+                />
+                <button type="submit" class="text-btn reveal-btn">{T.reveal}</button>
+              </form>
+              <p class="charbar">
+                <span class="char-help">{T.charHelper}</span>
+                {#each ['æ', 'ø', 'å'] as ch}
+                  <button type="button" class="char" onclick={() => insertChar(ch)} aria-label={`Infoga ${ch}`}>{ch}</button>
+                {/each}
+              </p>
+            {/if}
+          {:else}
+            <div class="answer" aria-live="polite">
+              {#if !selfGraded}
+                <p class={wasCorrect ? 'verdict ok' : 'verdict no'}>
+                  {wasCorrect ? T.correct : T.incorrect}
+                </p>
+              {/if}
+              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord}>{T.slowReplay}</button>{/if}</p>
+              <p class="sv">{current.swedish}</p>
+              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
+              {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
+              {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
+              <div class="grade-pills">
+                <button type="button" class="grade again" onclick={() => grade(1 as ReviewGrade)}><span class="gd" aria-hidden="true">1</span>{T.grades.again}</button>
+                <button type="button" class="grade" onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">2</span>{T.grades.hard}</button>
+                <button type="button" class="grade" onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">3</span>{T.grades.good}</button>
+                <button type="button" class="grade" onclick={() => grade(4 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">4</span>{T.grades.easy}</button>
+              </div>
+            </div>
+          {/if}
+        </div>
+      </div>
+      <!-- Helper caption sits below the card (design §8.7), still keyed to the
+           revealed state and carrying the same per-mode copy. -->
+      {#if phase === 'revealed'}
+        <p class="card-hint">{#if direction === 'listen-sentence'}{T.comprehendHint}{:else if selfGraded}{T.selfGradeHint}{:else if wasCorrect}{T.gradeKeysHint}{:else}{T.wrongHint}{/if}</p>
       {/if}
     {/if}
 
@@ -682,7 +798,9 @@
 
   <!-- Apply saved settings only when between rounds; mid-round we keep the
        current queue and they take effect next round (matches the panel copy). -->
-  <SettingsPanel {store} onSaved={() => { if (phase === 'done') start(); }} />
+  <div class="panel-wrap">
+    <SettingsPanel {store} onSaved={() => { if (phase === 'done') start(); }} />
+  </div>
 
   <details class="backup">
     <summary>{T.backup.summary}</summary>
@@ -695,58 +813,457 @@
 {/if}
 
 <style>
-  .from-lesson { font-size: var(--step--1); margin: 0 0 var(--sp-3); }
-  .started { color: var(--muted); font-size: var(--step--1); margin-top: var(--sp-2); }
-  .bar { display: flex; align-items: center; gap: var(--sp-4); margin-bottom: var(--sp-4); flex-wrap: wrap; }
-  select { font: inherit; padding: var(--sp-1) var(--sp-2); border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); color: var(--text); }
-  .dir { border: 1px solid var(--border); border-radius: var(--radius); padding: var(--sp-1) var(--sp-3); display: flex; gap: var(--sp-3); margin: 0; }
-  .dir label { display: inline-flex; align-items: center; gap: 0.3em; font-size: var(--step--1); }
-  .reviewer { border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); padding: var(--sp-6); min-height: 16rem; }
-  .reviewer:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .progress { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-1); }
+  /* Every top-level island block spans the 640px content column. */
+  .from-lesson,
+  .head-row,
+  .modes,
+  .reviewer,
+  .panel-wrap,
+  .backup {
+    width: 100%;
+  }
+
+  .from-lesson { font-size: 13px; margin: 0 0 16px; }
+  .from-lesson a { color: var(--mut2); text-decoration: none; }
+  .from-lesson a:hover { color: var(--red); }
+  .loading-line { color: var(--mut2); margin-top: 24px; }
+
+  /* ---- Header row: serif h1 + deck pill ---- */
+  .head-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .page-title {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 34px;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .tag-bar { display: inline-flex; align-items: baseline; gap: 12px; font-size: 12.5px; color: var(--mut2); }
+  .tag-bar strong { color: var(--ink); font-weight: 600; }
+
+  /* Deck pill */
+  .deck-picker { position: relative; display: inline-flex; }
+  .deck-pill {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--mut2);
+    background: transparent;
+    border: 1px solid var(--bd5);
+    border-radius: 999px;
+    padding: 6px 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 120ms ease, background-color 120ms ease, border-color 120ms ease;
+  }
+  .deck-pill:hover,
+  .deck-pill.open {
+    color: var(--ink);
+    background: var(--card);
+    border-color: var(--mut4);
+  }
+  .pill-sep { color: inherit; }
+  .pill-caret { font-size: 9px; color: inherit; }
+
+  /* Deck popover */
+  .deck-pop {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 8px);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    min-width: 240px;
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    background: var(--card);
+    border: 1px solid var(--bd1);
+    border-radius: 14px;
+    padding: 8px;
+    box-shadow: 0 1px 2px var(--sh1), 0 16px 40px var(--sh3);
+  }
+  .deck-section {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mut3);
+    padding: 10px 12px 4px;
+  }
+  .deck-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 400;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 100ms ease;
+  }
+  .deck-name { color: var(--mut1); font-weight: 400; }
+  .deck-row.selected .deck-name { color: var(--ink); font-weight: 650; }
+  .deck-row:hover { background: var(--bd6); border: none; }
+  .deck-row:hover .deck-name { color: var(--red); }
+  .deck-meta { display: inline-flex; align-items: baseline; gap: 7px; }
+  .deck-count { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; color: var(--mut3); }
+  .deck-check { font-family: var(--font-mono); font-size: 10.5px; color: var(--red); min-width: 11px; }
+  .deck-foot {
+    font-size: 11px;
+    color: var(--mut3);
+    padding: 8px 12px 6px;
+    border-top: 1px solid var(--bd2);
+    margin-top: 6px;
+  }
+
+  /* ---- Mode pills (radios styled as pills) ---- */
+  .modes {
+    border: none;
+    padding: 0;
+    margin: 22px 0 0;
+    min-inline-size: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .mode {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--mut2);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 7px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .mode input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .mode:has(:checked) {
+    font-weight: 500;
+    color: var(--ink);
+    background: var(--card);
+    border-color: var(--bd4);
+  }
+  .mode:has(:disabled) { opacity: 0.45; cursor: not-allowed; }
+  .mode:has(:disabled) input { cursor: not-allowed; }
+  .mode:has(:focus-visible) { outline: 2px solid var(--red); outline-offset: 2px; }
+
+  /* ---- Card ---- */
+  .reviewer { margin-top: 26px; }
+  /* The reviewer is a tabindex=-1 grouping element focused PROGRAMMATICALLY for
+     1–4 grading; the visible cue is the grade pills + hint, not a ring. Suppress
+     the global :focus-visible red outline so the whole card doesn't light up. */
+  .reviewer:focus,
+  .reviewer:focus-visible {
+    outline: none;
+  }
+  .card {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--card);
+    border: 1px solid var(--bd1);
+    border-radius: 20px;
+    padding: 30px clamp(20px, 5vw, 36px);
+    box-shadow: 0 1px 2px var(--sh1), 0 16px 40px var(--sh2);
+  }
+  .card-top { display: flex; flex-direction: column; }
+  .progress { color: var(--mut3); font-size: 12.5px; margin: 0; }
   .progress-track {
     height: 2px;
-    border-radius: var(--radius-pill);
-    background: var(--subtle-border);
-    margin: 0 0 var(--sp-4);
+    background: var(--bd2);
+    border-radius: 1px;
+    margin-top: 10px;
     overflow: hidden;
   }
-  .progress-fill {
-    height: 100%;
-    border-radius: var(--radius-pill);
-    background: var(--accent);
-  }
+  .progress-fill { height: 100%; background: var(--red); border-radius: 1px; }
   @media (prefers-reduced-motion: no-preference) {
-    .progress-fill { transition: width 200ms ease; }
+    .progress-fill { transition: width 300ms ease; }
   }
-  .prompt { font-size: var(--step-2); font-weight: 600; margin: 0 0 var(--sp-2); }
-  .prompt-listen { font-size: var(--step-1); margin: 0 0 var(--sp-2); }
-  .hint { color: var(--muted); font-size: var(--step--1); margin: var(--sp-1) 0; }
-  form { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
-  form input { flex: 1 1 12rem; }
-  .choices { display: grid; gap: var(--sp-2); margin-top: var(--sp-4); }
-  .choice { text-align: left; font-size: var(--step-0); padding: var(--sp-3) var(--sp-4); min-height: var(--min-tap); }
-  .charbar { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0 0; color: var(--muted); font-size: var(--step--1); }
-  .char { min-width: 2.2em; min-height: 2.2em; font-size: var(--step-0); }
-  .verdict { font-weight: 700; margin: 0 0 var(--sp-2); }
-  .verdict.ok { color: var(--correct); }
-  .verdict.no { color: var(--accent); }
-  .da { font-size: var(--step-2); font-weight: 700; margin: 0 0 var(--sp-1); display: flex; align-items: baseline; gap: var(--sp-3); }
-  .sv { margin: 0 0 var(--sp-1); }
-  .ex { color: var(--muted); margin: 0 0 var(--sp-2); }
-  .grades { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
-  .warning { color: var(--accent); margin-top: var(--sp-4); }
-  .replay + .replay { margin-left: var(--sp-2); }
-  .slow { font-size: var(--step--1); }
-  .tts-hint { color: var(--muted); font-size: var(--step--1); font-style: italic; margin-left: 0.35em; cursor: help; }
-  .next-due { list-style: none; margin: var(--sp-3) 0 0; padding: 0; display: grid; gap: var(--sp-1); justify-items: start; }
-  .linklike { background: none; border: none; padding: 0; font: inherit; font-size: var(--step--1); color: var(--accent); text-decoration: underline; cursor: pointer; }
-  .backup { margin-top: var(--sp-6); color: var(--muted); font-size: var(--step--1); }
+
+  /* Centered drill/done block — stable card height across states. */
+  .drill,
+  .done {
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  .drill { padding: 28px 0 8px; }
+  .done { padding: 20px 0 8px; }
+
+  /* ---- Prompt ---- */
+  .prompt-caption { font-size: 13.5px; color: var(--mut3); margin: 0; }
+  .prompt-caption.instr { margin-top: 10px; }
+  .prompt {
+    margin: 10px 0 0;
+    font-size: 32px;
+    font-weight: 300;
+    color: var(--soft);
+    letter-spacing: 0.01em;
+    line-height: 1.35;
+    max-width: 460px;
+  }
+  .prompt-cloze { font-size: 24px; }
+  .prompt-ex { margin: 12px 0 0; font-size: 14px; color: var(--mut2); }
+  .hint { color: var(--mut2); font-size: 13px; margin: 10px 0 0; }
+
+  /* Text-only buttons (reveal / skip / done actions). Overrides global button. */
+  .text-btn {
+    background: none;
+    border: none;
+    padding: 8px 20px;
+    color: var(--mut1);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .text-btn:hover { color: var(--ink); border: none; }
+
+  /* Waveform replay button (listen modes). */
+  .wf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 14px;
+    padding: 8px 10px;
+    background: none;
+    border: none;
+    color: var(--mut1);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .wf-btn:hover { color: var(--ink); border: none; }
+  .slow {
+    margin-top: 8px;
+    background: none;
+    border: none;
+    padding: 4px 8px;
+    color: var(--mut2);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .slow:hover { color: var(--ink); border: none; }
+  .tts-hint { color: var(--mut3); font-size: 11px; font-style: italic; margin-top: 6px; cursor: help; }
+
+  /* Reveal-button block (speak / listen-sentence). */
+  .hairline { display: block; width: 168px; height: 1px; background: var(--bd3); margin-top: 30px; }
+  .reveal-row { margin-top: 30px; }
+  .reveal-btn { margin-top: 16px; }
+
+  /* ---- Känn igen: stacked choice pills ---- */
+  .choices {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 30px;
+    width: min(320px, 100%);
+  }
+  .choice {
+    font: inherit;
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--ink);
+    background: none;
+    border: 1px solid var(--bd4);
+    border-radius: 999px;
+    padding: 11px 20px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .choice:hover { border-color: var(--mut2); }
+
+  /* ---- Input block ---- */
+  .answer-form { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .answer-form input {
+    width: min(360px, 100%);
+    box-sizing: border-box;
+    margin-top: 34px;
+    padding: 6px 2px 12px;
+    font: inherit;
+    font-size: 22px;
+    font-weight: 300;
+    text-align: center;
+    color: var(--ink);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--bd3);
+    border-radius: 0;
+    outline: none;
+  }
+  .answer-form input:focus { border-bottom-color: var(--mut2); outline: none; }
+  .charbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin: 18px 0 0;
+  }
+  .char-help { width: 100%; text-align: center; color: var(--mut3); font-size: 11px; margin-bottom: 2px; }
+  .char {
+    font: inherit;
+    font-size: 15px;
+    color: var(--mut2);
+    background: none;
+    border: none;
+    padding: 4px 6px;
+    min-width: 0;
+    min-height: 0;
+    cursor: pointer;
+  }
+  .char:hover { color: var(--ink); border: none; }
+
+  /* ---- Revealed answer ---- */
+  .answer { display: flex; flex-direction: column; align-items: center; width: 100%; }
+  .verdict { margin: 24px 0 0; font-size: 13.5px; font-weight: 600; }
+  .verdict.ok { color: var(--ok); }
+  .verdict.no { color: var(--red); }
+  .da {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin: 16px 0 0;
+    font-family: var(--font-serif);
+    font-size: 42px;
+    font-weight: 600;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+  /* Primary answer audio reads red; the example's secondary control stays muted. */
+  .da :global(.speak) { color: var(--red); font-size: 14px; }
+  .sv { margin: 14px 0 0; font-size: 15px; color: var(--mut1); }
+  .ex {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin: 14px 0 0;
+    font-size: 15px;
+    color: var(--mut1);
+  }
+  .ex :global(.speak) { color: var(--mut1); font-size: 13px; }
+  .note { margin: 16px 0 0; max-width: 400px; font-size: 13px; line-height: 1.55; color: var(--mut2); }
+  .obs {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    color: var(--red);
+    margin-right: 10px;
+  }
+
+  /* Grade pills */
+  .grade-pills {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 30px;
+  }
+  .grade {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: none;
+    border: 1px solid var(--bd4);
+    border-radius: 999px;
+    padding: 10px 18px;
+    cursor: pointer;
+  }
+  .grade .gd { font-family: var(--font-mono); font-size: 10px; color: var(--mut4); }
+  .grade:hover { border-color: var(--ink); }
+  .grade.again:hover { border-color: var(--red); color: var(--red); }
+  .grade.again:hover .gd { color: var(--red); }
+  .grade:disabled { opacity: 0.5; cursor: not-allowed; }
+  .grade:disabled:hover { border-color: var(--bd4); }
+
+  /* Helper caption below the card. */
+  .card-hint { margin: 18px 0 0; font-size: 12.5px; color: var(--mut3); text-align: center; }
+
+  /* ---- Completion ---- */
+  .done h2 {
+    margin: 0;
+    font-family: var(--font-serif);
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .done p { margin: 12px 0 0; color: var(--mut1); font-size: 14px; }
+  .started { color: var(--mut1); font-size: 14px; margin-top: 8px; }
+  .started a { color: var(--mut1); text-decoration: none; }
+  .started a:hover { color: var(--red); }
+  .next-due {
+    list-style: none;
+    margin: 18px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .linklike {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    color: var(--mut1);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .linklike:hover { color: var(--red); }
+  .done-actions { display: flex; align-items: baseline; gap: 24px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
+  .done-actions .text-btn { font-size: 13.5px; padding: 8px; }
+
+  .warning { color: var(--red); font-size: 13px; text-align: center; margin-top: 16px; }
+
+  /* ---- Secondary panels ---- */
+  .panel-wrap { margin-top: 24px; }
+  .backup { margin-top: 24px; color: var(--mut3); font-size: 12.5px; }
   .backup summary { cursor: pointer; }
   .backup button, .backup .import { margin-right: var(--sp-3); }
   .import { display: inline-block; cursor: pointer; }
   .import input { display: block; margin-top: var(--sp-1); }
+
   .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
   @media (prefers-reduced-motion: no-preference) {
     .answer { animation: fade 120ms ease-out; }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }

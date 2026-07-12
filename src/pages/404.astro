@@ -11,38 +11,46 @@ import { withBase } from '../lib/url.ts';
   title="Sidan finns inte"
   description="Sidan du sökte finns inte — hitta tillbaka till lektionerna, flashcards eller ordlistan."
 >
-  <p class="kicker" lang="da">Siden findes ikke</p>
-  <h1>Sidan finns inte</h1>
-  <p class="lead">
-    Adressen är felskriven eller så har sidan flyttats. Det danska ovanför
-    betyder just det — och härifrån hittar du tillbaka:
-  </p>
+  <div class="legacy-page">
+    <p class="kicker" lang="da">Siden findes ikke</p>
+    <h1>Sidan finns inte</h1>
+    <p class="lead">
+      Adressen är felskriven eller så har sidan flyttats. Det danska ovanför
+      betyder just det — och härifrån hittar du tillbaka:
+    </p>
 
-  <div class="cards">
-    <a class="card" href={withBase('lektioner')}>
-      <h2>Lektioner</h2>
-      <p>Korta lektioner om stød, falska vänner och det vigesimala talsystemet.</p>
-    </a>
-    <a class="card" href={withBase('flashcards')}>
-      <h2>Flashcards</h2>
-      <p>Repetera orden precis innan du glömmer dem.</p>
-    </a>
-    <a class="card" href={withBase('ordlista')}>
-      <h2>Ordlista</h2>
-      <p>Alla ord med svensk översättning, exempel och uttal.</p>
-    </a>
+    <div class="cards">
+      <a class="card" href={withBase('lektioner')}>
+        <h2>Lektioner</h2>
+        <p>Korta lektioner om stød, falska vänner och det vigesimala talsystemet.</p>
+      </a>
+      <a class="card" href={withBase('flashcards')}>
+        <h2>Flashcards</h2>
+        <p>Repetera orden precis innan du glömmer dem.</p>
+      </a>
+      <a class="card" href={withBase('ordlista')}>
+        <h2>Ordlista</h2>
+        <p>Alla ord med svensk översättning, exempel och uttal.</p>
+      </a>
+    </div>
+
+    <p class="home"><a href={withBase()}>Till startsidan</a></p>
   </div>
 
-  <p class="home"><a href={withBase()}>Till startsidan</a></p>
-
   <style>
-    .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--muted); margin: 0 0 var(--sp-2); }
-    .lead { font-size: var(--step-1); color: var(--muted); }
+    .legacy-page {
+      flex: 1;
+      width: min(720px, 92vw);
+      margin: 0 auto;
+      padding: 48px 0 var(--sp-12);
+    }
+    .kicker { text-transform: uppercase; letter-spacing: 0.08em; font-size: var(--step--1); color: var(--mut1); margin: 0 0 var(--sp-2); }
+    .lead { font-size: var(--step-1); color: var(--mut1); }
     .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-4); }
-    .card { display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
-    .card:hover { border-color: var(--accent); }
-    .card h2 { margin: 0 0 var(--sp-2); color: var(--accent); }
-    .card p { margin: 0; color: var(--muted); font-size: var(--step--1); }
+    .card { display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--bd1); border-radius: 16px; background: var(--card); text-decoration: none; color: inherit; box-shadow: 0 1px 2px var(--sh1), 0 16px 40px var(--sh2); }
+    .card:hover { border-color: var(--mut5); }
+    .card h2 { margin: 0 0 var(--sp-2); color: var(--ink); font-family: var(--font-serif); font-weight: 600; }
+    .card p { margin: 0; color: var(--mut2); font-size: var(--step--1); }
     .home { margin-top: var(--sp-6); }
   </style>
 </BaseLayout>

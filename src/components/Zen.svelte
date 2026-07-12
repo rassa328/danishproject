@@ -1,6 +1,6 @@
 <script lang="ts">
-  // /zen — the full-screen "Fokus" practice island (designs: Tal Fokus v2 =
-  // dark, Tal Fokus - Morgendis v2 = light, auto by prefers-color-scheme).
+  // /zen — the full-screen "Fokus" practice island. Colors come from the shared
+  // data-theme tokens (dark default; the ◐ toggle applies here too, top-right).
   // Every decision lives in zen.ts (pure, tested); this file wires DOM, audio
   // and timers. tal plays composed COMMITTED clips only (product invariant:
   // never TTS for numbers); ord items/grading/audio come from the DRILL_MODES
@@ -661,6 +661,20 @@
     player?.stop();
     stopSpeech();
   });
+
+  // The faint top-left ‹ arrow mirrors Escape for the current phase (the design
+  // shows it on every screen). Behaviour is unchanged — it just calls the same
+  // handlers the keyboard does.
+  function topBack() {
+    if (paused) {
+      quit();
+      return;
+    }
+    if (inTransition()) return;
+    if (phase === 'run') pause();
+    else if (phase === 'done') backToStart();
+    else stepBack();
+  }
 </script>
 
 <svelte:window onkeydown={onKey} onclick={onRootClick} />
@@ -670,6 +684,16 @@
     <div class="cross-v" aria-hidden="true"></div>
     <div class="cross-h" aria-hidden="true"></div>
   {/if}
+
+  <!-- Persistent chrome: faint back arrow (top-left) + theme toggle (top-right). -->
+  <button type="button" class="top-back" onclick={topBack} aria-label={T.back}>←</button>
+  <button
+    type="button"
+    class="theme-toggle"
+    data-theme-toggle="true"
+    aria-label={UI.themeToggle}
+    title={UI.themeToggle}>◐</button
+  >
 
   {#if phase === 'start'}
     <div class="stage" style:opacity={stageOpacity}>
@@ -707,37 +731,54 @@
           </div>
         </div>
       {:else if flow.step === 'source'}
+        {@const bigSources = sourceRows.filter((r) => r.id !== SOURCE_TAL)}
+        {@const talRow = sourceRows.find((r) => r.id === SOURCE_TAL)}
         <div class="source-step rise">
-          <div class="source-col">
-            {#each sourceRows as row (row.id)}
+          <!-- The two schema choices as big options (repetera · blandat). -->
+          <div class="opt-row deck-opts">
+            {#each bigSources as row (row.id)}
+              {@const sub = row.id === SOURCE_REPETERA && !row.disabled ? T.repeteraSub : row.note}
               <button
                 type="button"
-                class="src"
+                class="opt"
                 class:hot={!row.disabled && hotId === row.id}
                 disabled={row.disabled}
                 onclick={() => pickId(row.id)}
                 onfocus={() => (hot = row.id)}
               >
-                <span>{row.label}</span>
-                {#if row.note}<span class="src-note">{row.note}</span>{/if}
+                <span class="opt-label">{row.label}</span>
+                {#if sub}<span class="opt-sub">{sub}</span>{/if}
               </button>
             {/each}
           </div>
-          {#if sets.length > 0}
-            <div class="set-grid">
-              {#each sets as set (set.id)}
-                <button
-                  type="button"
-                  class="src set"
-                  class:hot={hotId === `set:${set.id}`}
-                  onclick={() => pickId(`set:${set.id}`)}
-                  onfocus={() => (hot = `set:${set.id}`)}
-                >
-                  {set.label}
-                </button>
-              {/each}
-            </div>
-          {/if}
+          <!-- …or a category: tal + every flashcard set, as a quiet cloud. -->
+          <div class="cloud-whisper">{T.categoryWhisper}</div>
+          <div class="set-grid">
+            {#if talRow}
+              <button
+                type="button"
+                class="src set"
+                class:hot={!talRow.disabled && hotId === talRow.id}
+                disabled={talRow.disabled}
+                onclick={() => pickId(talRow.id)}
+                onfocus={() => (hot = talRow.id)}
+              >
+                <span>{talRow.label}</span>
+                {#if talRow.note}<span class="src-note">{talRow.note}</span>{/if}
+              </button>
+            {/if}
+            {#each sets as set (set.id)}
+              <button
+                type="button"
+                class="src set"
+                class:hot={hotId === `set:${set.id}`}
+                onclick={() => pickId(`set:${set.id}`)}
+                onfocus={() => (hot = `set:${set.id}`)}
+              >
+                {set.label}
+              </button>
+            {/each}
+          </div>
         </div>
       {:else}
         <div class="begin-step rise-slow">
@@ -781,7 +822,13 @@
               title={T.replayTitle}
               aria-label={T.replayTitle}
               onclick={replay}
-            ></button>
+            >
+              <span class="wf-bars" aria-hidden="true">
+                {#each [9, 16, 24, 31, 34, 30, 23, 15, 10] as h (h)}
+                  <span style={`height:${h}px`}></span>
+                {/each}
+              </span>
+            </button>
           {:else if current && prompt}
             <div class="prompt-text" lang={prompt.lang ?? undefined} aria-live="polite">
               {prompt.text}
@@ -851,52 +898,18 @@
 </div>
 
 <style>
-  /* Two design-fixed palettes, keyed to the viewer's scheme like the rest of
-     the site: light = Tal Fokus - Morgendis v2 (warm paper, Dannebrog glow),
-     dark = Tal Fokus v2 (near-black, gold glow). --z-dim/--z-sub are lifted
-     from the .dc values just enough to clear contrast floors (dim ≥3:1 for
-     option labels, sub ≥4.5:1 for answer-carrying text) — a deliberate,
-     minimal a11y deviation; the decorative key hints keep the design tones. */
+  /* Redesign Zen: chromeless typographic practice. Colors come from the shared
+     data-theme tokens (dark default) so the ◐ toggle applies here too. The
+     500ms .stage/.layer/.answer opacity transitions are coordinated with JS
+     timers (the inTransition() gate) — do not change their durations. */
   .zen {
-    --z-bg: #f7f5f1;
-    --z-text: #26211b;
-    --z-dim: #89816f;
-    --z-key: #c4bdb0;
-    --z-faint: #d0cabe;
-    --z-sub: #746c5e;
-    --z-ok: #41724b;
-    --z-glow: #c99b3f; /* warm amber (user feedback — was Dannebrog red) */
-    --z-glow-box: 0 0 22px 6px rgba(201, 155, 63, 0.3);
-    --z-hot-line: rgba(38, 33, 27, 0.35);
-    --z-input-line: rgba(38, 33, 27, 0.28);
-    --z-input-line-focus: rgba(38, 33, 27, 0.45);
-    --z-back-line: rgba(38, 33, 27, 0.2);
-    --z-focus-ring: rgba(38, 33, 27, 0.5);
     position: fixed;
     inset: 0;
-    background: var(--z-bg);
-    color: var(--z-text);
+    background: var(--bg);
+    color: var(--ink);
     overflow: hidden;
     font-family: var(--font-sans);
     line-height: 1.4;
-  }
-  @media (prefers-color-scheme: dark) {
-    .zen {
-      --z-bg: #18140f;
-      --z-text: #ece5d8;
-      --z-dim: #80775f;
-      --z-key: #4c4536;
-      --z-faint: #3a3428;
-      --z-sub: #948a72;
-      --z-ok: #a9c8a2;
-      --z-glow: #c9a86a;
-      --z-glow-box: 0 0 18px 4px rgba(201, 168, 106, 0.18);
-      --z-hot-line: rgba(236, 229, 216, 0.35);
-      --z-input-line: rgba(236, 229, 216, 0.22);
-      --z-input-line-focus: rgba(236, 229, 216, 0.4);
-      --z-back-line: rgba(236, 229, 216, 0.15);
-      --z-focus-ring: rgba(236, 229, 216, 0.5);
-    }
   }
 
   .zen button {
@@ -910,9 +923,47 @@
     user-select: none;
   }
   .zen button:focus-visible {
-    outline: 1px solid var(--z-focus-ring);
+    outline: 1px solid var(--mut3);
     outline-offset: 5px;
     border-radius: 2px;
+  }
+  /* The flow options ARE the focused element (focus tracks the highlight), so
+     the red .hot underline / begin word is the focus indicator — the extra
+     browser outline would just box the word. */
+  .opt:focus-visible,
+  .src:focus-visible,
+  .begin:focus-visible {
+    outline: none;
+  }
+
+  /* Persistent chrome: faint back arrow (top-left) + ◐ theme toggle (top-right). */
+  .top-back {
+    position: absolute;
+    top: 26px;
+    left: clamp(18px, 5vw, 40px);
+    z-index: 6;
+    font-size: 17px;
+    line-height: 1;
+    color: var(--mut6);
+    transition: color 160ms ease;
+  }
+  .top-back:hover,
+  .top-back:focus-visible {
+    color: var(--mut2);
+  }
+  .theme-toggle {
+    position: absolute;
+    top: 26px;
+    right: clamp(18px, 5vw, 40px);
+    z-index: 6;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--mut4);
+    transition: color 160ms ease;
+  }
+  .theme-toggle:hover,
+  .theme-toggle:focus-visible {
+    color: var(--ink);
   }
 
   .cross-v,
@@ -921,8 +972,18 @@
     background: rgba(200, 16, 46, 0.07);
     pointer-events: none;
   }
-  .cross-v { left: 38%; top: 0; bottom: 0; width: 1px; }
-  .cross-h { top: 50%; left: 0; right: 0; height: 1px; }
+  .cross-v {
+    left: 38%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+  }
+  .cross-h {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+  }
 
   .stage {
     position: absolute;
@@ -935,93 +996,193 @@
     transition: opacity 500ms ease;
   }
 
-  /* ---- start ---- */
-  .opt-row { display: flex; gap: 64px; }
-  .opt-row.tight { gap: 48px; }
-  .opt { text-align: center; }
+  /* ---- start: mode / direction ---- */
+  .opt-row {
+    display: flex;
+    gap: clamp(40px, 9vw, 96px);
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .opt-row.tight {
+    gap: clamp(36px, 8vw, 72px);
+  }
+  .opt {
+    text-align: center;
+  }
   .opt-label {
     display: inline-block;
-    font-size: 21px;
+    font-size: 29px;
     font-weight: 300;
-    letter-spacing: 0.05em;
-    color: var(--z-dim);
+    color: var(--mut3);
     border-bottom: 1px solid transparent;
-    padding-bottom: 5px;
-    transition: color 400ms ease, border-color 400ms ease;
+    padding-bottom: 6px;
+    transition:
+      color 400ms ease,
+      border-color 400ms ease;
   }
   .opt-sub {
     display: block;
-    font-size: 11px;
-    margin-top: 7px;
-    color: var(--z-faint);
-    letter-spacing: 0.03em;
+    font-size: 11.5px;
+    margin-top: 10px;
+    color: var(--mut5);
+    letter-spacing: 0.02em;
     transition: color 400ms ease;
   }
-  .opt.hot .opt-label { color: var(--z-text); border-bottom-color: var(--z-hot-line); }
-  .opt.hot .opt-sub { color: var(--z-sub); }
-  .opt.small .opt-label { font-size: 18px; letter-spacing: 0.04em; padding-bottom: 4px; }
-  .opt.small .opt-sub { font-size: 10px; margin-top: 6px; }
+  .opt.hot .opt-label {
+    color: var(--ink);
+    border-bottom-color: var(--red);
+  }
+  .opt.hot .opt-sub {
+    color: var(--mut2);
+  }
+  .opt:disabled {
+    cursor: default;
+  }
+  .opt:disabled .opt-label {
+    color: var(--mut5);
+  }
+  .opt.small .opt-label {
+    font-size: 26px;
+  }
 
-  .lang-step { display: flex; flex-direction: column; align-items: center; gap: 24px; }
-  .step-heading { font-size: 11px; letter-spacing: 0.1em; color: var(--z-key); }
+  .lang-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+  }
+  .step-heading {
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--mut5);
+  }
 
+  /* ---- start: source (two deck options + category cloud) ---- */
   .source-step {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 28px;
-    max-width: min(80vw, 640px);
+    gap: 22px;
+    max-width: min(90vw, 640px);
   }
-  .source-col { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .deck-opts {
+    margin-bottom: 6px;
+  }
+  .cloud-whisper {
+    font-size: 11.5px;
+    color: var(--mut5);
+  }
   .set-grid {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 12px 28px;
+    align-items: baseline;
+    gap: 12px 26px;
+    max-width: 440px;
     max-height: 40vh;
     overflow-y: auto;
     padding: 2px;
   }
-  .set-grid .src.set { font-size: 13px; }
   .src {
-    font-size: 16px;
-    letter-spacing: 0.04em;
-    color: var(--z-dim);
-    transition: color 400ms ease;
+    font-size: 13.5px;
+    font-weight: 300;
+    color: var(--mut2);
+    transition:
+      color 300ms ease,
+      border-color 300ms ease;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+  }
+  .src:hover {
+    color: var(--ink);
+  }
+  .src.hot {
+    color: var(--ink);
+    border-bottom-color: var(--red);
+  }
+  .src:disabled {
+    color: var(--mut5);
+    cursor: default;
+  }
+  .src:disabled:hover {
+    color: var(--mut5);
+  }
+  .src-note {
+    font-size: 11px;
+    color: var(--mut4);
+  }
+
+  /* ---- start: begin ---- */
+  .begin-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .summary {
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--mut5);
+  }
+  .begin {
     display: flex;
     align-items: baseline;
-    gap: 10px;
+    gap: 14px;
   }
-  .src.hot { color: var(--z-text); }
-  .src:disabled { color: var(--z-faint); cursor: default; }
-  .src-note { font-size: 10px; color: var(--z-sub); }
-  .src:disabled .src-note { color: var(--z-sub); }
+  .begin-word {
+    font-size: 44px;
+    font-weight: 300;
+    color: var(--soft);
+  }
 
-  .begin-step { display: flex; flex-direction: column; align-items: center; gap: 20px; }
-  .summary { font-size: 12px; letter-spacing: 0.06em; color: var(--z-sub); }
-  .begin { display: flex; align-items: baseline; gap: 14px; }
-  .begin-word { font-size: 34px; font-weight: 200; letter-spacing: 0.07em; }
-
+  /* ---- footer hints ---- */
   .footer {
     position: absolute;
-    bottom: 26px;
+    bottom: 28px;
     display: flex;
     align-items: baseline;
-    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+    padding: 0 24px;
   }
-  .key { font-size: 10px; letter-spacing: 0.14em; color: var(--z-key); }
-  .back { display: flex; align-items: baseline; gap: 10px; text-decoration: none; color: inherit; }
+  .key {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    color: var(--mut4);
+  }
+  .back {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+  }
   .back-word {
     font-size: 12px;
-    letter-spacing: 0.06em;
-    color: var(--z-dim);
-    border-bottom: 1px solid var(--z-back-line);
+    letter-spacing: 0.1em;
+    color: var(--mut4);
+    border-bottom: 1px solid var(--bd3);
     padding-bottom: 2px;
+    transition: color 160ms ease;
+  }
+  .back:hover .back-word,
+  .back:focus-visible .back-word {
+    color: var(--ink);
   }
 
   /* ---- run ---- */
-  .stage.run { gap: 44px; }
-  .prompt-wrap { position: relative; height: 170px; width: 100%; }
+  .stage.run {
+    gap: 44px;
+  }
+  .prompt-wrap {
+    position: relative;
+    height: 170px;
+    width: 100%;
+  }
   .layer {
     position: absolute;
     inset: 0;
@@ -1032,113 +1193,160 @@
     gap: 16px;
     transition: opacity 500ms ease;
   }
-  .reveal-layer { gap: 14px; pointer-events: none; }
-
-  .glow {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--z-glow);
-    box-shadow: var(--z-glow-box);
+  .reveal-layer {
+    gap: 14px;
+    pointer-events: none;
   }
+
+  /* lyssna prompt: a neutral waveform button (replays on click). */
+  .glow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wf-bars {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 40px;
+  }
+  .wf-bars span {
+    flex: none;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--bars);
+  }
+
   .prompt-text {
-    font-size: clamp(2.5rem, 6vw, 4rem);
-    font-weight: 200;
-    letter-spacing: 0.04em;
+    font-size: clamp(2rem, 5.2vw, 46px);
+    font-weight: 300;
+    color: var(--soft);
     font-variant-numeric: tabular-nums;
     text-align: center;
     padding: 0 24px;
   }
   .reveal-word {
-    font-size: clamp(2.2rem, 5.5vw, 3.6rem);
-    font-weight: 200;
-    letter-spacing: 0.02em;
+    font-size: clamp(2rem, 5.2vw, 46px);
+    font-weight: 300;
+    color: var(--ink);
     transition: color 400ms ease;
     text-align: center;
     padding: 0 24px;
   }
-  .reveal-word.ok { color: var(--z-ok); }
-  .reveal-sub { font-size: 15px; font-weight: 300; color: var(--z-sub); }
+  .reveal-word.ok {
+    color: var(--ok);
+  }
+  .reveal-sub {
+    font-size: 15px;
+    font-weight: 300;
+    color: var(--mut2);
+    text-align: center;
+    padding: 0 24px;
+  }
 
   .answer {
     background: transparent;
     border: none;
-    border-bottom: 1px solid var(--z-input-line);
+    border-bottom: 1px solid var(--bd3);
     outline: none;
-    color: var(--z-text);
-    caret-color: var(--z-text);
+    color: var(--ink);
+    caret-color: var(--ink);
     font-family: inherit;
-    font-size: clamp(1.4rem, 2.6vw, 1.9rem);
-    font-weight: 200;
-    letter-spacing: 0.04em;
+    font-size: 24px;
+    font-weight: 300;
     text-align: center;
     width: min(60vw, 200px);
     padding: 0 10px 9px;
-    transition: opacity 500ms ease, border-color 400ms ease;
+    transition:
+      opacity 500ms ease,
+      border-color 300ms ease;
   }
-  .answer.wide { width: min(60vw, 440px); }
-  .answer:focus { border-bottom-color: var(--z-input-line-focus); }
+  .answer.wide {
+    width: min(70vw, 440px);
+  }
+  .answer:focus {
+    border-bottom-color: var(--mut2);
+  }
 
   /* Touch-only controls (no Esc, iOS numeric keypad has no return key). */
-  .touch-row { display: none; }
+  .touch-row {
+    display: none;
+  }
   @media (pointer: coarse) {
-    .touch-row { display: flex; gap: 32px; }
+    .touch-row {
+      display: flex;
+      gap: 32px;
+    }
     .touch-btn {
       font-size: 12px;
       letter-spacing: 0.06em;
-      color: var(--z-dim);
-      border-bottom: 1px solid var(--z-back-line);
+      color: var(--mut2);
+      border-bottom: 1px solid var(--bd3);
       padding: 6px 2px;
       min-height: var(--min-tap);
     }
   }
 
   /* ---- done ---- */
-  .stage.done { gap: 30px; transition-duration: 600ms; }
-  .done-text { font-size: clamp(1.3rem, 2.4vw, 1.7rem); font-weight: 300; letter-spacing: 0.02em; }
-  .done .back-word { padding-bottom: 3px; }
+  .stage.done {
+    gap: 30px;
+    transition-duration: 600ms;
+  }
+  .done-text {
+    font-family: var(--font-serif);
+    font-size: clamp(1.6rem, 3vw, 28px);
+    font-weight: 500;
+    text-align: center;
+    padding: 0 24px;
+  }
 
   /* ---- pause ---- */
   .pause {
     position: absolute;
     inset: 0;
-    background: var(--z-bg);
+    background: var(--bg);
     z-index: 5;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 44px;
+    gap: clamp(36px, 8vw, 64px);
   }
-  .pause-opt { text-align: center; }
+  .pause-opt {
+    text-align: center;
+  }
   .pause-label {
     display: block;
-    font-size: 22px;
+    font-size: 29px;
     font-weight: 300;
-    letter-spacing: 0.05em;
+    color: var(--ink);
   }
-  .pause-label.quiet { color: var(--z-sub); }
-  .pause-opt .key { display: block; margin-top: 6px; }
-  .pause-dot { color: var(--z-faint); }
+  .pause-label.quiet {
+    color: var(--mut3);
+  }
+  .pause-opt .key {
+    display: block;
+    margin-top: 8px;
+  }
+  .pause-dot {
+    color: var(--mut5);
+  }
 
   @media (prefers-reduced-motion: no-preference) {
-    .rise { animation: riseIn 500ms ease both; }
-    .rise-slow { animation: riseIn 700ms ease both; }
-    /* Morgendis breathes faster and deeper than the dark gold dot. */
-    .glow { animation: breatheLight 4s ease-in-out infinite; }
-    @media (prefers-color-scheme: dark) {
-      .glow { animation: breatheDark 6s ease-in-out infinite; }
+    .rise {
+      animation: riseIn 500ms ease both;
+    }
+    .rise-slow {
+      animation: riseIn 700ms ease both;
     }
   }
-  @keyframes breatheLight {
-    0%, 100% { opacity: 0.35; transform: scale(0.8); }
-    50% { opacity: 1; transform: scale(1); }
-  }
-  @keyframes breatheDark {
-    0%, 100% { opacity: 0.5; transform: scale(0.9); }
-    50% { opacity: 0.9; transform: scale(1); }
-  }
   @keyframes riseIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: none; }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>

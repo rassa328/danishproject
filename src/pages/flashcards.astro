@@ -17,12 +17,20 @@ const totalCards = cardCount + praksisUniqueCount;
 ---
 
 <BaseLayout title={UI.flashcards.title} description={UI.flashcards.description}>
-  <h1>{UI.flashcards.title}</h1>
-  <p class="lead">{UI.flashcards.lead}</p>
-
-  <FlashcardReviewer client:idle cards={allCards} groups={groups} totalCards={totalCards} />
+  <!-- The redesign moves the <h1> into the island's header row (beside the deck
+       pill); the page keeps only the centered content column. -->
+  <div class="fc-shell">
+    <FlashcardReviewer client:idle cards={allCards} groups={groups} totalCards={totalCards} />
+  </div>
 
   <style>
-    .lead { color: var(--muted); }
+    .fc-shell {
+      width: min(640px, 92vw);
+      margin: 0 auto;
+      padding: 48px 0 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
   </style>
 </BaseLayout>

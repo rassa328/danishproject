@@ -1,0 +1,55 @@
+---
+// Shared <head> contents for every layout: charset/viewport, favicon, the
+// Newsreader web font, and the FOUC-safe theme bootstrap. Centralized so
+// BaseLayout and FocusLayout can't drift on fonts or the theme mechanism.
+import { withBase } from '../lib/url.ts';
+import { UI } from '../lib/strings.ts';
+
+interface Props {
+  title: string;
+  // `| undefined` (not just `?`) so the layouts can forward their own optional
+  // description straight through under exactOptionalPropertyTypes.
+  description?: string | undefined;
+}
+const { title, description } = Astro.props;
+const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
+---
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap"
+  rel="stylesheet"
+/>
+
+{/* Dark is the default theme; the choice persists in localStorage ('dfs-theme').
+    Run before first paint so there is no flash, and wire the ◐ toggle via a
+    single delegated listener (each MPA navigation is a fresh document). */}
+<script is:inline>
+  (function () {
+    try {
+      document.documentElement.dataset.theme = localStorage.getItem('dfs-theme') || 'dark';
+    } catch (e) {
+      document.documentElement.dataset.theme = 'dark';
+    }
+    if (window.__dfsThemeWired) return;
+    window.__dfsThemeWired = true;
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest && e.target.closest('[data-theme-toggle]');
+      if (!b) return;
+      var t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = t;
+      try {
+        localStorage.setItem('dfs-theme', t);
+      } catch (err) {}
+    });
+  })();
+</script>
+
+<meta name="generator" content={Astro.generator} />
+{description && <meta name="description" content={description} />}
+<title>{fullTitle}</title>

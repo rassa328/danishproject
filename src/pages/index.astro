@@ -1,83 +1,254 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getCollection } from 'astro:content';
 import { withBase } from '../lib/url.ts';
-import { allCards, cardCount } from '../lib/decks.ts';
+import { cardCount } from '../lib/decks.ts';
 import { praksisUniqueCount } from '../lib/praksis.ts';
-import { UI } from '../lib/strings.ts';
-import ProgressSummary from '../components/ProgressSummary.svelte';
-import DailyMission from '../components/DailyMission.svelte';
-import InputLog from '../components/InputLog.svelte';
-import HeroSample from '../components/HeroSample.svelte';
+import StodCard from '../components/StodCard.svelte';
 
-// Curated {danish, audio} pairs the daily mission can weave in — the audio ref
-// makes each focus word click-to-hear (small payload: two fields per card).
-const missionPool = allCards.map((c) => ({
-  danish: c.danish,
-  ...(c.audio ? { audio: c.audio } : {}),
-}));
-// startedCount() spans starter ∪ praksis (both are studyable), so the progress
-// denominator must too — else it can read "N av 225" with N > 225. Deduped:
-// praksis rows that share an id with a starter card aren't counted twice.
-const totalWords = cardCount + praksisUniqueCount;
-const lessonCount = (await getCollection('lessons', ({ data }) => !data.draft)).length;
+// Total studyable words, deduped (starter ∪ praksis). Formatted sv-SE so the
+// thousands separator is a space ("5 077"), matching the design.
+const totalWords = (cardCount + praksisUniqueCount).toLocaleString('sv-SE');
 ---
 
 <BaseLayout
   title="Dansk för svenskar"
-  description="Lär dig danska som svensktalande (B1–B2): uttal, falska vänner, tal och lyssnarförståelse."
+  description="Lär dig förstå talad danska som svensktalande: uttal, stød, falska vänner och lyssnarförståelse."
 >
-  <section class="hero">
-    <h1>{UI.home.heroTitle}</h1>
-    <p class="lead">{UI.home.heroLead}</p>
-    <a class="cta" href={withBase('lektioner')}>{UI.home.heroCta}</a>
-    <HeroSample client:idle />
-  </section>
+  <div class="home">
+    <div class="ghost" aria-hidden="true">Æ Ø Å</div>
 
-  <ProgressSummary client:idle total={totalWords} />
+    <h1 class="hero-title">Förstå danskar när de <em>faktiskt</em> pratar.</h1>
 
-  <div class="cards">
-    <a class="card" href={withBase('lektioner')}>
-      <span class="step">1</span>
-      <h2>Lektioner</h2>
-      <p>{lessonCount} korta lektioner om det som är svårt för svenskar: stød, talad danska, falska vänner och talsystemet.</p>
-    </a>
-    <a class="card" href={withBase('flashcards')}>
-      <span class="step">2</span>
-      <h2>Flashcards</h2>
-      <p>Sex övningslägen — lyssna, säg, lyssna på meningar, skriv, lucka och flerval. {totalWords.toLocaleString('sv-SE')} ord som repeteras precis innan du glömmer dem.</p>
-    </a>
-    <a class="card" href={withBase('ordlista')}>
-      <span class="step">3</span>
-      <h2>Ordlista</h2>
-      <p>Sök bland alla {totalWords.toLocaleString('sv-SE')} ord — grundorden med exempel och inspelat uttal som referenslista.</p>
-    </a>
+    <div class="cards">
+      {/* Zen card — the practice demonstrates itself; no description. */}
+      <a class="card zen-card" href={withBase('zen')}>
+        <span class="eyebrow">◎ Zen</span>
+        <span class="zen-body">
+          <span class="zen-word" lang="da">morsomt</span>
+          <span class="zen-rule"></span>
+        </span>
+      </a>
+
+      {/* Flashcards card — cue → answer + spaced-repetition timeline. */}
+      <a class="card fc-card" href={withBase('flashcards')}>
+        <span class="fc-head">
+          <span class="eyebrow">Flashcards</span>
+          <span class="stat">{totalWords} ORD</span>
+        </span>
+        <span class="fc-body">
+          <span class="cue">roligt</span>
+          <span class="answer">
+            <span class="answer-word" lang="da">morsomt</span>
+            <span class="glyph" aria-hidden="true">
+              <span style="height:7px"></span>
+              <span style="height:15px"></span>
+              <span style="height:21px"></span>
+              <span style="height:12px"></span>
+              <span style="height:7px"></span>
+            </span>
+          </span>
+        </span>
+        <span class="fc-foot">
+          <span class="timeline" aria-hidden="true" title="spaced repetition">
+            <span class="dot"></span>
+            <span class="link" style="width:10px"></span>
+            <span class="dot"></span>
+            <span class="link" style="width:22px"></span>
+            <span class="dot"></span>
+            <span class="link" style="width:44px"></span>
+            <span class="dot"></span>
+            <span class="link" style="width:80px"></span>
+            <span class="dot dot-empty"></span>
+          </span>
+          <span class="fc-caption">spaced repetition — varje ord återkommer precis innan du glömmer det</span>
+        </span>
+      </a>
+
+      {/* Stød card — playable hun/hund waveform (real audio), spans both columns. */}
+      <StodCard client:idle lessonHref={withBase('lektioner/01-stoed')} />
+    </div>
   </div>
 
-  <section class="practice">
-    <h2>{UI.practice.heading}</h2>
-    <p class="practice-intro">{UI.practice.intro}</p>
-    <div class="practice-grid">
-      <DailyMission client:idle pool={missionPool} />
-      <InputLog client:idle />
-    </div>
-  </section>
-
   <style>
-    /* Generous whitespace: the hero is the screen's one Danish reference
-       (the waveform sample) — everything else stays quiet. */
-    .hero { margin: var(--sp-8) 0 var(--sp-12); }
-    .hero h1 { margin-bottom: var(--sp-3); }
-    .lead { font-size: var(--step-1); color: var(--muted); margin: 0 0 var(--sp-6); max-width: 34rem; }
-    .cards { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-top: var(--sp-4); }
-    .card { position: relative; display: block; padding: var(--sp-4) var(--sp-6); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
-    .card:hover { border-color: var(--accent); }
-    .card .step { position: absolute; top: var(--sp-4); right: var(--sp-4); width: 1.5em; height: 1.5em; display: grid; place-items: center; border-radius: var(--radius-pill); background: var(--accent); color: var(--accent-contrast); font-size: var(--step--1); font-weight: 700; }
-    .card h2 { margin: 0 0 var(--sp-2); color: var(--accent); }
-    .card p { margin: 0; color: var(--muted); font-size: var(--step--1); }
-    .practice { margin-top: var(--sp-8); }
-    .practice > h2 { margin: 0 0 var(--sp-1); }
-    .practice-intro { color: var(--muted); margin: 0 0 var(--sp-4); }
-    .practice-grid { display: grid; gap: var(--sp-4); grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); align-items: start; }
+    .home {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 72px 24px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ghost {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-weight: 700;
+      font-size: clamp(160px, 26vw, 300px);
+      line-height: 1;
+      letter-spacing: 0.04em;
+      color: var(--ghost);
+      white-space: nowrap;
+      pointer-events: none;
+      user-select: none;
+    }
+
+    .hero-title {
+      position: relative;
+      margin: 0;
+      max-width: 860px;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: clamp(44px, 6.4vw, 78px);
+      line-height: 1.04;
+      letter-spacing: -0.022em;
+      text-wrap: balance;
+      color: var(--ink);
+    }
+    .hero-title em {
+      font-style: italic;
+      font-weight: 500;
+    }
+
+    .cards {
+      position: relative;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 18px;
+      width: min(880px, 94vw);
+      margin-top: 64px;
+      text-align: left;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      min-height: 236px;
+      background: var(--card);
+      border: 1px solid var(--bd1);
+      border-radius: 20px;
+      padding: 24px 28px;
+      text-decoration: none;
+      color: var(--ink);
+      box-shadow:
+        0 1px 2px var(--sh1),
+        0 16px 40px var(--sh2);
+      transition: border-color 120ms ease;
+    }
+    .card:hover,
+    .card:focus-visible {
+      border-color: var(--mut5);
+    }
+
+    .eyebrow {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    /* Zen card */
+    .zen-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+    .zen-word {
+      font-size: 31px;
+      font-weight: 300;
+      color: var(--soft);
+      letter-spacing: 0.01em;
+    }
+    .zen-rule {
+      width: 168px;
+      height: 1px;
+      background: var(--bd3);
+    }
+
+    /* Flashcards card */
+    .fc-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .stat {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--mut3);
+    }
+    .fc-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .cue {
+      font-size: 13.5px;
+      color: var(--mut3);
+    }
+    .answer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .answer-word {
+      font-family: var(--font-serif);
+      font-size: 30px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.01em;
+    }
+    .glyph {
+      display: flex;
+      align-items: center;
+      gap: 2.5px;
+    }
+    .glyph span {
+      flex: none;
+      width: 3px;
+      border-radius: 2px;
+      background: var(--red);
+    }
+    .fc-foot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 9px;
+    }
+    .timeline {
+      display: flex;
+      align-items: center;
+    }
+    .timeline .dot {
+      flex: none;
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--red);
+    }
+    .timeline .dot-empty {
+      background: transparent;
+      border: 1px solid var(--red);
+      box-sizing: border-box;
+    }
+    .timeline .link {
+      flex: none;
+      height: 1px;
+      background: var(--bd3);
+    }
+    .fc-caption {
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--mut3);
+    }
   </style>
 </BaseLayout>

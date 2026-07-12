@@ -3,119 +3,118 @@ import { withBase } from '../lib/url.ts';
 import { UI } from '../lib/strings.ts';
 
 const path = Astro.url.pathname.replace(/\/$/, '');
-// Zen renders as a dot-in-circle icon (last entry) — aria-label + title carry
-// its name (user decision 2026-07-11: minimal mark in the nav, calm inside).
+// Redesign nav: the wordmark is the home link (no separate "Hem"), "Tal" is
+// removed from the nav (the /tal route still exists), and Zen renders as the
+// "◎ Zen" text mark that always reads as ink and hovers red.
 const links = [
-  { href: withBase(''), label: UI.nav.home, match: 'exact' as const },
-  { href: withBase('lektioner'), label: UI.nav.lessons, match: 'prefix' as const },
-  { href: withBase('flashcards'), label: UI.nav.flashcards, match: 'prefix' as const },
-  { href: withBase('ordlista'), label: UI.nav.wordlist, match: 'prefix' as const },
-  { href: withBase('tal'), label: UI.nav.numbers, match: 'prefix' as const },
-  { href: withBase('zen'), label: UI.nav.zen, match: 'prefix' as const, icon: true },
+  { href: withBase('lektioner'), label: UI.nav.lessons },
+  { href: withBase('flashcards'), label: UI.nav.flashcards },
+  { href: withBase('ordlista'), label: UI.nav.wordlist },
 ];
 const norm = (href: string) => href.replace(/\/$/, '');
-const isActive = (l: (typeof links)[number]) =>
-  l.match === 'exact' ? path === norm(l.href) : path === norm(l.href) || path.startsWith(norm(l.href) + '/');
+const isActive = (href: string) => {
+  const n = norm(href);
+  return path === n || path.startsWith(n + '/');
+};
+const zenHref = withBase('zen');
 ---
 
 <nav aria-label={UI.nav.menuLabel}>
-  <a class="brand" href={withBase('')}><span lang="da">{UI.brandDa}</span>{UI.brandRest}</a>
-  <ul>
+  <a class="brand" href={withBase('')}
+    ><span lang="da">{UI.brandDa}</span><span class="brand-rest">{UI.brandRest}</span></a
+  >
+  <div class="links">
     {
       links.map((l) => (
-        <li>
-          {'icon' in l && l.icon ? (
-            <a
-              class="icon-link"
-              href={l.href}
-              aria-label={UI.nav.zenLabel}
-              title={l.label}
-              aria-current={isActive(l) ? 'page' : undefined}
-            >
-              {/* Dot-in-circle: currentColor so hover/active states come free. */}
-              <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
-                <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5" />
-                <circle cx="8" cy="8" r="2" fill="currentColor" />
-              </svg>
-              <span class="vh">{l.label}</span>
-            </a>
-          ) : (
-            <a href={l.href} aria-current={isActive(l) ? 'page' : undefined}>
-              {l.label}
-            </a>
-          )}
-        </li>
+        <a href={l.href} aria-current={isActive(l.href) ? 'page' : undefined}>
+          {l.label}
+        </a>
       ))
     }
-  </ul>
+    <a
+      class="zen"
+      href={zenHref}
+      title={UI.nav.zenLabel}
+      aria-current={isActive(zenHref) ? 'page' : undefined}
+    >
+      <span aria-hidden="true">◎</span> {UI.nav.zen}
+    </a>
+    <button type="button" data-theme-toggle="true" aria-label={UI.themeToggle} title={UI.themeToggle}
+      >◐</button
+    >
+  </div>
 </nav>
 
 <style>
   nav {
     display: flex;
+    align-items: baseline;
+    justify-content: space-between;
     flex-wrap: wrap;
-    align-items: center;
-    gap: var(--sp-4);
-    max-width: var(--maxw);
-    margin-inline: auto;
-    padding: var(--sp-4);
-    border-bottom: 1px solid var(--border);
+    gap: 10px 24px;
+    max-width: var(--content-w);
+    width: 100%;
+    margin: 0 auto;
+    padding: 24px clamp(18px, 5vw, 40px);
+    box-sizing: border-box;
   }
   .brand {
-    font-weight: 700;
     text-decoration: none;
-    color: var(--text);
-    margin-right: auto;
-  }
-  .brand [lang='da'] { color: var(--accent); }
-  ul {
-    display: flex;
-    /* Six links no longer fit one row on 360–390px phones — without wrap the
-       list forces site-wide horizontal scroll and clips the last link. */
-    flex-wrap: wrap;
-    gap: var(--sp-2) var(--sp-4);
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  /* Red as detail: links are quiet text; the accent marks hover and "you are here". */
-  ul a {
-    color: var(--text);
-    text-decoration: none;
-  }
-  ul a:hover,
-  ul a:focus-visible {
-    color: var(--accent);
-    text-decoration: underline;
-    text-underline-offset: 4px;
-  }
-  /* Must out-specify `ul a` above: Astro scopes every selector with a
-     [data-astro-cid] attribute, so a bare a[aria-current] (0,2,1 compiled)
-     would LOSE to ul a (0,2,2 compiled) on color/underline. */
-  ul a[aria-current='page'] {
-    color: var(--accent);
+    font-size: 15px;
     font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 4px;
+    letter-spacing: -0.01em;
+    color: var(--ink);
   }
-  /* The Zen icon: aligned to the text links; no underline (nothing to
-     underline), current/hover state carried by the stroke color instead. */
-  ul a.icon-link {
-    display: inline-flex;
-    align-items: center;
+  .brand [lang='da'] {
+    color: var(--red);
+  }
+  .brand-rest {
+    font-weight: 400;
+  }
+  .links {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 12px clamp(14px, 3.5vw, 26px);
+    font-size: 13.5px;
+  }
+  .links a {
     text-decoration: none;
+    color: var(--mut2);
+    transition: color 120ms ease;
   }
-  ul a.icon-link svg {
-    display: block;
-    width: 1em;
-    height: 1em;
+  .links a:hover,
+  .links a:focus-visible {
+    color: var(--ink);
   }
-  .vh {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
+  /* Current page reads as ink and weightier. */
+  .links a[aria-current='page'] {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  /* Zen is always ink 500 and hovers red — the one link that stands apart. */
+  .links a.zen {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .links a.zen:hover,
+  .links a.zen:focus-visible {
+    color: var(--red);
+  }
+  .links button[data-theme-toggle] {
+    font: inherit;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--mut4);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    align-self: center;
+    transition: color 120ms ease;
+  }
+  .links button[data-theme-toggle]:hover,
+  .links button[data-theme-toggle]:focus-visible {
+    color: var(--ink);
   }
 </style>
