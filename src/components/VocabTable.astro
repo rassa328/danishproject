@@ -72,12 +72,11 @@ const { cards } = Astro.props;
     line-height: 1.5;
     color: var(--mut2);
   }
-  /* Glossary house style: every word, translation and example reads
-     lowercase-first for a uniform look. Notes keep normal sentence case.
-     Presentation-only — the underlying card text is untouched. */
+  /* Glossary house style: head words and translations read lowercase-first
+     for a uniform look. Example sentences keep normal sentence case (start
+     with a capital), as do notes. Presentation-only — card text untouched. */
   .da::first-letter,
-  .sv::first-letter,
-  .ex::first-letter {
+  .sv::first-letter {
     text-transform: lowercase;
   }
   .note {
