@@ -255,6 +255,10 @@ export const UI = {
       'da-sv': { label: 'danska → svenska', sub: 'ser danska · skriver svenska' },
     },
     sources: { repetera: 'repetera', blandat: 'blandat', tal: 'tal' },
+    // Descriptive sub under "repetera" on the deck screen (blandat reuses freeNote).
+    repeteraSub: 'schemat väljer orden',
+    // Whisper above the category cloud (tal + flashcard sets).
+    categoryWhisper: 'eller en kategori',
     talNote: '0–100',
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
