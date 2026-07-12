@@ -1139,6 +1139,12 @@
   .zen .begin:focus-visible {
     outline: none;
   }
+  /* The global focus-visible radius would round the ends of a category's
+     bottom border while hover and focus overlap. Keep its underline straight. */
+  .zen .cat:focus,
+  .zen .cat:focus-visible {
+    border-radius: 0;
+  }
 
   /* Persistent chrome: faint back arrow (top-left) + ◐ theme toggle (top-right). */
   .top-back {
