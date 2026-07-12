@@ -240,7 +240,12 @@ input[type='text']:focus {
 .ghost-head {
   position: relative;
   isolation: isolate;
-  overflow: hidden;
+  /* The ghost watermark is taller than this short header band and sits
+     centered on it, so plain `overflow: hidden` clipped the glyph tops and
+     bottoms (the Å ring, the Ø/Æ tails). `clip` + a generous clip-margin
+     keeps stray bleed contained while letting the full letters show. */
+  overflow: clip;
+  overflow-clip-margin: 60px;
 }
 .ghost-head .ghost {
   position: absolute;
