@@ -6,6 +6,7 @@
   import { withBase } from '../lib/url.ts';
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
+  import FlashcardSettings from './FlashcardSettings.svelte';
   import CelebrationFlag from './CelebrationFlag.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
   import { DUE_ALL_GROUP_ID, type GroupMatch, type StudyGroup } from '../lib/deck-groups.ts';
@@ -81,6 +82,10 @@
   let celebrate = $state(false);
   let container = $state<HTMLElement>();
   let input = $state<HTMLInputElement>();
+  // The revealed answer's audio glyphs — bound so reveal auto-speech can pulse
+  // them in sync with the sound it plays (they don't self-trigger it).
+  let wordSpeak = $state<SpeakButton>();
+  let exampleSpeak = $state<SpeakButton>();
   // Deck popover open/closed (replaces the old native <select> dropdown). The
   // pill's hover/open visual is handled in CSS; only "open" needs to be state.
   let pickerOpen = $state(false);
@@ -216,7 +221,10 @@
     typed = option;
     wasCorrect = option === current.danish;
     phase = 'revealed';
-    tick().then(() => container?.focus());
+    tick().then(() => {
+      container?.focus();
+      void autoSpeakReveal();
+    });
   }
 
   // Insert a Danish letter at the caret — Swedish keyboards lack æ/ø.
@@ -400,6 +408,40 @@
     if (phase === 'prompt') afterPrompt();
   }
 
+  /** A settings change auto-saves immediately (the dashboard has no Save button).
+   *  Re-apply it now only when idle at the done screen — mid-round it takes
+   *  effect on the next round, exactly like the old panel's onSaved contract. */
+  function onSettingsChange() {
+    if (phase === 'done') start();
+  }
+
+  /** Auto-play the revealed word (and, if enabled, its example sentence) for the
+   *  reading/writing modes when "Automatiskt uttal" is on. listen / listen-
+   *  sentence / speak already voice the card in their own flow, so they never
+   *  double-fire here. Clip-first via speak(); silent no-op if autoplay is
+   *  blocked or there's no voice — the manual replay button stays available. */
+  async function autoSpeakReveal() {
+    // Snapshot the card: `current` is a $derived read live on every access, and a
+    // fast grade between the two awaits below would otherwise play the NEXT card's
+    // sentence audio during its prompt — leaking the answer. Bind once, and bail
+    // if the card/phase moved on before the sentence plays.
+    const card = current;
+    if (!card) return;
+    if (direction === 'listen' || direction === 'listen-sentence' || direction === 'speak') return;
+    const st = store.getSettings();
+    // Human recordings only (product invariant): auto-play a card ONLY when it has
+    // a committed clip. A clip-less card stays silent here — the manual replay
+    // button still lets the learner trigger the browser voice deliberately.
+    if (!st.autoSpeech || !card.audio) return;
+    if (st.speakSentence && card.exampleDa && card.audioExample) {
+      await speak(card.danish, { audioUrl: withBase(card.audio), awaitEnd: true, onStart: () => wordSpeak?.flash() });
+      if (phase !== 'revealed' || current !== card) return; // moved on — don't leak
+      await speak(card.exampleDa, { audioUrl: withBase(card.audioExample), awaitEnd: true, onStart: () => exampleSpeak?.flash() });
+    } else {
+      await speak(card.danish, { audioUrl: withBase(card.audio), onStart: () => wordSpeak?.flash() });
+    }
+  }
+
   function afterPrompt() {
     speakSilent = false;
     promptAudioState = 'ok';
@@ -426,6 +468,7 @@
     phase = 'revealed';
     await tick();
     container?.focus();
+    void autoSpeakReveal();
   }
 
   function grade(g: ReviewGrade) {
@@ -600,9 +643,11 @@
     <p class="from-lesson"><a href={withBase(`lektioner/${fromLesson}`)}>{UI.lessons.backToLesson}</a></p>
   {/if}
 
-  <!-- Header row: serif h1 + deck pill (or the tag bar when deep-linked). -->
+  <!-- Header row: serif h1 + deck pill (or the tag bar when deep-linked) + the
+       settings gear (opens the dashboard popover). -->
   <div class="head-row">
     <h1 class="page-title">{T.title}</h1>
+    <div class="head-tools">
     {#if tag}
       <span class="tag-bar">
         <span class="tag-label">{T.trainingTagPrefix} <strong>#{tag}</strong></span>
@@ -665,6 +710,8 @@
         {/if}
       </span>
     {/if}
+      <FlashcardSettings {store} onChange={onSettingsChange} />
+    </div>
   </div>
 
   <!-- Mode pills: the six Direction radios, native dot hidden, label styled as a
@@ -843,8 +890,8 @@
                   <p class="attempt" lang="da" aria-hidden="true">{typed}</p>
                 {/if}
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>{/if}</p>
-              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={exBars} barWidth={2.5} barGap={2} /></p>{/if}
+              <p class="da" lang="da">{current.danish} <SpeakButton bind:this={wordSpeak} text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>{/if}</p>
+              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton bind:this={exampleSpeak} text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={exBars} barWidth={2.5} barGap={2} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
               <div class="grade-pills">
@@ -920,6 +967,12 @@
     letter-spacing: -0.02em;
     color: var(--ink);
   }
+
+  /* Right-side header cluster: deck pill / tag bar + the settings gear. The
+     flex box takes its baseline from its first item (the pill/tag text), so the
+     pill still baseline-aligns with the serif h1 exactly as before; the gear
+     rides centered beside it. */
+  .head-tools { display: inline-flex; align-items: center; gap: 10px; margin-left: auto; }
 
   .tag-bar { display: inline-flex; align-items: baseline; gap: 12px; font-size: 12.5px; color: var(--mut2); }
   .tag-bar strong { color: var(--ink); font-weight: 600; }

@@ -79,11 +79,17 @@ export interface SrsView {
 }
 
 export interface QueueLimits {
-  /** True DAILY budget of new-card introductions (shared across directions). */
+  /** True DAILY budget of new-card introductions (shared across directions).
+   *  -1 (the settings ∞ sentinel) means unlimited. */
   newPerDay: number;
-  /** Per-session cap on the due backlog. */
+  /** Per-session cap on the due backlog. -1 means unlimited. */
   reviewPerDay: number;
 }
+
+/** A settings limit as a slice length: the ∞ sentinel (-1, or any negative)
+ *  becomes Infinity so `slice(0, cap)` keeps everything instead of the
+ *  off-by-one drop `slice(0, -1)` would cause. */
+const cap = (n: number): number => (n < 0 ? Infinity : n);
 
 export interface SessionQueue {
   /** Cards to review, in presentation order (shuffled). */
@@ -156,7 +162,7 @@ export function buildQueue(opts: {
   }
   // Cap the due backlog MOST-OVERDUE first (not deck order).
   due.sort((a, b) => a.due - b.due);
-  const dueCards = due.slice(0, limits.reviewPerDay).map((x) => x.c);
+  const dueCards = due.slice(0, cap(limits.reviewPerDay)).map((x) => x.c);
   // The 'all' group is a pure backlog-clearing session: only due records, kept
   // in most-overdue-first order (a tag deep-link restores normal scheduling).
   if (!tag && match?.kind === 'all') return { queue: dueCards, pool, filteredReason };
@@ -169,7 +175,7 @@ export function buildQueue(opts: {
     if (ra !== rb) return ra - rb;
     return a.cefr === b.cefr ? 0 : a.cefr === 'b1' ? -1 : 1;
   });
-  const newBudget = Math.max(0, limits.newPerDay - srs.newCardsToday(now));
+  const newBudget = Math.max(0, cap(limits.newPerDay) - srs.newCardsToday(now));
   return { queue: shuffle([...dueCards, ...fresh.slice(0, newBudget)], rng), pool, filteredReason };
 }
 

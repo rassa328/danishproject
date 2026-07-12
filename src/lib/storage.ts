@@ -49,12 +49,19 @@ export interface SrsRecord {
 }
 
 export interface Settings {
+  /** Daily new-card budget. -1 = unlimited (∞ in the settings stepper). */
   newPerDay: number;
+  /** Per-session due-backlog cap. -1 = unlimited (∞). */
   reviewPerDay: number;
   requestRetention: number;
   directions: Direction[];
   leechThreshold: number;
   ttsEnabled: boolean;
+  /** Auto-play the card's recorded audio when the answer is revealed (reading/
+   *  writing modes — listen/speak already voice the card). */
+  autoSpeech: boolean;
+  /** With autoSpeech on, also play the example sentence after the word. */
+  speakSentence: boolean;
   theme: 'light' | 'dark' | 'system';
   /** Last picked reviewer study group ('' = never picked — the reviewer applies
    *  its own default). Additive: old blobs get '' via the getSettings merge. */
@@ -119,9 +126,15 @@ export const DEFAULT_SETTINGS: Settings = {
   newPerDay: 10,
   reviewPerDay: 200,
   requestRetention: 0.9,
-  directions: ['produce'],
+  // Default study mode a fresh learner opens in. A Swede gains most from
+  // recognition/listening first, not blind production — the settings dashboard
+  // surfaces this as the default STANDARDLÄGE chip (Känn igen). Existing users'
+  // saved preference is untouched; this only seeds brand-new installs.
+  directions: ['recognize'],
   leechThreshold: 8,
   ttsEnabled: true,
+  autoSpeech: true,
+  speakSentence: false,
   theme: 'system',
   selectedGroupId: '',
 };

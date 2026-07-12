@@ -127,6 +127,35 @@ describe('buildQueue: new-card budget', () => {
   });
 });
 
+describe('buildQueue: unlimited (∞) limits', () => {
+  it('reviewPerDay -1 keeps the ENTIRE due backlog (no slice(0,-1) drop)', () => {
+    const cards = ['c1', 'c2', 'c3'].map((id) => card(id));
+    const srs = srsView({
+      'c1::produce': rec(daysAgo(1)),
+      'c2::produce': rec(daysAgo(3)),
+      'c3::produce': rec(daysAgo(2)),
+    });
+    const { queue } = build(cards, { srs, limits: { newPerDay: 0, reviewPerDay: -1 } });
+    // Most-overdue first, ALL three: a naive slice(0, -1) would drop the last (c1).
+    expect(ids(queue)).toEqual(['c2', 'c3', 'c1']);
+  });
+
+  it('newPerDay -1 introduces every fresh card', () => {
+    const cards = ['f1', 'f2', 'f3', 'f4', 'f5'].map((id) => card(id));
+    const { queue } = build(cards, { limits: { newPerDay: -1, reviewPerDay: 200 } });
+    expect(queue).toHaveLength(5);
+  });
+
+  it('newPerDay -1 stays unlimited even after cards were introduced today', () => {
+    const cards = ['f1', 'f2', 'f3'].map((id) => card(id));
+    const { queue } = build(cards, {
+      srs: srsView({}, 3),
+      limits: { newPerDay: -1, reviewPerDay: 200 },
+    });
+    expect(queue).toHaveLength(3); // Infinity − 3 = Infinity
+  });
+});
+
 describe('buildQueue: pool selection + direction filters', () => {
   it('a tag deep-link wins over the group match; no selection means empty pool', () => {
     const cards = [card('t1', { deck: 'other', tags: ['greet'] }), card('g1')];

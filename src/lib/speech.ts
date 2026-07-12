@@ -100,10 +100,13 @@ function stopCurrent(): void {
  *  before it produced sound (callers can ignore that outcome). Never throws.
  *  Default resolution is at playback START; `awaitEnd: true` resolves when the
  *  sound finishes instead (for sequential playback, e.g. "hun" then "hund") —
- *  superseded-while-playing then reports 'cancelled'. */
+ *  superseded-while-playing then reports 'cancelled'. `onStart` fires the moment
+ *  sound is confirmed playing (after the clip's play() resolves, or the TTS
+ *  utterance is queued) — used to pulse a waveform glyph in sync with audio the
+ *  caller triggered externally, and it fires at START even under awaitEnd. */
 export async function speak(
   text: string,
-  opts: { audioUrl?: string; rate?: number; awaitEnd?: boolean } = {}
+  opts: { audioUrl?: string; rate?: number; awaitEnd?: boolean; onStart?: () => void } = {}
 ): Promise<SpeakOutcome> {
   const seq = ++speakSeq;
   stopCurrent();
@@ -114,6 +117,7 @@ export async function speak(
       if (opts.rate !== undefined) audio.playbackRate = opts.rate;
       currentAudio = audio;
       await audio.play();
+      opts.onStart?.(); // sound is confirmed playing (fires at START, pre-awaitEnd)
       if (opts.awaitEnd) {
         const el = audio;
         // 'pause' also fires when a newer speak()'s stopCurrent() halts us —
@@ -152,6 +156,7 @@ export async function speak(
     u.lang = voice.lang || 'da-DK';
     u.rate = 0.95 * (opts.rate ?? 1);
     s.speak(u);
+    opts.onStart?.(); // utterance queued — treat as playback start (matches SpeakButton's tts pulse)
     if (opts.awaitEnd) {
       // 'end' fires on natural completion AND on cancel(); some engines emit
       // 'error' instead when cancelled — resolve on either, then re-check seq.
