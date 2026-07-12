@@ -1310,13 +1310,18 @@
     background: none;
     border: none;
     border-bottom: 1px solid transparent;
+    /* Global button radius (8px) would bend the underline's ends upward on
+       any unfocused cell — e.g. after a mouse click, which doesn't focus
+       buttons on macOS (the focus-state radius reset alone can't cover it). */
+    border-radius: 0;
     padding: 1px 0 3px;
     cursor: pointer;
     white-space: nowrap;
     line-height: 1.3;
-    transition:
-      color 200ms ease,
-      border-color 200ms ease;
+    /* Color may fade, but the underline must move at once: a border-color
+       transition leaves the red line lingering under the previous category
+       while the highlight has already moved on. */
+    transition: color 200ms ease;
   }
   .zen .cat:hover,
   .zen .cat.hot {
