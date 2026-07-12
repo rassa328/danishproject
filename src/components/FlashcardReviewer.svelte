@@ -1246,13 +1246,19 @@
     text-decoration-thickness: 1px;
   }
   @media (prefers-reduced-motion: no-preference) {
-    .ok-line { animation: hairlineIn 550ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+    .ok-line { animation: hairlineIn 850ms cubic-bezier(0.2, 0.8, 0.3, 1) both; }
     .answer.correct { animation: answerRise 480ms cubic-bezier(0.2, 0.8, 0.3, 1) 120ms both; }
   }
+  /* Draw in with a glow bloom and a momentary thickness swell, settle under,
+     one small second bounce (the flag-drop cadence), relax to the resting
+     glow. The draw still completes by ~320ms so it reads as fast; the extra
+     300ms is the settle, not the arrival. */
   @keyframes hairlineIn {
-    0% { transform: scaleX(0); opacity: 0; }
-    60% { transform: scaleX(1.35); }
-    100% { transform: scaleX(1); opacity: 1; }
+    0% { transform: scale(0, 1); opacity: 0; box-shadow: 0 0 0 color-mix(in oklab, var(--ok) 0%, transparent); }
+    38% { transform: scale(1.4, 1.8); opacity: 1; box-shadow: 0 0 18px 3px color-mix(in oklab, var(--ok) 85%, transparent); }
+    60% { transform: scale(0.94, 1); }
+    78% { transform: scale(1.12, 1.3); box-shadow: 0 0 15px 1px var(--ok); }
+    100% { transform: scale(1, 1); box-shadow: 0 0 12px var(--ok); }
   }
   @keyframes answerRise {
     from { transform: translateY(10px); opacity: 0; }
