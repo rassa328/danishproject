@@ -890,7 +890,12 @@
                   <p class="attempt" lang="da" aria-hidden="true">{typed}</p>
                 {/if}
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton bind:this={wordSpeak} text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>{/if}</p>
+              <!-- listen-sentence is a SENTENCE-level exercise: the reveal shows only
+                   the sentence (below), so the singular headword + its play button are
+                   hidden here. Every other mode still leads with the word. -->
+              {#if direction !== 'listen-sentence'}
+                <p class="da" lang="da">{current.danish} <SpeakButton bind:this={wordSpeak} text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>{/if}</p>
+              {/if}
               {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton bind:this={exampleSpeak} text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={exBars} barWidth={2.5} barGap={2} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
