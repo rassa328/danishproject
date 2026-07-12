@@ -810,8 +810,8 @@
                   <p class="attempt" lang="da" aria-hidden="true">{typed}</p>
                 {/if}
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{T.slowSpeed}</button>{/if}</p>
-              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} /></p>{/if}
+              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{T.slowSpeed}</button>{/if}</p>
+              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={[6, 12, 8]} barWidth={2.5} barGap={2} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
               <div class="grade-pills">
@@ -1278,8 +1278,6 @@
     letter-spacing: -0.01em;
     line-height: 1.25;
   }
-  /* Primary answer audio reads red; the example's secondary control stays muted. */
-  .da :global(.speak) { color: var(--red); font-size: 14px; }
   .ex {
     display: inline-flex;
     align-items: center;
@@ -1290,7 +1288,6 @@
     font-size: 15px;
     color: var(--mut1);
   }
-  .ex :global(.speak) { color: var(--mut1); font-size: 13px; }
   .note { margin: 16px 0 0; max-width: 400px; font-size: 13px; line-height: 1.55; color: var(--mut2); }
   .obs {
     font-family: var(--font-mono);
