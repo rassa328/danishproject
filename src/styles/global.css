@@ -1,9 +1,14 @@
-/* Design tokens + base styles. Light by default, dark via prefers-color-scheme.
-   (A manual theme toggle is deferred post-v1.) */
+/* Design tokens + base styles.
+   Redesign: DARK is the default theme; light via <html data-theme="light">.
+   The choice persists in localStorage ('dfs-theme') and is applied by an inline
+   head script before first paint (see BaseLayout / FocusLayout) so there is no
+   flash. body background-color transitions 250ms on toggle. */
 :root {
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
 
-  /* modular type scale (1.25) */
+  /* modular type scale (1.25) — kept for legacy components */
   --step--1: 0.8rem;
   --step-0: 1rem;
   --step-1: 1.25rem;
@@ -22,46 +27,90 @@
   --radius: 8px;
   --radius-pill: 999px;
   --maxw: 46rem;
+  --content-w: 1120px; /* redesign nav/footer + page container width */
   --min-tap: 2.75rem; /* WCAG 2.5.5 minimum touch target */
+}
 
-  --bg: #fbfaf8;
-  --surface: #ffffff;
-  --text: #1a1a1a;
-  --muted: #4a4641; /* ~8.3:1 on --surface (was #5e5a52 ≈ 6.9:1) */
-  --border: #e7e3db;
-  --accent: #c8102e; /* Danish-flag red */
+/* Dark is the default (no attribute required — used as the no-JS fallback too). */
+:root,
+html[data-theme='dark'] {
+  --bg: #16130f;
+  --card: #262119;
+  --ink: #efe9dd;
+  --soft: #cfc8b9;
+  --mut1: #a89f90;
+  --mut2: #968d7e;
+  --mut3: #7d7568;
+  --mut4: #6b6357;
+  --mut5: #5a5348;
+  --mut6: #4a443b;
+  --bars: #8a8172;
+  --bd1: #2e2921;
+  --bd2: #2a251f;
+  --bd3: #3a342b;
+  --bd4: #3f382e;
+  --bd5: #332d25;
+  --bd6: #2f2a22;
+  --sel: #4a222b;
+  --red: #e0475c;
+  --ok: #7fb98e;
+  --ghost: rgba(240, 236, 227, 0.05);
+  --sh1: rgba(0, 0, 0, 0.35);
+  --sh2: rgba(0, 0, 0, 0.4);
+  --sh3: rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+html[data-theme='light'] {
+  --bg: #faf9f5;
+  --card: #ffffff;
+  --ink: #1c1a17;
+  --soft: #4a4641;
+  --mut1: #6f6a61;
+  --mut2: #8a8478;
+  --mut3: #a49d90;
+  --mut4: #b8b1a3;
+  --mut5: #c9c2b4;
+  --mut6: #d5cfc2;
+  --bars: #aca496;
+  --bd1: #ece7dc;
+  --bd2: #eee9de;
+  --bd3: #ddd7cb;
+  --bd4: #d9d3c7;
+  --bd5: #e5e0d4;
+  --bd6: #f3efe6;
+  --sel: #f3d2d8;
+  --red: #c8102e;
+  --ok: #2e7d4f;
+  --ghost: rgba(28, 26, 23, 0.04);
+  --sh1: rgba(28, 26, 23, 0.04);
+  --sh2: rgba(28, 26, 23, 0.05);
+  --sh3: rgba(28, 26, 23, 0.1);
+  color-scheme: light;
+}
+
+/* Legacy aliases: existing components still reference the pre-redesign token
+   names. Map them onto the new palette so nothing breaks mid-migration; each
+   resolves per-theme because it points at a themed token. */
+:root {
+  --surface: var(--card);
+  --text: var(--ink);
+  --muted: var(--mut1);
+  --border: var(--bd1);
+  --accent: var(--red);
   --accent-contrast: #ffffff;
-  --correct: #1a7f37;
-  --warn: #8a6d00;
-  --warn-bg: #fff8e1;
-  /* The Dannebrog cross stays white in BOTH modes (dark --accent-contrast is
-     near-black, so it can't serve). Used by CelebrationFlag. */
-  --flag-cross: #ffffff;
-
-  /* Derived surfaces. Defined via var(--text) so they track light/dark
-     automatically — never hardcode CanvasText (it ignores our dark theme). */
-  --code-bg: color-mix(in oklab, var(--text) 8%, transparent);
-  --subtle-border: color-mix(in oklab, var(--text) 12%, transparent);
+  --correct: var(--ok);
+  /* The Dannebrog cross stays near-white in both modes (CelebrationFlag). */
+  --flag-cross: #fdfbf7;
+  --warn: #b8860b;
+  --warn-bg: color-mix(in oklab, #b8860b 12%, var(--card));
+  --code-bg: color-mix(in oklab, var(--ink) 8%, transparent);
+  --subtle-border: color-mix(in oklab, var(--ink) 12%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16140f;
-    --surface: #211e18;
-    --text: #f1ede5;
-    --muted: #b8b2a4; /* lifted for >7:1 on dark --surface (was #a9a394) */
-    --border: #34302a;
-    --accent: #f4566a; /* Dannebrog tint — AA: 5.60 on --bg, 5.05 on --surface, 5.29 under --accent-contrast */
-    --accent-contrast: #1a1a1a;
-    --correct: #3fb950;
-    --warn: #e3b341;
-    --warn-bg: #2b2410;
-  }
+* {
+  box-sizing: border-box;
 }
-
-* { box-sizing: border-box; }
-
-html { color-scheme: light dark; }
 
 body {
   margin: 0;
@@ -69,8 +118,10 @@ body {
   font-size: var(--step-0);
   line-height: 1.6;
   background: var(--bg);
-  color: var(--text);
+  color: var(--ink);
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 250ms ease;
 }
 
 main {
@@ -79,47 +130,83 @@ main {
   padding: var(--sp-6) var(--sp-4) var(--sp-12);
 }
 
-h1 { font-size: var(--step-3); line-height: 1.2; margin: 0 0 var(--sp-4); }
-h2 { font-size: var(--step-2); line-height: 1.25; margin: var(--sp-8) 0 var(--sp-3); }
-h3 { font-size: var(--step-1); margin: var(--sp-6) 0 var(--sp-2); }
+h1 {
+  font-size: var(--step-3);
+  line-height: 1.2;
+  margin: 0 0 var(--sp-4);
+}
+h2 {
+  font-size: var(--step-2);
+  line-height: 1.25;
+  margin: var(--sp-8) 0 var(--sp-3);
+}
+h3 {
+  font-size: var(--step-1);
+  margin: var(--sp-6) 0 var(--sp-2);
+}
 
-a { color: var(--accent); }
+a {
+  color: var(--ink);
+}
 /* :not([class]) guard: a bare a:hover (0,1,1) would beat .card { color: inherit } (0,1,0). */
-a:not([class]):hover { color: color-mix(in oklab, var(--accent) 75%, var(--text)); }
+a:not([class]):hover {
+  color: var(--red);
+}
 
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+::selection {
+  background: var(--sel);
+}
+
+:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
 
 button {
   font: inherit;
   cursor: pointer;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
+  border: 1px solid var(--bd4);
+  background: var(--card);
+  color: var(--ink);
   border-radius: var(--radius);
   padding: var(--sp-2) var(--sp-4);
 }
-button:hover { border-color: var(--accent); }
-button:disabled { opacity: 0.5; cursor: not-allowed; }
+button:hover {
+  border-color: var(--red);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 input[type='text'] {
   font: inherit;
   padding: var(--sp-3) var(--sp-4);
-  border: 1px solid var(--border);
+  border: 1px solid var(--bd3);
   border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text);
+  background: var(--card);
+  color: var(--ink);
   width: 100%;
   max-width: 100%;
 }
 input[type='text']:focus {
-  border-color: var(--accent);
-  outline: 2px solid var(--accent);
+  border-color: var(--red);
+  outline: 2px solid var(--red);
   outline-offset: 1px;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  button { transition: transform 80ms ease; }
-  button:active:not(:disabled) { transform: scale(0.97); }
+  button {
+    transition:
+      transform 80ms ease,
+      border-color 120ms ease,
+      color 120ms ease,
+      background-color 120ms ease;
+  }
+  button:active:not(:disabled) {
+    transform: scale(0.97);
+  }
 }
 
 .skip-link {
@@ -130,18 +217,17 @@ input[type='text']:focus {
   left: var(--sp-2);
   top: var(--sp-2);
   z-index: 10;
-  background: var(--surface);
+  background: var(--card);
   padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--border);
+  border: 1px solid var(--bd1);
   border-radius: var(--radius);
 }
 
-/* Ghost letters (Æ Ø Å) behind index-page headers — Danish typography as the
-   screen's one decorative reference. Shared here so the two consumers
-   (lektioner, ordlista) can't drift. isolation + z-index:-1 keeps the letters
-   behind the heading but in front of the page background; overflow kills
-   horizontal scroll at 320px. A real aria-hidden span (not ::before) is
-   guaranteed silent in AT. */
+/* Ghost letters (Æ Ø Å) behind page headers — Danish typography as the screen's
+   one decorative reference. Shared so consumers can't drift. isolation +
+   z-index:-1 keeps the letters behind the heading but above the page bg;
+   overflow kills horizontal scroll at 320px. A real aria-hidden span (not
+   ::before) is guaranteed silent in AT. */
 .ghost-head {
   position: relative;
   isolation: isolate;
@@ -156,21 +242,45 @@ input[type='text']:focus {
   font-weight: 700;
   font-size: clamp(4rem, 18vw, 8rem);
   line-height: 1;
+  letter-spacing: 0.04em;
   white-space: nowrap;
-  color: color-mix(in oklab, var(--text) 5%, transparent);
+  color: var(--ghost);
   pointer-events: none;
   user-select: none;
 }
-@media (prefers-color-scheme: dark) {
-  .ghost-head .ghost { color: color-mix(in oklab, var(--text) 7%, transparent); }
-}
 @media print {
-  .ghost-head .ghost { display: none; }
+  .ghost-head .ghost {
+    display: none;
+  }
 }
 
-/* The one accent-filled control. Shared by the home hero and lesson-end CTA. */
-.cta { display: inline-block; padding: var(--sp-3) var(--sp-6); background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius); text-decoration: none; font-weight: 600; min-height: var(--min-tap); }
-.cta:hover { filter: brightness(1.08); }
+/* Waveform pulse — every playable audio glyph animates its bars on play. */
+@keyframes wfPulse {
+  0% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.55);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* The one accent-filled control. Shared by legacy CTAs. */
+.cta {
+  display: inline-block;
+  padding: var(--sp-3) var(--sp-6);
+  background: var(--red);
+  color: #fff;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 600;
+  min-height: var(--min-tap);
+}
+.cta:hover {
+  filter: brightness(1.08);
+}
 
 .callout {
   background: var(--warn-bg);
@@ -180,4 +290,6 @@ input[type='text']:focus {
   margin: var(--sp-4) 0;
 }
 
-[lang='da'] { font-style: normal; }
+[lang='da'] {
+  font-style: normal;
+}

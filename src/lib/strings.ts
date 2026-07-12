@@ -13,7 +13,12 @@ export const UI = {
   brandDa: 'Dansk', // rendered in <span lang="da"> within the wordmark
   brandRest: ' för svenskar',
   skipLink: 'Hoppa till innehåll',
-  footer: `Lär dig danska som svensk · ${PROGRESS_NOTE.toLowerCase()} ·`,
+  // Redesign footer — three centered items (all pages except Zen).
+  footerAudio: 'allt är inläst med dansk röst',
+  footerProgress: PROGRESS_NOTE.toLowerCase(), // 'framsteg sparas i din webbläsare'
+  footerWordlist: (n: string) => `${n} ord i ordlistan`,
+  // Accessible name for the ◐ light/dark toggle in the nav.
+  themeToggle: 'Ljust eller mörkt läge',
 
   nav: {
     menuLabel: 'Huvudmeny',

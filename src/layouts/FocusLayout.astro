@@ -1,47 +1,33 @@
 ---
-// Chrome-less shell for full-viewport take-over pages (/zen): the same head
-// as BaseLayout but no nav, skip-link or footer — the island owns the screen.
+// Chrome-less shell for full-viewport take-over pages (/zen): the same head as
+// BaseLayout but no nav, skip-link or footer — the island owns the screen and
+// renders its own ◐ theme toggle (top-right). Background follows the shared
+// data-theme tokens (dark default) so there is no flash before hydration.
 import '../styles/global.css';
-import { withBase } from '../lib/url.ts';
-import { UI } from '../lib/strings.ts';
+import SiteHead from '../components/SiteHead.astro';
 
 interface Props {
   title: string;
   description?: string;
 }
 const { title, description } = Astro.props;
-const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
 ---
 
 <!doctype html>
-<html lang="sv">
+<html lang="sv" data-theme="dark">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" type="image/svg+xml" href={withBase('favicon.svg')} />
-    <meta name="generator" content={Astro.generator} />
-    {description && <meta name="description" content={description} />}
-    <title>{fullTitle}</title>
+    <SiteHead title={title} description={description} />
   </head>
   <body>
     <main id="main">
       <slot />
     </main>
     <style>
-      /* Match the island's fixed palettes (Morgendis light / Fokus dark) so
-         there is no background flash before hydration, and no main gutter. */
-      body {
-        background: #f7f5f1;
-      }
-      @media (prefers-color-scheme: dark) {
-        body {
-          background: #18140f;
-        }
-      }
       main {
         max-width: none;
         padding: 0;
         margin: 0;
+        min-height: 100vh;
       }
     </style>
   </body>
