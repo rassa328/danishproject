@@ -46,6 +46,13 @@
     fellBack = outcome === 'tts';
     if (outcome === 'audio' || outcome === 'tts') pulse += 1;
   }
+
+  /** Pulse the waveform once, as if pressed — for playback the parent triggered
+   *  externally (e.g. the flashcards reveal auto-speech), so the glyph animates
+   *  in sync with sound this button didn't itself start. */
+  export function flash() {
+    pulse += 1;
+  }
 </script>
 
 {#if available}

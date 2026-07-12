@@ -364,6 +364,45 @@ export const UI = {
     resumeAll: 'Återuppta alla',
   },
 
+  // Flashcards settings dashboard — the gear-triggered popover (design handoff
+  // 2026-07-12). Separate from the legacy `settings` block above (still wired to
+  // the hidden SettingsPanel). Mode-chip labels reuse UI.flashcards.write etc.
+  fcSettings: {
+    title: 'Inställningar',
+    open: 'Inställningar', // gear trigger aria-label
+    close: 'Stäng',
+    // UTTAL
+    speechEyebrow: 'UTTAL',
+    autoSpeech: 'Automatiskt uttal',
+    autoSpeechHint: 'läser upp ordet när svaret visas',
+    speakSentence: 'Även exempelmeningen',
+    speakSentenceHint: 'spelas upp efter ordet',
+    // REPETITION · ANKI
+    repetitionEyebrow: 'REPETITION · ANKI',
+    newPerDay: 'Nya kort per dag',
+    maxReviews: 'Max repetitioner per dag',
+    retention: 'Målretention',
+    retentionHint: 'hur säkert du vill minnas korten',
+    retentionRelaxed: 'Avslappnad',
+    retentionBalanced: 'Balanserad',
+    retentionIntense: 'Intensiv',
+    adjustManual: (pct: number) => `justera manuellt · ${pct} %`,
+    // STANDARDLÄGE
+    modeEyebrow: 'STANDARDLÄGE',
+    // Pausade kort
+    pausedTitle: 'Pausade kort',
+    pausedSome: (n: number) => `${n} kort är pausade`,
+    pausedNone: 'inga pausade kort',
+    resumeAll: 'återuppta alla',
+    // Footer
+    resetDefaults: 'återställ standard',
+    autoSaved: 'SPARAS AUTOMATISKT',
+    // a11y
+    decrease: 'Minska',
+    increase: 'Öka',
+    unlimited: 'obegränsat',
+  },
+
   // Daily output missions + input log — the bridge from the app to real Danish.
   practice: {
     heading: 'Daglig praktik',
