@@ -1064,15 +1064,16 @@
     border-radius: 2px;
   }
   /* The flow options / category cells ARE the focused element (focus tracks the
-     highlight), so the red .hot underline / begin word is the focus indicator —
-     no boxed outline (both :focus and :focus-visible, since focus is moved
-     programmatically). */
-  .opt:focus,
-  .opt:focus-visible,
-  .cat:focus,
-  .cat:focus-visible,
-  .begin:focus,
-  .begin:focus-visible {
+     highlight), so the red .hot underline/ring / begin word is the focus
+     indicator — no boxed outline (both :focus and :focus-visible, since focus is
+     moved programmatically). The `.zen ` prefix raises specificity above the
+     `.zen button:focus-visible` box above, which it must override. */
+  .zen .opt:focus,
+  .zen .opt:focus-visible,
+  .zen .cat:focus,
+  .zen .cat:focus-visible,
+  .zen .begin:focus,
+  .zen .begin:focus-visible {
     outline: none;
   }
 
@@ -1212,36 +1213,55 @@
     font-size: 11.5px;
     color: var(--mut5);
   }
-  /* Wider, arrow-friendly grid of category cells (fixed DECK_COLS columns so
-     the 2-D nav stride is correct). Highlight = red underline only, no box. */
+  /* Wider, arrow-friendly grid of elongated flat-top hexagon cells (fixed
+     DECK_COLS columns so the 2-D nav stride is correct). */
   .cat-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px 14px;
-    width: min(92vw, 520px);
+    gap: 12px 16px;
+    width: min(92vw, 540px);
     margin-top: 2px;
   }
   .cat {
+    position: relative;
+    isolation: isolate;
     font-size: 13.5px;
     font-weight: 300;
     color: var(--mut2);
     background: none;
     border: none;
-    border-bottom: 1px solid transparent;
-    padding: 6px 10px;
+    padding: 11px 20px;
     cursor: pointer;
     text-align: center;
     line-height: 1.3;
-    transition:
-      color 200ms ease,
-      border-color 200ms ease;
+    transition: color 200ms ease;
   }
-  .cat:hover {
-    color: var(--ink);
+  /* Elongated flat-top hexagon: a faint 1px ring at rest, red on hover/hot.
+     Drawn as a ::before (ring color) with a ::after cutout in the page bg, so
+     the button text is never clipped. Highlight = red line + ink text, no box. */
+  .cat::before,
+  .cat::after {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
+    transition: background 200ms ease;
   }
+  .cat::before {
+    inset: 0;
+    background: var(--bd2);
+  }
+  .cat::after {
+    inset: 1px;
+    background: var(--bg);
+  }
+  .cat:hover,
   .cat.hot {
     color: var(--ink);
-    border-bottom-color: var(--red);
+  }
+  .cat:hover::before,
+  .cat.hot::before {
+    background: var(--red);
   }
   .cat.fler {
     font-style: italic;
@@ -1256,6 +1276,11 @@
   }
   .cat:disabled:hover {
     color: var(--mut5);
+  }
+  /* Disabled cells keep the faint ring even on hover (no red). */
+  .cat:disabled::before,
+  .cat:disabled:hover::before {
+    background: var(--bd2);
   }
   .cat-note {
     font-size: 11px;
