@@ -94,6 +94,8 @@
   const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
   /** Category cloud label: lowercase, without the "(NN)" card count. */
   const catLabel = (label: string) => label.replace(/\s*\(\d+\)\s*$/, '').toLowerCase();
+  const CURATED = 9;
+  const FLER = 'fler';
 
   let phase = $state<'start' | 'run' | 'done'>('start');
   let flow = $state<ZenFlow>(initialFlow());
@@ -104,6 +106,13 @@
    *  'repetera') may insert/remove options, and an index would silently
    *  retarget the selection under the user's Enter. */
   let hot = $state<string | null>(null);
+  let moreCats = $state(false);
+  /** The fler/färre cell is navigable but is not a stepOptions id. */
+  let flerFocused = $state(false);
+  /** Pointer focus fires before click. Remember the pre-focus selection so a
+   *  first pointer click selects and only a second click confirms. */
+  let pressedDeckId = $state<string | null>(null);
+  let pressedDeckWasHot = $state(false);
   let paused = $state(false);
   let items = $state<ZenItem[]>([]);
   let idx = $state(0);
@@ -171,28 +180,29 @@
       note: talOk ? T.talNote : T.missingNote,
     },
   ]);
-  // Zen category cloud: tal + a curated slice of the biggest theme sets, shown
-  // always (no expand toggle). The full deck lives in flashcards/ordlista — zen
-  // stays calm and minimal.
-  const CURATED = 9;
+  // Zen category cloud: tal + a curated slice of the biggest theme sets, with
+  // the rest behind the final fler/färre cell.
   const catCells = $derived.by(() => {
     const talR = sourceRows.find((r) => r.id === SOURCE_TAL);
     const cells: { id: string; label: string; note: string; disabled: boolean }[] = [];
     if (talR) {
       cells.push({ id: talR.id, label: catLabel(talR.label), note: talR.note, disabled: talR.disabled });
     }
-    for (const s of sets.slice(0, CURATED)) {
+    for (const s of moreCats ? sets : sets.slice(0, CURATED)) {
       cells.push({ id: `set:${s.id}`, label: catLabel(s.label), note: '', disabled: false });
     }
+    cells.push({ id: FLER, label: moreCats ? T.farre : T.fler, note: '', disabled: false });
     return cells;
   });
-  // Focusable deck cells in DOM order (disabled skipped) — what the arrows cycle.
-  const deckNavIds = $derived([
-    ...sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
-    ...catCells.filter((c) => !c.disabled).map((c) => c.id),
-  ]);
   // Arrange the cloud as a flat-top hexagon: narrower top/bottom, wider middle.
   const cloudRows = $derived(hexRows(catCells));
+  /** The rendered source rows, with disabled cells omitted from keyboard nav. */
+  const deckNavRows = $derived(
+    [
+      sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
+      ...cloudRows.map((row) => row.filter((cell) => !cell.disabled).map((cell) => cell.id)),
+    ].filter((row) => row.length > 0),
+  );
   const sourceLabel = $derived.by(() => {
     if (flow.source === null) return null;
     if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
@@ -256,20 +266,12 @@
   // ---- start flow ----------------------------------------------------------
   function syncHot() {
     hot = stepOptions(flow, ctx)[highlightIndex(flow, ctx)] ?? null;
+    flerFocused = false;
   }
   function moveHi(delta: number) {
     if (options.length === 0) return;
     const at = hotId !== null ? options.indexOf(hotId) : -1;
     hot = options[at === -1 ? 0 : wrapIndex(at, delta, options.length)] ?? null;
-    focusHot();
-  }
-  /** Deck-screen arrow nav: cycle through the rendered, focusable cells (the two
-   *  schema options + the category cloud), in reading order. */
-  function moveDeck(delta: number) {
-    const list = deckNavIds;
-    if (list.length === 0) return;
-    const at = hotId !== null ? list.indexOf(hotId) : -1;
-    hot = list[at === -1 ? 0 : wrapIndex(at, delta, list.length)] ?? null;
     focusHot();
   }
   /** Split a list into a flat-top hexagon: narrower top/bottom rows, wider in
@@ -284,16 +286,113 @@
     return [items.slice(0, a), items.slice(a, n - a), items.slice(n - a)];
   }
 
+  function setDeckCell(id: string) {
+    if (id === FLER) {
+      hot = null;
+      flerFocused = true;
+    } else {
+      hot = id;
+      flerFocused = false;
+    }
+    focusHot();
+  }
+
+  function deckCellCenter(id: string): number | null {
+    const cell = Array.from(rootEl?.querySelectorAll<HTMLButtonElement>('[data-deck-id]') ?? []).find(
+      (button) => button.dataset.deckId === id,
+    );
+    if (!cell) return null;
+    const rect = cell.getBoundingClientRect();
+    return rect.left + rect.width / 2;
+  }
+
+  /** 2-D source navigation: horizontal moves clamp within a rendered row;
+   *  vertical moves cross one row and land on its horizontally-nearest cell. */
+  function gridMove(dir: 'left' | 'right' | 'up' | 'down') {
+    const rows = deckNavRows;
+    if (rows.length === 0) return;
+    const current = flerFocused ? FLER : hotId;
+    const rowIndex = rows.findIndex((row) => current !== null && row.includes(current));
+    if (rowIndex === -1) {
+      setDeckCell(rows[0]![0]!);
+      return;
+    }
+    const row = rows[rowIndex]!;
+    const columnIndex = row.indexOf(current!);
+    if (dir === 'left' || dir === 'right') {
+      const delta = dir === 'left' ? -1 : 1;
+      const nextColumn = Math.max(0, Math.min(row.length - 1, columnIndex + delta));
+      setDeckCell(row[nextColumn]!);
+      return;
+    }
+
+    const nextRowIndex = Math.max(
+      0,
+      Math.min(rows.length - 1, rowIndex + (dir === 'up' ? -1 : 1)),
+    );
+    const nextRow = rows[nextRowIndex]!;
+    if (nextRowIndex === rowIndex) {
+      setDeckCell(current!);
+      return;
+    }
+
+    const currentCenter = deckCellCenter(current!);
+    let nextColumn = 0;
+    if (currentCenter === null) {
+      const relativeCenter = (columnIndex + 0.5) / row.length;
+      nextColumn = Math.max(
+        0,
+        Math.min(nextRow.length - 1, Math.round(relativeCenter * nextRow.length - 0.5)),
+      );
+    } else {
+      let nearestDistance = Number.POSITIVE_INFINITY;
+      for (const [index, id] of nextRow.entries()) {
+        const center = deckCellCenter(id);
+        const distance = center === null ? Number.POSITIVE_INFINITY : Math.abs(center - currentCenter);
+        if (distance < nearestDistance) {
+          nearestDistance = distance;
+          nextColumn = index;
+        }
+      }
+    }
+    setDeckCell(nextRow[nextColumn]!);
+  }
+
   // Click semantics: a first click SELECTS (shows the red underline); a second
   // click on the already-selected option CONFIRMS (advances). Enter confirms
   // the selection. Mirrors the arrows ("pilar väljer · enter").
+  function noteDeckPointerDown(id: string) {
+    pressedDeckId = id;
+    pressedDeckWasHot = id === FLER ? flerFocused : hotId === id;
+  }
+  function consumeDeckClick(id: string): boolean {
+    const wasHot = pressedDeckId === id
+      ? pressedDeckWasHot
+      : id === FLER
+        ? flerFocused
+        : hotId === id;
+    pressedDeckId = null;
+    return wasHot;
+  }
   function selectOrConfirm(id: string) {
     if (inTransition()) return;
-    if (hotId === id) pickId(id);
+    if (consumeDeckClick(id)) pickId(id);
     else {
       hot = id;
+      flerFocused = false;
       focusHot();
     }
+  }
+  function toggleMore() {
+    moreCats = !moreCats;
+    hot = null;
+    flerFocused = true;
+    focusHot();
+  }
+  function selectOrToggleMore() {
+    if (inTransition()) return;
+    if (consumeDeckClick(FLER)) toggleMore();
+    else setDeckCell(FLER);
   }
   function pickId(id: string) {
     if (inTransition()) return;
@@ -325,6 +424,10 @@
   function stepForward() {
     if (flow.step === 'begin') {
       void begin();
+      return;
+    }
+    if (flow.step === 'source' && flerFocused) {
+      toggleMore();
       return;
     }
     if (hotId !== null) pickId(hotId);
@@ -666,11 +769,20 @@
         e.key === 'ArrowDown'
       ) {
         e.preventDefault();
-        // Left/Up = −1, Right/Down = +1. The source step walks its rendered
-        // cells (cloud); the two-option steps cycle their options.
-        const delta = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
-        if (flow.step === 'source') moveDeck(delta);
-        else moveHi(delta);
+        // The source step is spatial; the two-option steps remain linear.
+        if (flow.step === 'source') {
+          gridMove(
+            e.key === 'ArrowLeft'
+              ? 'left'
+              : e.key === 'ArrowRight'
+                ? 'right'
+                : e.key === 'ArrowUp'
+                  ? 'up'
+                  : 'down',
+          );
+        } else {
+          moveHi(e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1);
+        }
       }
       return;
     }
@@ -804,8 +916,13 @@
                 class="opt"
                 class:hot={!row.disabled && hotId === row.id}
                 disabled={row.disabled}
+                data-deck-id={row.id}
+                onpointerdown={() => noteDeckPointerDown(row.id)}
                 onclick={() => selectOrConfirm(row.id)}
-                onfocus={() => (hot = row.id)}
+                onfocus={() => {
+                  hot = row.id;
+                  flerFocused = false;
+                }}
               >
                 <span class="opt-label">{row.label}</span>
                 {#if sub}<span class="opt-sub">{sub}</span>{/if}
@@ -823,10 +940,12 @@
                   <button
                     type="button"
                     class="cat"
-                    class:hot={!cell.disabled && hotId === cell.id}
+                    class:hot={!cell.disabled && (cell.id === FLER ? flerFocused : hotId === cell.id)}
                     disabled={cell.disabled}
-                    onclick={() => selectOrConfirm(cell.id)}
-                    onfocus={() => (hot = cell.id)}
+                    data-deck-id={cell.id}
+                    onpointerdown={() => noteDeckPointerDown(cell.id)}
+                    onclick={() => cell.id === FLER ? selectOrToggleMore() : selectOrConfirm(cell.id)}
+                    onfocus={() => setDeckCell(cell.id)}
                   >
                     {cell.label}{#if cell.note}&nbsp;<span class="cat-note">{cell.note}</span>{/if}
                   </button>
