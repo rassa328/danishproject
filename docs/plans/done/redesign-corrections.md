@@ -2,7 +2,7 @@
 title: Redesign corrections — Lessons, Flashcards, Ordlista, Zen
 owner: rasmussamuelson
 branch: redesign-port
-status: active
+status: done
 write_set:
   - src/
 verify: npm test && npm run build
