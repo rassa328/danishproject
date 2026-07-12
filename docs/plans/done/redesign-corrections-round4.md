@@ -2,7 +2,7 @@
 title: Redesign corrections — round 4 (stød waves, drill, flashcards, ordlista search, zen hexagons)
 owner: rasmussamuelson
 branch: redesign-port
-status: active
+status: done
 write_set:
   - src/components/MinimalPairs.svelte
   - src/components/MinimalPairDrill.svelte
