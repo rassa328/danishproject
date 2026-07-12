@@ -71,6 +71,8 @@
   let played = $state(false);
   /** null = not answered yet; else whether the pick was right. */
   let answered = $state<boolean | null>(null);
+  /** Which side the user actually clicked — drives the red wrong-pick outline. */
+  let picked = $state<0 | 1 | null>(null);
   let pair = $state<Pair | null>(null);
   let side = $state<0 | 1>(0);
   let finished = $state(false);
@@ -113,6 +115,7 @@
     side = Math.random() < 0.5 ? 0 : 1;
     played = false;
     answered = null;
+    picked = null;
   }
 
   async function play() {
@@ -126,6 +129,7 @@
 
   function answer(i: 0 | 1) {
     if (!played || answered !== null) return;
+    picked = i;
     answered = i === side;
     if (answered) score++;
   }
@@ -166,6 +170,7 @@
             type="button"
             class="choice"
             class:is-answer={answered !== null && i === side}
+            class:is-wrong={answered === false && i === picked}
             disabled={!played || answered !== null}
             onclick={() => answer(i as 0 | 1)}
           >
@@ -177,7 +182,9 @@
       {#if answered === null}
         {#if !played}<p class="hint">{T.listenFirst}</p>{/if}
       {:else}
-        <p class="verdict" class:ok={answered} class:no={!answered} role="status">
+        <!-- Feedback is now purely visual (green outline = correct, red = your
+             wrong pick). The verdict text is kept for screen readers only. -->
+        <p class="vh" role="status">
           {answered ? T.correct : T.wrong(playing?.text ?? '', playing?.gloss ?? '')}
         </p>
         <button type="button" onclick={next}>{round >= ROUNDS ? T.showResult : T.next}</button>
@@ -226,6 +233,10 @@
     outline: 2px solid var(--correct);
     outline-offset: 1px;
   }
+  .choice.is-wrong {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
   .word {
     font-weight: 700;
     font-size: var(--step-0);
@@ -239,15 +250,13 @@
     font-size: var(--step--1);
     margin: var(--sp-2) 0 0;
   }
-  .verdict {
-    font-weight: 700;
-    margin: var(--sp-2) 0;
-  }
-  .verdict.ok {
-    color: var(--correct);
-  }
-  .verdict.no {
-    color: var(--accent);
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   .result {
     font-weight: 600;
