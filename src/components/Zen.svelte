@@ -92,6 +92,11 @@
   const talPlayable = playableTal(manifest);
   const sets = zenSets(groups);
   const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
+  // Deck screen (source step) category grid: how many sets show before "fler…",
+  // the grid column count (must match the CSS grid), and the "fler…" sentinel.
+  const CURATED_SETS = 6;
+  const DECK_COLS = 3;
+  const FLER = 'fler';
 
   let phase = $state<'start' | 'run' | 'done'>('start');
   let flow = $state<ZenFlow>(initialFlow());
@@ -102,6 +107,10 @@
    *  'repetera') may insert/remove options, and an index would silently
    *  retarget the selection under the user's Enter. */
   let hot = $state<string | null>(null);
+  // Deck screen: whether the "fler…" grid is expanded, and whether the "fler…"
+  // cell itself is the focused grid cell (it isn't a stepOptions id).
+  let moreCats = $state(false);
+  let flerFocused = $state(false);
   let paused = $state(false);
   let items = $state<ZenItem[]>([]);
   let idx = $state(0);
@@ -169,6 +178,23 @@
       note: talOk ? T.talNote : T.missingNote,
     },
   ]);
+  // Deck-screen category grid model. The two schema options (repetera·blandat)
+  // form the top row; the cloud below is tal + a curated set slice (+ the rest
+  // behind "fler…"), laid out in DECK_COLS columns. `deckCells` is the flat,
+  // in-DOM-order list the 2-D arrow nav walks; `FLER` is the toggle cell.
+  const visibleSets = $derived(moreCats ? sets : sets.slice(0, CURATED_SETS));
+  const bigCells = $derived(
+    sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
+  );
+  const talCell = $derived(
+    sourceRows.find((r) => r.id === SOURCE_TAL && !r.disabled) ? [SOURCE_TAL] : [],
+  );
+  const cloudCells = $derived([
+    ...talCell,
+    ...visibleSets.map((s) => `set:${s.id}`),
+    FLER,
+  ]);
+  const deckCells = $derived([...bigCells, ...cloudCells]);
   const sourceLabel = $derived.by(() => {
     if (flow.source === null) return null;
     if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
@@ -232,12 +258,73 @@
   // ---- start flow ----------------------------------------------------------
   function syncHot() {
     hot = stepOptions(flow, ctx)[highlightIndex(flow, ctx)] ?? null;
+    flerFocused = false;
   }
   function moveHi(delta: number) {
     if (options.length === 0) return;
     const at = hotId !== null ? options.indexOf(hotId) : -1;
     hot = options[at === -1 ? 0 : wrapIndex(at, delta, options.length)] ?? null;
     focusHot();
+  }
+
+  // Click semantics: a first click SELECTS (shows the red underline); a second
+  // click on the already-selected option CONFIRMS (advances). Enter confirms
+  // the selection. Mirrors the arrows ("pilar väljer · enter").
+  function selectOrConfirm(id: string) {
+    if (inTransition()) return;
+    if (hotId === id && !flerFocused) pickId(id);
+    else {
+      hot = id;
+      flerFocused = false;
+      focusHot();
+    }
+  }
+  function toggleMore() {
+    if (inTransition()) return;
+    moreCats = !moreCats;
+    flerFocused = true;
+    hot = null;
+    focusHot();
+  }
+  /** Focus a deck-grid cell by id ('fler' is the toggle, not a stepOptions id). */
+  function setCell(cellId: string) {
+    if (cellId === FLER) {
+      flerFocused = true;
+      hot = null;
+    } else {
+      flerFocused = false;
+      hot = cellId;
+    }
+    focusHot();
+  }
+  /** 2-D arrow nav over the deck screen: row 0 = the two schema options, rows
+   *  below = the DECK_COLS-wide category grid (tal + sets + "fler…"). ←/→ walk
+   *  the flat cell list clamped; ↑/↓ jump rows, crossing between the option row
+   *  and the cloud. */
+  function gridMove(dir: 'left' | 'right' | 'up' | 'down') {
+    const cells = deckCells;
+    if (cells.length === 0) return;
+    const bigLen = bigCells.length;
+    const cur = flerFocused ? FLER : hotId;
+    const at = cur !== null ? cells.indexOf(cur) : -1;
+    if (at === -1) {
+      setCell(cells[0]!);
+      return;
+    }
+    const max = cells.length - 1;
+    let next = at;
+    if (dir === 'left') next = Math.max(0, at - 1);
+    else if (dir === 'right') next = Math.min(max, at + 1);
+    else if (dir === 'down')
+      next = at < bigLen ? Math.min(max, bigLen + at) : Math.min(max, at + DECK_COLS);
+    else
+      next =
+        at >= bigLen + DECK_COLS
+          ? at - DECK_COLS
+          : at >= bigLen
+            ? Math.min(bigLen - 1, at - bigLen)
+            : at;
+    setCell(cells[next]!);
   }
   function pickId(id: string) {
     if (inTransition()) return;
@@ -269,6 +356,12 @@
   function stepForward() {
     if (flow.step === 'begin') {
       void begin();
+      return;
+    }
+    // Enter on the "fler…" cell reveals/hides the rest of the grid, it doesn't
+    // start a session.
+    if (flow.step === 'source' && flerFocused) {
+      toggleMore();
       return;
     }
     if (hotId !== null) pickId(hotId);
@@ -603,12 +696,28 @@
       } else if (e.key === 'Escape') {
         e.preventDefault();
         stepBack();
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      } else if (
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown'
+      ) {
         e.preventDefault();
-        moveHi(-1);
-      } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        moveHi(1);
+        // The source step is a 2-D grid; the two-option mode/direction steps
+        // stay linear (Left/Up = −1, Right/Down = +1).
+        if (flow.step === 'source') {
+          gridMove(
+            e.key === 'ArrowLeft'
+              ? 'left'
+              : e.key === 'ArrowRight'
+                ? 'right'
+                : e.key === 'ArrowUp'
+                  ? 'up'
+                  : 'down',
+          );
+        } else {
+          moveHi(e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1);
+        }
       }
       return;
     }
@@ -704,8 +813,11 @@
               type="button"
               class="opt"
               class:hot={hotId === id}
-              onclick={() => pickId(id)}
-              onfocus={() => (hot = id)}
+              onclick={() => selectOrConfirm(id)}
+              onfocus={() => {
+                hot = id;
+                flerFocused = false;
+              }}
             >
               <span class="opt-label">{T.modes[id].label}</span>
               <span class="opt-sub">{T.modes[id].sub}</span>
@@ -721,8 +833,11 @@
                 type="button"
                 class="opt small"
                 class:hot={hotId === id}
-                onclick={() => pickId(id)}
-                onfocus={() => (hot = id)}
+                onclick={() => selectOrConfirm(id)}
+                onfocus={() => {
+                  hot = id;
+                  flerFocused = false;
+                }}
               >
                 <span class="opt-label">{T.directions[id].label}</span>
                 <span class="opt-sub">{T.directions[id].sub}</span>
@@ -743,41 +858,62 @@
                 class="opt"
                 class:hot={!row.disabled && hotId === row.id}
                 disabled={row.disabled}
-                onclick={() => pickId(row.id)}
-                onfocus={() => (hot = row.id)}
+                onclick={() => selectOrConfirm(row.id)}
+                onfocus={() => {
+                  hot = row.id;
+                  flerFocused = false;
+                }}
               >
                 <span class="opt-label">{row.label}</span>
                 {#if sub}<span class="opt-sub">{sub}</span>{/if}
               </button>
             {/each}
           </div>
-          <!-- …or a category: tal + every flashcard set, as a quiet cloud. -->
+          <!-- …or a category: tal + a curated set slice, in a 2-D grid; "fler…"
+               reveals the rest. -->
           <div class="cloud-whisper">{T.categoryWhisper}</div>
-          <div class="set-grid">
+          <div class="cat-grid">
             {#if talRow}
               <button
                 type="button"
-                class="src set"
+                class="cat"
                 class:hot={!talRow.disabled && hotId === talRow.id}
                 disabled={talRow.disabled}
-                onclick={() => pickId(talRow.id)}
-                onfocus={() => (hot = talRow.id)}
+                onclick={() => selectOrConfirm(talRow.id)}
+                onfocus={() => {
+                  hot = talRow.id;
+                  flerFocused = false;
+                }}
               >
-                <span>{talRow.label}</span>
-                {#if talRow.note}<span class="src-note">{talRow.note}</span>{/if}
+                {talRow.label}{#if talRow.note}&nbsp;<span class="cat-note">{talRow.note}</span>{/if}
               </button>
             {/if}
-            {#each sets as set (set.id)}
+            {#each visibleSets as set (set.id)}
               <button
                 type="button"
-                class="src set"
+                class="cat"
                 class:hot={hotId === `set:${set.id}`}
-                onclick={() => pickId(`set:${set.id}`)}
-                onfocus={() => (hot = `set:${set.id}`)}
+                onclick={() => selectOrConfirm(`set:${set.id}`)}
+                onfocus={() => {
+                  hot = `set:${set.id}`;
+                  flerFocused = false;
+                }}
               >
                 {set.label}
               </button>
             {/each}
+            <button
+              type="button"
+              class="cat fler"
+              class:hot={flerFocused}
+              onclick={toggleMore}
+              onfocus={() => {
+                flerFocused = true;
+                hot = null;
+              }}
+            >
+              {moreCats ? T.farre : T.fler}
+            </button>
           </div>
         </div>
       {:else}
@@ -927,11 +1063,15 @@
     outline-offset: 5px;
     border-radius: 2px;
   }
-  /* The flow options ARE the focused element (focus tracks the highlight), so
-     the red .hot underline / begin word is the focus indicator — the extra
-     browser outline would just box the word. */
+  /* The flow options / category cells ARE the focused element (focus tracks the
+     highlight), so the red .hot underline / begin word is the focus indicator —
+     no boxed outline (both :focus and :focus-visible, since focus is moved
+     programmatically). */
+  .opt:focus,
   .opt:focus-visible,
-  .src:focus-visible,
+  .cat:focus,
+  .cat:focus-visible,
+  .begin:focus,
   .begin:focus-visible {
     outline: none;
   }
@@ -1072,45 +1212,52 @@
     font-size: 11.5px;
     color: var(--mut5);
   }
-  .set-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    align-items: baseline;
-    gap: 12px 26px;
-    max-width: 440px;
-    max-height: 40vh;
-    overflow-y: auto;
-    padding: 2px;
+  /* Wider, arrow-friendly grid of category cells (fixed DECK_COLS columns so
+     the 2-D nav stride is correct). Highlight = red underline only, no box. */
+  .cat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px 14px;
+    width: min(92vw, 520px);
+    margin-top: 2px;
   }
-  .src {
+  .cat {
     font-size: 13.5px;
     font-weight: 300;
     color: var(--mut2);
-    transition:
-      color 300ms ease,
-      border-color 300ms ease;
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
+    background: none;
+    border: none;
     border-bottom: 1px solid transparent;
-    padding-bottom: 2px;
+    padding: 6px 10px;
+    cursor: pointer;
+    text-align: center;
+    line-height: 1.3;
+    transition:
+      color 200ms ease,
+      border-color 200ms ease;
   }
-  .src:hover {
+  .cat:hover {
     color: var(--ink);
   }
-  .src.hot {
+  .cat.hot {
     color: var(--ink);
     border-bottom-color: var(--red);
   }
-  .src:disabled {
+  .cat.fler {
+    font-style: italic;
+    color: var(--mut4);
+  }
+  .cat.fler:hover {
+    color: var(--mut2);
+  }
+  .cat:disabled {
     color: var(--mut5);
     cursor: default;
   }
-  .src:disabled:hover {
+  .cat:disabled:hover {
     color: var(--mut5);
   }
-  .src-note {
+  .cat-note {
     font-size: 11px;
     color: var(--mut4);
   }

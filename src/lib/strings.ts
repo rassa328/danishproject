@@ -259,6 +259,9 @@ export const UI = {
     repeteraSub: 'schemat väljer orden',
     // Whisper above the category cloud (tal + flashcard sets).
     categoryWhisper: 'eller en kategori',
+    // Toggle that reveals / hides the rest of the category grid.
+    fler: 'fler…',
+    farre: 'färre',
     talNote: '0–100',
     missingNote: 'saknar inspelningar',
     noDueNote: 'inget förfallet',
