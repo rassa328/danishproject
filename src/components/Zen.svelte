@@ -1,6 +1,6 @@
 <script lang="ts">
-  // /zen — the full-screen "Fokus" practice island (designs: Tal Fokus v2 =
-  // dark, Tal Fokus - Morgendis v2 = light, auto by prefers-color-scheme).
+  // /zen — the full-screen "Fokus" practice island. Colors come from the shared
+  // data-theme tokens (dark default; the ◐ toggle applies here too, top-right).
   // Every decision lives in zen.ts (pure, tested); this file wires DOM, audio
   // and timers. tal plays composed COMMITTED clips only (product invariant:
   // never TTS for numbers); ord items/grading/audio come from the DRILL_MODES
