@@ -735,6 +735,7 @@
               <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.play}>
                 {@render voiceGraph()}
               </button>
+              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{T.slowSpeed}</button>
             {:else}
               <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
                 {@render voiceGraph()}
