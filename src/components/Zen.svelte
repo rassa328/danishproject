@@ -196,13 +196,6 @@
   });
   // Arrange the cloud as a flat-top hexagon: narrower top/bottom, wider middle.
   const cloudRows = $derived(hexRows(catCells));
-  /** The rendered source rows, with disabled cells omitted from keyboard nav. */
-  const deckNavRows = $derived(
-    [
-      sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
-      ...cloudRows.map((row) => row.filter((cell) => !cell.disabled).map((cell) => cell.id)),
-    ].filter((row) => row.length > 0),
-  );
   const sourceLabel = $derived.by(() => {
     if (flow.source === null) return null;
     if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
@@ -274,16 +267,38 @@
     hot = options[at === -1 ? 0 : wrapIndex(at, delta, options.length)] ?? null;
     focusHot();
   }
-  /** Split a list into a flat-top hexagon: narrower top/bottom rows, wider in
-   *  the middle. Kept loose ("close, not perfect") — one to three centered rows. */
+  /** Split the cloud into an odd number of gently weighted rows. The cosine
+   *  profile keeps the middle subtly wider without stranding a single cell. */
   function hexRows<T>(items: T[]): T[][] {
     const n = items.length;
     if (n <= 4) return [items];
-    const top = Math.max(2, Math.round(n * 0.3));
-    const mid = n - 2 * top;
-    if (mid > top) return [items.slice(0, top), items.slice(top, top + mid), items.slice(top + mid)];
-    const a = Math.floor(n / 3);
-    return [items.slice(0, a), items.slice(a, n - a), items.slice(n - a)];
+
+    const wantedRows = n <= 14 ? 3 : Math.ceil(n / 4);
+    const rowCount = wantedRows % 2 === 0 ? wantedRows + 1 : wantedRows;
+    const middle = (rowCount - 1) / 2;
+    const weights = Array.from({ length: rowCount }, (_, index) => {
+      const distance = Math.abs(index - middle) / middle;
+      return 0.75 + 0.5 * Math.cos((distance * Math.PI) / 2);
+    });
+    const weightTotal = weights.reduce((sum, weight) => sum + weight, 0);
+    const exact = weights.map((weight) => (n * weight) / weightTotal);
+    const counts = exact.map(Math.floor);
+    let remaining = n - counts.reduce((sum, count) => sum + count, 0);
+    const remainderOrder = exact
+      .map((count, index) => ({ index, fraction: count - Math.floor(count) }))
+      .sort((a, b) => b.fraction - a.fraction || a.index - b.index);
+    for (const { index } of remainderOrder) {
+      if (remaining === 0) break;
+      counts[index]! += 1;
+      remaining -= 1;
+    }
+
+    let offset = 0;
+    return counts.map((count) => {
+      const row = items.slice(offset, offset + count);
+      offset += count;
+      return row;
+    });
   }
 
   function setDeckCell(id: string) {
@@ -297,32 +312,53 @@
     focusHot();
   }
 
-  function deckCellCenter(id: string): number | null {
-    const cell = Array.from(rootEl?.querySelectorAll<HTMLButtonElement>('[data-deck-id]') ?? []).find(
-      (button) => button.dataset.deckId === id,
-    );
-    if (!cell) return null;
-    const rect = cell.getBoundingClientRect();
-    return rect.left + rect.width / 2;
+  type DeckNavCell = { id: string; x: number; y: number };
+
+  /** Read the visual rows after flex wrapping. Grouping by the rendered y
+   *  coordinate keeps keyboard movement faithful at every viewport width. */
+  function renderedDeckRows(): DeckNavCell[][] {
+    const cells = Array.from(
+      rootEl?.querySelectorAll<HTMLButtonElement>('button[data-deck-id]:not(:disabled)') ?? [],
+    )
+      .map((button) => {
+        const rect = button.getBoundingClientRect();
+        return {
+          id: button.dataset.deckId ?? '',
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+      })
+      .filter((cell) => cell.id !== '')
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+
+    const rows: DeckNavCell[][] = [];
+    for (const cell of cells) {
+      const row = rows.at(-1);
+      if (row && Math.abs(row[0]!.y - cell.y) <= 6) row.push(cell);
+      else rows.push([cell]);
+    }
+    for (const row of rows) row.sort((a, b) => a.x - b.x);
+    return rows;
   }
 
   /** 2-D source navigation: horizontal moves clamp within a rendered row;
    *  vertical moves cross one row and land on its horizontally-nearest cell. */
   function gridMove(dir: 'left' | 'right' | 'up' | 'down') {
-    const rows = deckNavRows;
+    const rows = renderedDeckRows();
     if (rows.length === 0) return;
     const current = flerFocused ? FLER : hotId;
-    const rowIndex = rows.findIndex((row) => current !== null && row.includes(current));
+    const rowIndex = rows.findIndex((row) => row.some((cell) => cell.id === current));
     if (rowIndex === -1) {
-      setDeckCell(rows[0]![0]!);
+      setDeckCell(rows[0]![0]!.id);
       return;
     }
     const row = rows[rowIndex]!;
-    const columnIndex = row.indexOf(current!);
+    const columnIndex = row.findIndex((cell) => cell.id === current);
+    const currentCell = row[columnIndex]!;
     if (dir === 'left' || dir === 'right') {
       const delta = dir === 'left' ? -1 : 1;
       const nextColumn = Math.max(0, Math.min(row.length - 1, columnIndex + delta));
-      setDeckCell(row[nextColumn]!);
+      setDeckCell(row[nextColumn]!.id);
       return;
     }
 
@@ -332,30 +368,14 @@
     );
     const nextRow = rows[nextRowIndex]!;
     if (nextRowIndex === rowIndex) {
-      setDeckCell(current!);
+      setDeckCell(currentCell.id);
       return;
     }
 
-    const currentCenter = deckCellCenter(current!);
-    let nextColumn = 0;
-    if (currentCenter === null) {
-      const relativeCenter = (columnIndex + 0.5) / row.length;
-      nextColumn = Math.max(
-        0,
-        Math.min(nextRow.length - 1, Math.round(relativeCenter * nextRow.length - 0.5)),
-      );
-    } else {
-      let nearestDistance = Number.POSITIVE_INFINITY;
-      for (const [index, id] of nextRow.entries()) {
-        const center = deckCellCenter(id);
-        const distance = center === null ? Number.POSITIVE_INFINITY : Math.abs(center - currentCenter);
-        if (distance < nearestDistance) {
-          nearestDistance = distance;
-          nextColumn = index;
-        }
-      }
-    }
-    setDeckCell(nextRow[nextColumn]!);
+    const nextCell = nextRow.reduce((nearest, cell) =>
+      Math.abs(cell.x - currentCell.x) < Math.abs(nearest.x - currentCell.x) ? cell : nearest,
+    );
+    setDeckCell(nextCell.id);
   }
 
   // Click semantics: a first click SELECTS (shows the red underline); a second
@@ -412,6 +432,11 @@
   }
   function stepBack() {
     if (inTransition()) return;
+    if (flow.step === 'source' && moreCats) {
+      moreCats = false;
+      setDeckCell(FLER);
+      return;
+    }
     const prev = flowBack(flow);
     if (prev === flow) {
       exitZen();
@@ -1242,7 +1267,7 @@
     flex-direction: column;
     align-items: center;
     gap: 22px;
-    max-width: min(90vw, 640px);
+    max-width: min(94vw, 680px);
   }
   .deck-opts {
     margin-bottom: 6px;
@@ -1259,7 +1284,7 @@
     flex-direction: column;
     align-items: center;
     gap: 12px;
-    width: min(92vw, 470px);
+    width: min(92vw, 600px);
     margin-top: 8px;
   }
   .cat-row {
