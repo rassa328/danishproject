@@ -561,7 +561,7 @@
           class="deck-pill"
           class:open={pickerOpen}
           title={T.deckLabel}
-          aria-haspopup="listbox"
+          aria-haspopup="true"
           aria-expanded={pickerOpen}
           onclick={togglePicker}
         >
@@ -569,15 +569,18 @@
           <span class="pill-caret" aria-hidden="true">▾</span>
         </button>
         {#if pickerOpen}
-          <div class="deck-pop" role="listbox" aria-label={T.deckLabel}>
+          <!-- A menu of buttons (not a listbox): buttons are natively focusable
+               and operable by Tab+Enter+Esc; the current deck is marked
+               aria-current. (A real listbox would require arrow-key/roving-tabindex
+               nav + option roles on non-button elements — not what this is.) -->
+          <div class="deck-pop" role="group" aria-label={T.deckLabel}>
             {#each groups.filter((g) => !g.optgroup) as g}
               {@const d = deckDisplay(g.label)}
               <button
                 type="button"
                 class="deck-row"
                 class:selected={g.id === selectedGroupId}
-                role="option"
-                aria-selected={g.id === selectedGroupId}
+                aria-current={g.id === selectedGroupId ? 'true' : undefined}
                 onclick={() => pickDeck(g.id)}
               >
                 <span class="deck-name">{d.name}</span>
@@ -592,8 +595,7 @@
                   type="button"
                   class="deck-row"
                   class:selected={g.id === selectedGroupId}
-                  role="option"
-                  aria-selected={g.id === selectedGroupId}
+                  aria-current={g.id === selectedGroupId ? 'true' : undefined}
                   onclick={() => pickDeck(g.id)}
                 >
                   <span class="deck-name">{d.name}</span>
@@ -640,7 +642,7 @@
           {#if reviewed === 0 && tag && poolSize === 0}
             <h2 tabindex="-1">{T.doneEmpty}</h2>
             <p>{T.noTagMatch}</p>
-            <div class="grades">
+            <div class="done-actions">
               <button type="button" class="text-btn" onclick={() => { tag = null; start(); }}>{T.showAllDecks}</button>
             </div>
           {:else if reviewed === 0 && filteredReason === 'cloze'}
@@ -666,7 +668,7 @@
             {:else}
               <p class="started"><a href={withBase('lektioner')}>{T.toLessons}</a></p>
             {/if}
-            <div class="grades done-actions">
+            <div class="done-actions">
               <button type="button" class="text-btn" onclick={() => start(false)}>{T.repeatDue}</button>
               <button type="button" class="text-btn" onclick={() => start(true)}>{T.practiceFree}</button>
             </div>
@@ -698,15 +700,15 @@
             {:else if promptAudioState === 'blocked'}
               <!-- Autoplay denied (no user gesture yet): an explicit play instead of
                    pretending the clip was heard. The click is the gesture. -->
-              <button type="button" class="replay wf-btn" onclick={() => playPrompt()}>
+              <button type="button" class="wf-btn" onclick={() => playPrompt()}>
                 <Waveform size="icon" pulse={promptPulse} /> {T.play}
               </button>
             {:else}
-              <button type="button" class="replay wf-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
+              <button type="button" class="wf-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
                 <Waveform size="icon" pulse={promptPulse} /> {T.replay}
               </button>
               {#if direction === 'listen-sentence'}
-                <button type="button" class="replay slow" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
+                <button type="button" class="slow" onclick={() => playPrompt(0.75)}>{T.slowReplay}</button>
               {/if}
               {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
             {/if}
@@ -774,7 +776,7 @@
               {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
-              <div class="grades grade-pills">
+              <div class="grade-pills">
                 <button type="button" class="grade again" onclick={() => grade(1 as ReviewGrade)}><span class="gd" aria-hidden="true">1</span>{T.grades.again}</button>
                 <button type="button" class="grade" onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">2</span>{T.grades.hard}</button>
                 <button type="button" class="grade" onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">3</span>{T.grades.good}</button>

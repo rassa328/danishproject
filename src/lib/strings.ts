@@ -34,14 +34,10 @@ export const UI = {
   },
 
   home: {
-    heroTitle: 'Förstå danskar när de faktiskt pratar',
-    heroLead: 'Du läser redan danska — här tränar du örat och uttalet: stød, blødt d och talad danska.',
-    heroCta: 'Börja med lektionerna',
-    samplePlay: 'Hör skillnaden',
-    // Labels under each word's real waveform in the hero.
+    // Labels + aria for the front-page StodCard hun/hund waveform (the only
+    // remaining home.* copy after the redesign; hero text is inline in index).
     sampleWordA: 'hun',
     sampleWordB: 'hund',
-    sampleCaption: 'stødet är hela skillnaden.',
     sampleAria: 'Lyssna på danska: hun och hund',
   },
 

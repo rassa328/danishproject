@@ -66,11 +66,16 @@ html[data-theme='light'] {
   --card: #ffffff;
   --ink: #1c1a17;
   --soft: #4a4641;
-  --mut1: #6f6a61;
-  --mut2: #8a8478;
-  --mut3: #a49d90;
-  --mut4: #b8b1a3;
-  --mut5: #c9c2b4;
+  --mut1: #6f6a61; /* 5.1:1 on --bg */
+  /* Muted-text ramp darkened vs the handoff's light values so secondary text
+     clears WCAG AA in light mode (the handoff hexes were tuned against the dark
+     default and dropped to ~1.7–2.6:1 in light). mut2/mut3 carry body/caption
+     text (≥4.5:1); mut4 is the ◐ toggle glyph + faint hints (≥3:1); mut5 is the
+     faintest whisper/placeholder tier. Dark theme is unchanged. */
+  --mut2: #726c60; /* 4.95:1 — nav links, secondary body */
+  --mut3: #797264; /* 4.53:1 — footer, captions, meta */
+  --mut4: #8f8878; /* 3.34:1 — theme-toggle glyph, faint hints */
+  --mut5: #a49d8c; /* 2.56:1 — whispers, placeholders (was 1.68:1) */
   --mut6: #d5cfc2;
   --bars: #aca496;
   --bd1: #ece7dc;
@@ -102,6 +107,10 @@ html[data-theme='light'] {
   --correct: var(--ok);
   /* The Dannebrog cross stays near-white in both modes (CelebrationFlag). */
   --flag-cross: #fdfbf7;
+  /* Accent fill for white-on-red buttons (.cta). The dark --red (#e0475c) is
+     tuned for contrast AGAINST the dark bg, so white text on it is only 4.02:1;
+     this deeper red gives white ≥5.8:1 in both themes. */
+  --red-fill: #c8102e;
   --warn: #b8860b;
   --warn-bg: color-mix(in oklab, #b8860b 12%, var(--card));
   --code-bg: color-mix(in oklab, var(--ink) 8%, transparent);
@@ -271,7 +280,7 @@ input[type='text']:focus {
 .cta {
   display: inline-block;
   padding: var(--sp-3) var(--sp-6);
-  background: var(--red);
+  background: var(--red-fill);
   color: #fff;
   border-radius: var(--radius);
   text-decoration: none;
