@@ -1,13 +1,11 @@
 ---
 import BaseLayout from './BaseLayout.astro';
 import { withBase } from '../lib/url.ts';
-import { formatLevel } from '../lib/format.ts';
 import { UI } from '../lib/strings.ts';
 import LessonAudio from '../components/LessonAudio.svelte';
 import LessonProgress from '../components/LessonProgress.svelte';
 import Checkpoint from '../components/Checkpoint.svelte';
 import MinimalPairDrill from '../components/MinimalPairDrill.svelte';
-import Waveform from '../components/Waveform.svelte';
 import lessonAudio from '../data/lesson-audio.json';
 
 type LessonRef = { id: string; title: string };
@@ -31,7 +29,6 @@ interface Props {
 const {
   lessonId,
   title,
-  level,
   topic,
   estMinutes,
   summary,
@@ -67,131 +64,351 @@ const topicLabel: Record<string, string> = {
   idiom: 'Idiom',
   vocabulary: 'Ordförråd',
 };
+const metaLabel = `${(topicLabel[topic] ?? topic).toUpperCase()} · ${estMinutes} MIN`;
 ---
 
 <BaseLayout title={title} description={summary}>
-  <p class="back"><a href={withBase('lektioner')}>{UI.lessons.backToList}</a>{position && <span class="pos"> · {UI.lessons.positionPrefix} {position}</span>}</p>
-  <header class="lesson-head">
-    <h1>{title}</h1>
-    <p class="meta">
-      <span class="badge">{formatLevel(level)}</span>
-      <span>{topicLabel[topic] ?? topic}</span>
-      <span>· {estMinutes} min</span>
-      <LessonProgress client:idle lessonId={lessonId} />
+  <div class="page">
+    <p class="back">
+      <a href={withBase('lektioner')}>{UI.lessons.backToList}</a>{position && <span class="pos"> · {position}</span>}
     </p>
+    <header class="lesson-head">
+      <h1>{title}</h1>
+      <p class="meta">{metaLabel}</p>
+      <LessonProgress client:idle lessonId={lessonId} />
+      {
+        prerequisites.length > 0 && (
+          <p class="prereq">
+            {UI.lessons.prerequisitesLabel}{' '}
+            {prerequisites.map((p, i) => (
+              <>
+                {i > 0 && ', '}
+                <a href={withBase(`lektioner/${p.id}`)}>{p.title}</a>
+              </>
+            ))}
+          </p>
+        )
+      }
+      {
+        objectives.length > 0 && (
+          <div class="objectives">
+            <span class="objectives-head">{UI.lessons.objectivesHead}</span>
+            <ul>{objectives.map((o) => <li>{o}</li>)}</ul>
+          </div>
+        )
+      }
+    </header>
+
+    <article class="prose">
+      <slot />
+    </article>
+    <div id="lesson-end" aria-hidden="true"></div>
+
+    <LessonAudio clips={lessonAudio} client:idle />
+
+    {/* Stød discrimination drill — belongs to the stød lesson only. Its pair
+        data derives clip ids exactly like the lesson's own audio spans, and it
+        skips pairs whose clips aren't committed yet. */}
+    {lessonId === '01-stoed' && <MinimalPairDrill client:visible />}
+
+    {checkpoint.length > 0 && <Checkpoint client:visible items={checkpoint} />}
+
     {
-      prerequisites.length > 0 && (
-        <p class="prereq">
-          {UI.lessons.prerequisitesLabel}{' '}
-          {prerequisites.map((p, i) => (
-            <>
-              {i > 0 && ', '}
-              <a href={withBase(`lektioner/${p.id}`)}>{p.title}</a>
-            </>
-          ))}
-        </p>
-      )
-    }
-    {
-      objectives.length > 0 && (
-        <div class="objectives">
-          <p class="objectives-head">{UI.lessons.objectivesHead}</p>
-          <ul>{objectives.map((o) => <li>{o}</li>)}</ul>
+      practiceHref && (
+        <div class="practice">
+          <a class="cta" href={practiceHref}>
+            {UI.lessons.practiceCta}
+          </a>
+          {vocabTags.length > 1 && (
+            <p class="vocab-link">
+              {UI.lessons.trainWords}{' '}
+              {vocabTags.map((t) => (
+                <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
+                  #{t}
+                </a>
+              ))}
+            </p>
+          )}
         </div>
       )
     }
-  </header>
 
-  <article class="prose">
-    <slot />
-  </article>
-  <div id="lesson-end" aria-hidden="true"></div>
-
-  {/* Decorative waveform divider between prose and the interactive tail.
-      Deliberately NO client: directive — the SVG is server-rendered with
-      pulse=0 and ships zero JS. */}
-  <div class="divider" aria-hidden="true"><Waveform size="divider" /></div>
-
-  <LessonAudio clips={lessonAudio} client:idle />
-
-  {/* Stød discrimination drill — belongs to the stød lesson only. Its pair
-      data derives clip ids exactly like the lesson's own audio spans, and it
-      skips pairs whose clips aren't committed yet. */}
-  {lessonId === '01-stoed' && <MinimalPairDrill client:visible />}
-
-  {checkpoint.length > 0 && <Checkpoint client:visible items={checkpoint} />}
-
-  {
-    practiceHref && (
-      <div class="practice">
-        <a class="cta" href={practiceHref}>{UI.lessons.practiceCta}</a>
-        {vocabTags.length > 1 && (
-          <p class="vocab-link">
-            {UI.lessons.trainWords}{' '}
-            {vocabTags.map((t) => (
-              <a class="chip" href={withBase(`flashcards?tag=${encodeURIComponent(t)}`)}>
-                #{t}
-              </a>
-            ))}
-          </p>
-        )}
-      </div>
-    )
-  }
-
-  {
-    (prev || next) && (
-      <nav class="lesson-nav" aria-label={UI.lessons.navLabel}>
-        {prev ? (
-          <a class="nav-prev" href={withBase(`lektioner/${prev.id}`)}>
-            <span class="dir">{UI.lessons.prev}</span>
-            <span class="nav-title">{prev.title}</span>
-          </a>
-        ) : (
-          <span />
-        )}
-        {next && (
-          <a class="nav-next" href={withBase(`lektioner/${next.id}`)}>
-            <span class="dir">{UI.lessons.next}</span>
-            <span class="nav-title">{next.title}</span>
-          </a>
-        )}
-      </nav>
-    )
-  }
+    {
+      (prev || next) && (
+        <nav class="lesson-nav" aria-label={UI.lessons.navLabel}>
+          {prev ? (
+            <a class="nav-prev" href={withBase(`lektioner/${prev.id}`)}>
+              <span class="dir">{UI.lessons.prev}</span>
+              <span class="nav-title">{prev.title}</span>
+            </a>
+          ) : (
+            <span />
+          )}
+          {next && (
+            <a class="nav-next" href={withBase(`lektioner/${next.id}`)}>
+              <span class="dir">{UI.lessons.next}</span>
+              <span class="nav-title">{next.title} →</span>
+            </a>
+          )}
+        </nav>
+      )
+    }
+  </div>
 
   <style>
-    .back { font-size: var(--step--1); margin: 0 0 var(--sp-2); }
-    .pos { color: var(--muted); }
-    .lesson-head { margin-bottom: var(--sp-6); }
-    .prereq { font-size: var(--step--1); color: var(--muted); margin: var(--sp-2) 0 0; }
-    .objectives { margin-top: var(--sp-4); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); }
-    .objectives-head { margin: 0 0 var(--sp-1); font-weight: 600; font-size: var(--step--1); }
-    .objectives ul { margin: 0; padding-left: 1.2em; }
-    .objectives li { font-size: var(--step--1); }
-    .lesson-nav { display: flex; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-8); }
-    .lesson-nav a { flex: 1 1 0; display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface); text-decoration: none; color: inherit; }
-    .lesson-nav a:hover { border-color: var(--accent); }
-    .lesson-nav .nav-next { text-align: right; }
-    .lesson-nav .dir { font-size: var(--step--1); color: var(--muted); }
-    .lesson-nav .nav-title { font-weight: 600; }
-    .meta { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; color: var(--muted); font-size: var(--step--1); margin: 0; }
-    .badge { background: var(--accent); color: var(--accent-contrast); border-radius: var(--radius-pill); padding: 0 var(--sp-2); font-weight: 600; font-size: 0.75rem; }
-    .prose :global(h2) { border-bottom: 1px solid var(--border); padding-bottom: var(--sp-1); }
-    .prose :global(table) { width: 100%; border-collapse: collapse; font-size: var(--step--1); margin: var(--sp-4) 0; }
-    .prose :global(th), .prose :global(td) { border: 1px solid var(--border); padding: var(--sp-2); text-align: left; vertical-align: top; }
-    .prose :global(blockquote) { margin: var(--sp-4) 0; padding: var(--sp-2) var(--sp-4); border-left: 4px solid var(--warn); background: var(--warn-bg); border-radius: 0 var(--radius) var(--radius) 0; }
-    .prose :global(code) { background: var(--code-bg); padding: 0.1em 0.3em; border-radius: 4px; }
+    .page {
+      flex: 1;
+      width: min(640px, 92vw);
+      margin: 0 auto;
+      padding: 40px 0 0;
+      position: relative;
+    }
+
+    .back {
+      margin: 0;
+      font-size: 13px;
+      color: var(--mut3);
+    }
+    .back a {
+      color: var(--mut3);
+      text-decoration: none;
+      transition: color 120ms ease;
+    }
+    .back a:hover,
+    .back a:focus-visible {
+      color: var(--ink);
+    }
+    .pos {
+      color: var(--mut3);
+    }
+
+    .lesson-head {
+      margin-bottom: 0;
+    }
+    .lesson-head h1 {
+      margin: 18px 0 0;
+      font-family: var(--font-serif);
+      font-weight: 500;
+      font-size: clamp(34px, 5vw, 46px);
+      letter-spacing: -0.02em;
+      line-height: 1.12;
+      text-wrap: balance;
+      color: var(--ink);
+    }
+    .meta {
+      margin: 14px 0 0;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: var(--mut3);
+    }
+    .prereq {
+      margin: 12px 0 0;
+      font-size: 13px;
+      color: var(--mut3);
+    }
+    .prereq a {
+      color: var(--mut2);
+    }
+    .prereq a:hover {
+      color: var(--red);
+    }
+
+    .objectives {
+      margin-top: 40px;
+      border-top: 1px solid var(--bd2);
+      padding-top: 18px;
+    }
+    .objectives-head {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--mut3);
+    }
+    .objectives ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      font-size: 14.5px;
+      line-height: 1.7;
+      color: var(--soft);
+    }
+
+    /* ---- prose (markdown body) ---- */
+    .prose {
+      margin-top: 36px;
+    }
+    .prose :global(p) {
+      margin: 18px 0 0;
+      font-size: 16px;
+      line-height: 1.75;
+      color: var(--ink);
+      text-wrap: pretty;
+    }
+    .prose :global(h2) {
+      margin: 52px 0 0;
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: 24px;
+      letter-spacing: -0.01em;
+      line-height: 1.2;
+      color: var(--ink);
+    }
+    .prose :global(h3) {
+      margin: 32px 0 0;
+      font-family: var(--font-serif);
+      font-weight: 600;
+      font-size: 19px;
+      color: var(--ink);
+    }
+    .prose :global(ul),
+    .prose :global(ol) {
+      margin: 16px 0 0;
+      padding-left: 20px;
+      font-size: 15px;
+      line-height: 1.9;
+      color: var(--soft);
+    }
+    .prose :global(strong) {
+      color: var(--ink);
+    }
+    /* Minimal-pair (and other) markdown tables → hairline grid, mono headers. */
+    .prose :global(table) {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0 0;
+    }
+    .prose :global(th) {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 400;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--mut3);
+      text-align: left;
+      padding: 8px 20px 8px 2px;
+      border-bottom: 1px solid var(--bd3);
+    }
+    .prose :global(td) {
+      padding: 13px 20px 13px 2px;
+      border-bottom: 1px solid var(--bd2);
+      vertical-align: baseline;
+      font-size: 15px;
+    }
+    .prose :global(td [lang='da']) {
+      font-weight: 600;
+      color: var(--ink);
+    }
+    /* OBS-style asides: quiet, no box — a thin red rule instead of a warn panel. */
+    .prose :global(blockquote) {
+      margin: 24px 0 0;
+      padding: 2px 0 2px 16px;
+      border-left: 2px solid var(--red);
+      color: var(--mut2);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .prose :global(blockquote p) {
+      font-size: 14px;
+      color: var(--mut2);
+      margin: 0;
+    }
+    .prose :global(blockquote strong) {
+      color: var(--soft);
+    }
+    .prose :global(code) {
+      font-family: var(--font-mono);
+      background: color-mix(in oklab, var(--ink) 8%, transparent);
+      padding: 0.1em 0.3em;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
     /* Click-to-hear: Danish words/sentences become tappable (added by LessonAudio). */
-    .prose :global(.da-clickable) { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 0.2em; text-decoration-color: var(--muted); border-radius: 3px; }
-    @media (prefers-reduced-motion: no-preference) { .prose :global(.da-clickable) { transition: background-color 0.15s; } }
-    .prose :global(.da-clickable:hover), .prose :global(.da-clickable:focus-visible) { text-decoration-color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
-    .prose :global(.da-clickable:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
-    .prose :global(.da-clickable.is-playing) { background: color-mix(in oklab, var(--accent) 24%, transparent); }
-    .divider { display: flex; justify-content: center; margin: var(--sp-8) auto; }
-    .practice { margin-top: var(--sp-8); }
+    .prose :global(.da-clickable) {
+      cursor: pointer;
+      text-decoration: underline dotted;
+      text-underline-offset: 0.2em;
+      text-decoration-color: var(--mut5);
+      border-radius: 3px;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .prose :global(.da-clickable) {
+        transition: background-color 0.15s;
+      }
+    }
+    .prose :global(.da-clickable:hover),
+    .prose :global(.da-clickable:focus-visible) {
+      text-decoration-color: var(--red);
+      color: var(--red);
+    }
+    .prose :global(.da-clickable:focus-visible) {
+      outline: 2px solid var(--red);
+      outline-offset: 2px;
+    }
+    .prose :global(.da-clickable.is-playing) {
+      color: var(--red);
+      background: color-mix(in oklab, var(--red) 14%, transparent);
+    }
+
+    .practice {
+      margin-top: 52px;
+    }
     /* .cta styles live in global.css (shared with the home hero). */
-    .vocab-link { margin-top: var(--sp-3); margin-bottom: 0; color: var(--muted); font-size: var(--step--1); }
-    .chip { display: inline-block; margin: 0 var(--sp-1); padding: 0 var(--sp-2); border: 1px solid var(--border); border-radius: var(--radius-pill); text-decoration: none; font-size: var(--step--1); }
+    .vocab-link {
+      margin-top: var(--sp-3);
+      margin-bottom: 0;
+      color: var(--mut3);
+      font-size: 13px;
+    }
+    .chip {
+      display: inline-block;
+      margin: 0 var(--sp-1);
+      padding: 0 var(--sp-2);
+      border: 1px solid var(--bd4);
+      border-radius: var(--radius-pill);
+      text-decoration: none;
+      font-size: 13px;
+      color: var(--mut2);
+    }
+    .chip:hover {
+      color: var(--red);
+      border-color: var(--red);
+    }
+
+    .lesson-nav {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      margin-top: 72px;
+      border-top: 1px solid var(--bd2);
+      padding-top: 20px;
+    }
+    .lesson-nav a {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      text-decoration: none;
+      color: inherit;
+      max-width: 48%;
+    }
+    .lesson-nav .nav-next {
+      text-align: right;
+      align-items: flex-end;
+      margin-left: auto;
+    }
+    .lesson-nav .dir {
+      font-size: 12px;
+      color: var(--mut3);
+    }
+    .lesson-nav .nav-title {
+      font-size: 15.5px;
+      font-weight: 500;
+      color: var(--ink);
+      transition: color 120ms ease;
+    }
+    .lesson-nav a:hover .nav-title {
+      color: var(--red);
+    }
   </style>
 </BaseLayout>

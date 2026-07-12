@@ -240,7 +240,7 @@ input[type='text']:focus {
   right: 0;
   transform: translateY(-50%);
   font-weight: 700;
-  font-size: clamp(4rem, 18vw, 8rem);
+  font-size: clamp(72px, 14vw, 128px);
   line-height: 1;
   letter-spacing: 0.04em;
   white-space: nowrap;
