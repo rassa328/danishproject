@@ -44,7 +44,9 @@
           {/each}
         </div>
         {#if picks[qi] !== -1}
-          <p class={picks[qi] === it.answer ? 'fb ok' : 'fb no'}>
+          <!-- Feedback is visual (green = correct answer, red = your wrong pick).
+               The verdict text is kept for screen readers only. -->
+          <p class="vh" role="status">
             {picks[qi] === it.answer ? UI.checkpoint.correct : UI.checkpoint.wrong}
           </p>
         {/if}
@@ -71,9 +73,7 @@
   .opts button { text-align: left; min-height: var(--min-tap); }
   .opts button.correct { border-color: var(--correct); color: var(--correct); font-weight: 600; }
   .opts button.wrong { border-color: var(--accent); color: var(--accent); }
-  .fb { font-size: var(--step--1); margin: var(--sp-2) 0 0; }
-  .fb.ok { color: var(--correct); }
-  .fb.no { color: var(--accent); }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .done { margin-top: var(--sp-4); color: var(--correct); font-weight: 600; }
   .reset { margin-top: var(--sp-4); }
 </style>
