@@ -7,71 +7,83 @@ interface Props {
 const { cards } = Astro.props;
 ---
 
-<table class="vocab">
-  <thead>
-    <tr>
-      <th scope="col" lang="da">Dansk</th>
-      <th scope="col">Svenska</th>
-      <th scope="col">Not</th>
-    </tr>
-  </thead>
-  <tbody>
-    {
-      cards.map((c) => (
-        <tr>
-          <td>
-            <span class="da" lang="da" data-audio={c.audio}>{c.danish}</span>
-            {c.exampleDa && (
-              <div class="ex" lang="da" data-audio={c.audioExample}>{c.exampleDa}</div>
-            )}
-          </td>
-          <td>
-            {c.swedish}
-            {c.exampleSv && <div class="ex">{c.exampleSv}</div>}
-          </td>
-          <td class="note">
-            {c.tags.includes('falsk-ven') && <span class="warn" title="Falsk vän">⚠ </span>}
-            {c.note}
-          </td>
-        </tr>
-      ))
-    }
-  </tbody>
-</table>
+<div class="vocab">
+  {
+    cards.map((c) => (
+      <div class="row">
+        <div class="col">
+          <span class="da" lang="da" data-audio={c.audio}>
+            {c.danish}
+          </span>
+          {c.exampleDa && (
+            <span class="ex" lang="da" data-audio={c.audioExample}>
+              {c.exampleDa}
+            </span>
+          )}
+        </div>
+        <div class="col">
+          <span class="sv">{c.swedish}</span>
+          {c.exampleSv && <span class="ex">{c.exampleSv}</span>}
+        </div>
+        <span class="note">
+          {c.tags.includes('falsk-ven') && (
+            <span class="warn" title="Falsk vän">
+              ⚠{' '}
+            </span>
+          )}
+          {c.note}
+        </span>
+      </div>
+    ))
+  }
+</div>
 
 <style>
   .vocab {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--step-0);
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
   }
-  .vocab th,
-  .vocab td {
-    text-align: left;
-    padding: var(--sp-2) var(--sp-3);
-    border-bottom: 1px solid var(--subtle-border);
-    vertical-align: top;
+  .row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px 24px;
+    padding: 16px 2px;
+    border-bottom: 1px solid var(--bd2);
   }
-  .vocab th {
-    font-size: var(--step--1);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    opacity: 0.6;
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
   }
   .da {
+    font-size: 15.5px;
     font-weight: 600;
+    color: var(--ink);
+    width: fit-content;
+  }
+  .sv {
+    font-size: 15px;
+    color: var(--ink);
   }
   .ex {
-    font-size: var(--step--1);
-    opacity: 0.7;
-    margin-top: var(--sp-1);
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--mut2);
   }
   .note {
-    font-size: var(--step--1);
-    opacity: 0.8;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--mut2);
+    min-width: 0;
   }
   .warn {
-    color: var(--warn);
-    opacity: 1;
+    color: var(--red);
+  }
+  @media print {
+    .row {
+      break-inside: avoid;
+    }
   }
 </style>

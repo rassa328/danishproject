@@ -66,7 +66,7 @@
 </script>
 
 <div class="search">
-  <label for="ordsok">{T.searchLabel}</label>
+  <label class="vh" for="ordsok">{T.searchLabel}</label>
   <input
     id="ordsok"
     type="search"
@@ -102,56 +102,78 @@
 
 <style>
   .search {
-    margin: var(--sp-4) 0 var(--sp-6);
-    padding: var(--sp-4);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
+    margin: 0;
   }
-  label {
-    display: block;
-    font-weight: 600;
-    font-size: var(--step--1);
-    margin-bottom: var(--sp-1);
+  .vh {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
   input {
     width: 100%;
+    box-sizing: border-box;
+    margin-top: 36px;
     font: inherit;
-    padding: var(--sp-2) var(--sp-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--bg, transparent);
-    color: var(--text);
+    font-size: 17px;
+    padding: 14px 2px;
+    border: none;
+    border-bottom: 1px solid var(--bd3);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 120ms ease;
+  }
+  input:focus {
+    border-bottom-color: var(--ink);
+  }
+  input::placeholder {
+    color: var(--mut3);
+  }
+  /* Hide the native search "clear" affordance — keeps the hairline clean. */
+  input[type='search']::-webkit-search-decoration,
+  input[type='search']::-webkit-search-cancel-button {
+    -webkit-appearance: none;
   }
   .status {
-    color: var(--muted);
-    font-size: var(--step--1);
-    margin: var(--sp-2) 0 0;
+    color: var(--mut3);
+    font-size: 13px;
+    margin: 16px 2px 0;
   }
   .results {
     list-style: none;
-    margin: var(--sp-3) 0 0;
+    margin: 10px 0 0;
     padding: 0;
-    display: grid;
-    gap: var(--sp-1);
+    display: flex;
+    flex-direction: column;
   }
   .results li {
     display: flex;
     align-items: baseline;
-    gap: var(--sp-3);
+    gap: 24px;
     flex-wrap: wrap;
-    padding: var(--sp-1) 0;
-    border-bottom: 1px solid var(--subtle-border, var(--border));
+    padding: 16px 2px;
+    border-bottom: 1px solid var(--bd2);
   }
   .da {
+    font-size: 15.5px;
     font-weight: 600;
+    color: var(--ink);
+  }
+  .sv {
+    font-size: 15px;
+    color: var(--ink);
   }
   .origin {
     margin-left: auto;
-    color: var(--muted);
-    font-size: var(--step--1);
+    color: var(--mut3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
   }
   /* The search box is an on-screen tool, not part of the printable cheat sheet. */
   @media print {
