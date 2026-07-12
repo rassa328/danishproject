@@ -113,6 +113,10 @@
   // Self-graded modes have no typed answer (speak: rate your pronunciation;
   // listen-sentence: rate your comprehension) — skip the verdict, never floor.
   const selfGraded = $derived(direction === 'speak' || direction === 'listen-sentence');
+  // The grade Enter selects in the revealed phase: Medel (3) when the answer was
+  // correct or self-graded, Igen (1) when it was wrong (2–4 are disabled then).
+  // Single source of truth for BOTH the Enter handler and the ↵ button indicator.
+  const defaultGrade = $derived((selfGraded || wasCorrect ? 3 : 1) as ReviewGrade);
   // Optgroup headers for the picker, in first-seen order. '' marks top-level
   // entries (the due-all group), rendered before the optgroups.
   const optgroups = $derived([...new Set(groups.map((g) => g.optgroup).filter(Boolean))]);
@@ -519,10 +523,11 @@
         return;
       }
       if (e.key === 'Enter') {
-        // Enter accepts the obvious grade: Igen (1) when the answer was wrong
-        // (2–4 are disabled anyway), Medel (3) when correct or self-graded.
+        // Enter accepts the contextual default (see `defaultGrade`): Igen (1) when
+        // the answer was wrong (2–4 are disabled anyway), Medel (3) when correct or
+        // self-graded. The ↵ glyph marks whichever button this is.
         e.preventDefault();
-        grade((selfGraded || wasCorrect ? 3 : 1) as ReviewGrade);
+        grade(defaultGrade);
       }
       return;
     }
@@ -895,9 +900,9 @@
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
               <div class="grade-pills">
-                <button type="button" class="grade again" onclick={() => grade(1 as ReviewGrade)}><span class="gd" aria-hidden="true">1</span>{T.grades.again}</button>
+                <button type="button" class="grade again" class:is-default={defaultGrade === 1} onclick={() => grade(1 as ReviewGrade)}><span class="gd" aria-hidden="true">1</span>{T.grades.again}{#if defaultGrade === 1}<span class="default-grade-enter-hint" aria-hidden="true">↵</span>{/if}</button>
                 <button type="button" class="grade" onclick={() => grade(2 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">2</span>{T.grades.hard}</button>
-                <button type="button" class="grade" onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">3</span>{T.grades.good}</button>
+                <button type="button" class="grade" class:is-default={defaultGrade === 3} onclick={() => grade(3 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">3</span>{T.grades.good}{#if defaultGrade === 3}<span class="default-grade-enter-hint" aria-hidden="true">↵</span>{/if}</button>
                 <button type="button" class="grade" onclick={() => grade(4 as ReviewGrade)} disabled={!selfGraded && !wasCorrect}><span class="gd" aria-hidden="true">4</span>{T.grades.easy}</button>
               </div>
             </div>
@@ -1425,6 +1430,21 @@
     cursor: pointer;
   }
   .grade .gd { font-family: var(--font-mono); font-size: 10px; color: var(--mut4); }
+  /* The Enter default: a slightly brighter border only — no fill, no glow. --mut4
+     is the app's brighter-border tone (the handoff's rgba(255,240,220,0.4)),
+     theme-adaptive. Placed before :hover so hover still overrides. */
+  .grade.is-default { border-color: var(--mut4); }
+  /* Discreet ↵ glyph after the label, tucked closer than the button's 8px gap. */
+  .default-grade-enter-hint {
+    margin-left: -3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    color: var(--mut4);
+  }
+  @media (hover: none), (max-width: 640px) {
+    .default-grade-enter-hint { display: none; }
+  }
   .grade:hover { border-color: var(--ink); }
   .grade.again:hover { border-color: var(--red); color: var(--red); }
   .grade.again:hover .gd { color: var(--red); }
