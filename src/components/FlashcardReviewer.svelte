@@ -87,12 +87,16 @@
   // graph is 7 bars; the sentence graph is longer (per design override).
   const VOICE_BARS = [10, 22, 34, 26, 34, 18, 10];
   const VOICE_BARS_LONG = [8, 18, 30, 22, 34, 26, 32, 16, 28, 20, 34, 14, 24];
-  // The answer example's glyph is that same sentence graph at inline scale,
-  // so a mening reads as a mening in both places.
-  const EX_BARS = VOICE_BARS_LONG.map((h) => Math.round(h * 0.35));
-
   const now = () => new Date();
   const current = $derived(queue[idx]);
+  // Best-effort answer-example glyph: the bar count tracks THIS example's
+  // length (~1 bar per 3 chars, clamped), heights cycle the sentence-graph
+  // table at inline scale. Longer mening, longer graph — deterministic, no
+  // per-clip envelope extraction.
+  const exBars = $derived.by(() => {
+    const n = Math.max(7, Math.min(24, Math.round((current?.exampleDa?.length ?? 0) / 3)));
+    return Array.from({ length: n }, (_, i) => Math.round((VOICE_BARS_LONG[i % VOICE_BARS_LONG.length] ?? 24) * 0.35));
+  });
   const remaining = $derived(Math.max(0, queue.length - idx));
   // Self-graded modes have no typed answer (speak: rate your pronunciation;
   // listen-sentence: rate your comprehension) — skip the verdict, never floor.
@@ -814,7 +818,7 @@
                 {/if}
               {/if}
               <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{T.slowSpeed}</button>{/if}</p>
-              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={EX_BARS} barWidth={2.5} barGap={2} /></p>{/if}
+              {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={exBars} barWidth={2.5} barGap={2} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
               <div class="grade-pills">
