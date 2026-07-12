@@ -7,7 +7,9 @@ import { UI } from '../lib/strings.ts';
 
 interface Props {
   title: string;
-  description?: string;
+  // `| undefined` (not just `?`) so the layouts can forward their own optional
+  // description straight through under exactOptionalPropertyTypes.
+  description?: string | undefined;
 }
 const { title, description } = Astro.props;
 const fullTitle = title === UI.brand ? title : `${title} · ${UI.brand}`;
