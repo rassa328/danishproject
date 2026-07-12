@@ -47,7 +47,7 @@ const totalWords = cardCount + praksisUniqueCount;
     <header class="ghost-head">
       <span class="ghost" aria-hidden="true">Æ Ø Å</span>
       <h1>{UI.wordlist.title}</h1>
-      <p class="lead">{UI.wordlist.lead(cardCount, totalWords)}</p>
+      <p class="lead">{UI.wordlist.lead(totalWords)}</p>
     </header>
 
     <OrdlistaSearch client:idle starter={searchStarter} />

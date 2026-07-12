@@ -301,8 +301,9 @@ export const UI = {
     title: 'Ordlista',
     description: (total: number) =>
       `Sök bland alla ${total} danska ord, med svensk översättning, exempel och uttal.`,
-    lead: (starter: number, total: number) =>
-      `Sök bland alla ${total} ord som appen tränar. Nedanför hittar du de ${starter} utvalda grundorden som referenslista — klicka på ett danskt ord (eller exempel) för att höra det.`,
+    // Redesign subtitle: total formatted sv-SE ("5 077 ord"). The 225-starter
+    // note now lives in the on-page list footer.
+    lead: (total: number) => `${total.toLocaleString('sv-SE')} ord — klicka på ett danskt ord för att höra det.`,
     // The search island (searches starter ∪ the lazily fetched praksis deck).
     searchLabel: 'Sök ord',
     searchPlaceholder: 'Sök på danska eller svenska…',
@@ -332,7 +333,7 @@ export const UI = {
     prev: '← Föregående',
     next: 'Nästa →',
     backToLesson: '← Tillbaka till lektionen',
-    indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar — grupperade efter tema.',
+    indexLead: 'Korta lektioner om det som faktiskt är svårt för svenskar.',
     progress: (done: number, total: number) => `Du har läst ${done} av ${total} lektioner.`,
   },
 
