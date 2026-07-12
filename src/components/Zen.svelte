@@ -92,11 +92,8 @@
   const talPlayable = playableTal(manifest);
   const sets = zenSets(groups);
   const noSrs: SrsView = { getRecord: () => null, newCardsToday: () => 0 };
-  // Deck screen (source step) category grid: how many sets show before "fler…",
-  // the grid column count (must match the CSS grid), and the "fler…" sentinel.
-  const CURATED_SETS = 6;
-  const DECK_COLS = 3;
-  const FLER = 'fler';
+  /** Category cloud label: lowercase, without the "(NN)" card count. */
+  const catLabel = (label: string) => label.replace(/\s*\(\d+\)\s*$/, '').toLowerCase();
 
   let phase = $state<'start' | 'run' | 'done'>('start');
   let flow = $state<ZenFlow>(initialFlow());
@@ -107,10 +104,6 @@
    *  'repetera') may insert/remove options, and an index would silently
    *  retarget the selection under the user's Enter. */
   let hot = $state<string | null>(null);
-  // Deck screen: whether the "fler…" grid is expanded, and whether the "fler…"
-  // cell itself is the focused grid cell (it isn't a stepOptions id).
-  let moreCats = $state(false);
-  let flerFocused = $state(false);
   let paused = $state(false);
   let items = $state<ZenItem[]>([]);
   let idx = $state(0);
@@ -178,23 +171,28 @@
       note: talOk ? T.talNote : T.missingNote,
     },
   ]);
-  // Deck-screen category grid model. The two schema options (repetera·blandat)
-  // form the top row; the cloud below is tal + a curated set slice (+ the rest
-  // behind "fler…"), laid out in DECK_COLS columns. `deckCells` is the flat,
-  // in-DOM-order list the 2-D arrow nav walks; `FLER` is the toggle cell.
-  const visibleSets = $derived(moreCats ? sets : sets.slice(0, CURATED_SETS));
-  const bigCells = $derived(
-    sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
-  );
-  const talCell = $derived(
-    sourceRows.find((r) => r.id === SOURCE_TAL && !r.disabled) ? [SOURCE_TAL] : [],
-  );
-  const cloudCells = $derived([
-    ...talCell,
-    ...visibleSets.map((s) => `set:${s.id}`),
-    FLER,
+  // Zen category cloud: tal + a curated slice of the biggest theme sets, shown
+  // always (no expand toggle). The full deck lives in flashcards/ordlista — zen
+  // stays calm and minimal.
+  const CURATED = 9;
+  const catCells = $derived.by(() => {
+    const talR = sourceRows.find((r) => r.id === SOURCE_TAL);
+    const cells: { id: string; label: string; note: string; disabled: boolean }[] = [];
+    if (talR) {
+      cells.push({ id: talR.id, label: catLabel(talR.label), note: talR.note, disabled: talR.disabled });
+    }
+    for (const s of sets.slice(0, CURATED)) {
+      cells.push({ id: `set:${s.id}`, label: catLabel(s.label), note: '', disabled: false });
+    }
+    return cells;
+  });
+  // Focusable deck cells in DOM order (disabled skipped) — what the arrows cycle.
+  const deckNavIds = $derived([
+    ...sourceRows.filter((r) => r.id !== SOURCE_TAL && !r.disabled).map((r) => r.id),
+    ...catCells.filter((c) => !c.disabled).map((c) => c.id),
   ]);
-  const deckCells = $derived([...bigCells, ...cloudCells]);
+  // Arrange the cloud as a flat-top hexagon: narrower top/bottom, wider middle.
+  const cloudRows = $derived(hexRows(catCells));
   const sourceLabel = $derived.by(() => {
     if (flow.source === null) return null;
     if (flow.source === SOURCE_REPETERA) return T.sources.repetera;
@@ -258,7 +256,6 @@
   // ---- start flow ----------------------------------------------------------
   function syncHot() {
     hot = stepOptions(flow, ctx)[highlightIndex(flow, ctx)] ?? null;
-    flerFocused = false;
   }
   function moveHi(delta: number) {
     if (options.length === 0) return;
@@ -266,65 +263,37 @@
     hot = options[at === -1 ? 0 : wrapIndex(at, delta, options.length)] ?? null;
     focusHot();
   }
+  /** Deck-screen arrow nav: cycle through the rendered, focusable cells (the two
+   *  schema options + the category cloud), in reading order. */
+  function moveDeck(delta: number) {
+    const list = deckNavIds;
+    if (list.length === 0) return;
+    const at = hotId !== null ? list.indexOf(hotId) : -1;
+    hot = list[at === -1 ? 0 : wrapIndex(at, delta, list.length)] ?? null;
+    focusHot();
+  }
+  /** Split a list into a flat-top hexagon: narrower top/bottom rows, wider in
+   *  the middle. Kept loose ("close, not perfect") — one to three centered rows. */
+  function hexRows<T>(items: T[]): T[][] {
+    const n = items.length;
+    if (n <= 4) return [items];
+    const top = Math.max(2, Math.round(n * 0.3));
+    const mid = n - 2 * top;
+    if (mid > top) return [items.slice(0, top), items.slice(top, top + mid), items.slice(top + mid)];
+    const a = Math.floor(n / 3);
+    return [items.slice(0, a), items.slice(a, n - a), items.slice(n - a)];
+  }
 
   // Click semantics: a first click SELECTS (shows the red underline); a second
   // click on the already-selected option CONFIRMS (advances). Enter confirms
   // the selection. Mirrors the arrows ("pilar väljer · enter").
   function selectOrConfirm(id: string) {
     if (inTransition()) return;
-    if (hotId === id && !flerFocused) pickId(id);
+    if (hotId === id) pickId(id);
     else {
       hot = id;
-      flerFocused = false;
       focusHot();
     }
-  }
-  function toggleMore() {
-    if (inTransition()) return;
-    moreCats = !moreCats;
-    flerFocused = true;
-    hot = null;
-    focusHot();
-  }
-  /** Focus a deck-grid cell by id ('fler' is the toggle, not a stepOptions id). */
-  function setCell(cellId: string) {
-    if (cellId === FLER) {
-      flerFocused = true;
-      hot = null;
-    } else {
-      flerFocused = false;
-      hot = cellId;
-    }
-    focusHot();
-  }
-  /** 2-D arrow nav over the deck screen: row 0 = the two schema options, rows
-   *  below = the DECK_COLS-wide category grid (tal + sets + "fler…"). ←/→ walk
-   *  the flat cell list clamped; ↑/↓ jump rows, crossing between the option row
-   *  and the cloud. */
-  function gridMove(dir: 'left' | 'right' | 'up' | 'down') {
-    const cells = deckCells;
-    if (cells.length === 0) return;
-    const bigLen = bigCells.length;
-    const cur = flerFocused ? FLER : hotId;
-    const at = cur !== null ? cells.indexOf(cur) : -1;
-    if (at === -1) {
-      setCell(cells[0]!);
-      return;
-    }
-    const max = cells.length - 1;
-    let next = at;
-    if (dir === 'left') next = Math.max(0, at - 1);
-    else if (dir === 'right') next = Math.min(max, at + 1);
-    else if (dir === 'down')
-      next = at < bigLen ? Math.min(max, bigLen + at) : Math.min(max, at + DECK_COLS);
-    else
-      next =
-        at >= bigLen + DECK_COLS
-          ? at - DECK_COLS
-          : at >= bigLen
-            ? Math.min(bigLen - 1, at - bigLen)
-            : at;
-    setCell(cells[next]!);
   }
   function pickId(id: string) {
     if (inTransition()) return;
@@ -356,12 +325,6 @@
   function stepForward() {
     if (flow.step === 'begin') {
       void begin();
-      return;
-    }
-    // Enter on the "fler…" cell reveals/hides the rest of the grid, it doesn't
-    // start a session.
-    if (flow.step === 'source' && flerFocused) {
-      toggleMore();
       return;
     }
     if (hotId !== null) pickId(hotId);
@@ -703,21 +666,11 @@
         e.key === 'ArrowDown'
       ) {
         e.preventDefault();
-        // The source step is a 2-D grid; the two-option mode/direction steps
-        // stay linear (Left/Up = −1, Right/Down = +1).
-        if (flow.step === 'source') {
-          gridMove(
-            e.key === 'ArrowLeft'
-              ? 'left'
-              : e.key === 'ArrowRight'
-                ? 'right'
-                : e.key === 'ArrowUp'
-                  ? 'up'
-                  : 'down',
-          );
-        } else {
-          moveHi(e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1);
-        }
+        // Left/Up = −1, Right/Down = +1. The source step walks its rendered
+        // cells (cloud); the two-option steps cycle their options.
+        const delta = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+        if (flow.step === 'source') moveDeck(delta);
+        else moveHi(delta);
       }
       return;
     }
@@ -814,10 +767,7 @@
               class="opt"
               class:hot={hotId === id}
               onclick={() => selectOrConfirm(id)}
-              onfocus={() => {
-                hot = id;
-                flerFocused = false;
-              }}
+              onfocus={() => (hot = id)}
             >
               <span class="opt-label">{T.modes[id].label}</span>
               <span class="opt-sub">{T.modes[id].sub}</span>
@@ -834,10 +784,7 @@
                 class="opt small"
                 class:hot={hotId === id}
                 onclick={() => selectOrConfirm(id)}
-                onfocus={() => {
-                  hot = id;
-                  flerFocused = false;
-                }}
+                onfocus={() => (hot = id)}
               >
                 <span class="opt-label">{T.directions[id].label}</span>
                 <span class="opt-sub">{T.directions[id].sub}</span>
@@ -847,7 +794,6 @@
         </div>
       {:else if flow.step === 'source'}
         {@const bigSources = sourceRows.filter((r) => r.id !== SOURCE_TAL)}
-        {@const talRow = sourceRows.find((r) => r.id === SOURCE_TAL)}
         <div class="source-step rise">
           <!-- The two schema choices as big options (repetera · blandat). -->
           <div class="opt-row deck-opts">
@@ -859,61 +805,34 @@
                 class:hot={!row.disabled && hotId === row.id}
                 disabled={row.disabled}
                 onclick={() => selectOrConfirm(row.id)}
-                onfocus={() => {
-                  hot = row.id;
-                  flerFocused = false;
-                }}
+                onfocus={() => (hot = row.id)}
               >
                 <span class="opt-label">{row.label}</span>
                 {#if sub}<span class="opt-sub">{sub}</span>{/if}
               </button>
             {/each}
           </div>
-          <!-- …or a category: tal + a curated set slice, in a 2-D grid; "fler…"
-               reveals the rest. -->
+          <!-- …or a category: lowercase text (no outline), arranged as a flat-top
+               hexagon cloud. Highlight = ink text + red underline, like the two
+               options above. -->
           <div class="cloud-whisper">{T.categoryWhisper}</div>
-          <div class="cat-grid">
-            {#if talRow}
-              <button
-                type="button"
-                class="cat"
-                class:hot={!talRow.disabled && hotId === talRow.id}
-                disabled={talRow.disabled}
-                onclick={() => selectOrConfirm(talRow.id)}
-                onfocus={() => {
-                  hot = talRow.id;
-                  flerFocused = false;
-                }}
-              >
-                {talRow.label}{#if talRow.note}&nbsp;<span class="cat-note">{talRow.note}</span>{/if}
-              </button>
-            {/if}
-            {#each visibleSets as set (set.id)}
-              <button
-                type="button"
-                class="cat"
-                class:hot={hotId === `set:${set.id}`}
-                onclick={() => selectOrConfirm(`set:${set.id}`)}
-                onfocus={() => {
-                  hot = `set:${set.id}`;
-                  flerFocused = false;
-                }}
-              >
-                {set.label}
-              </button>
+          <div class="cat-cloud">
+            {#each cloudRows as row, r (r)}
+              <div class="cat-row">
+                {#each row as cell (cell.id)}
+                  <button
+                    type="button"
+                    class="cat"
+                    class:hot={!cell.disabled && hotId === cell.id}
+                    disabled={cell.disabled}
+                    onclick={() => selectOrConfirm(cell.id)}
+                    onfocus={() => (hot = cell.id)}
+                  >
+                    {cell.label}{#if cell.note}&nbsp;<span class="cat-note">{cell.note}</span>{/if}
+                  </button>
+                {/each}
+              </div>
             {/each}
-            <button
-              type="button"
-              class="cat fler"
-              class:hot={flerFocused}
-              onclick={toggleMore}
-              onfocus={() => {
-                flerFocused = true;
-                hot = null;
-              }}
-            >
-              {moreCats ? T.farre : T.fler}
-            </button>
           </div>
         </div>
       {:else}
@@ -1213,74 +1132,54 @@
     font-size: 11.5px;
     color: var(--mut5);
   }
-  /* Wider, arrow-friendly grid of elongated flat-top hexagon cells (fixed
-     DECK_COLS columns so the 2-D nav stride is correct). */
-  .cat-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px 16px;
-    width: min(92vw, 540px);
-    margin-top: 2px;
+  /* The categories are lowercase text arranged as a flat-top hexagon cloud below
+     the two schema options — NO outline of any kind. Default is the same muted
+     tone as repetera/blandat; hover/selected = ink text + a red underline. */
+  .cat-cloud {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: min(92vw, 470px);
+    margin-top: 8px;
   }
-  .cat {
-    position: relative;
-    isolation: isolate;
-    font-size: 13.5px;
+  .cat-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: baseline;
+    gap: 8px 24px;
+  }
+  /* `.zen ` prefix so these out-specify `.zen button { color: inherit;
+     border: none }` — otherwise the categories would inherit ink and lose the
+     underline. Default = muted (like repetera/blandat); hot = ink + red line. */
+  .zen .cat {
+    font-size: 15px;
     font-weight: 300;
-    color: var(--mut2);
+    color: var(--mut3);
     background: none;
     border: none;
-    padding: 11px 20px;
+    border-bottom: 1px solid transparent;
+    padding: 1px 0 3px;
     cursor: pointer;
-    text-align: center;
+    white-space: nowrap;
     line-height: 1.3;
-    transition: color 200ms ease;
+    transition:
+      color 200ms ease,
+      border-color 200ms ease;
   }
-  /* Elongated flat-top hexagon: a faint 1px ring at rest, red on hover/hot.
-     Drawn as a ::before (ring color) with a ::after cutout in the page bg, so
-     the button text is never clipped. Highlight = red line + ink text, no box. */
-  .cat::before,
-  .cat::after {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%);
-    transition: background 200ms ease;
-  }
-  .cat::before {
-    inset: 0;
-    background: var(--bd2);
-  }
-  .cat::after {
-    inset: 1px;
-    background: var(--bg);
-  }
-  .cat:hover,
-  .cat.hot {
+  .zen .cat:hover,
+  .zen .cat.hot {
     color: var(--ink);
+    border-bottom-color: var(--red);
   }
-  .cat:hover::before,
-  .cat.hot::before {
-    background: var(--red);
-  }
-  .cat.fler {
-    font-style: italic;
-    color: var(--mut4);
-  }
-  .cat.fler:hover {
-    color: var(--mut2);
-  }
-  .cat:disabled {
+  .zen .cat:disabled {
     color: var(--mut5);
     cursor: default;
   }
-  .cat:disabled:hover {
+  .zen .cat:disabled:hover {
     color: var(--mut5);
-  }
-  /* Disabled cells keep the faint ring even on hover (no red). */
-  .cat:disabled::before,
-  .cat:disabled:hover::before {
-    background: var(--bd2);
+    border-bottom-color: transparent;
   }
   .cat-note {
     font-size: 11px;
