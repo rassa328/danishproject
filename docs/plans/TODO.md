@@ -93,6 +93,36 @@ Recorded 2026-07-11 from a live review of the deployed site.
   themselves (smaller size, more headroom, or crop-safe positioning). Applies
   on `lektioner/index.astro:16-17` and `ordlista.astro:48-49`.
 
+## Process & tooling
+
+Recorded 2026-07-12 19:35.
+
+User (verbatim): "remake the project instructions to always ask for a playwright
+test - for me (and if necessary for the agent (not always the case - not
+necessary but sometime when we want extra verification)) and make the playwright
+instructions, as we can have many maybe running with different ports if
+necessary? also i want to change that we ship to a demo page before it gets
+merged on github pages if possible"
+
+- [ ] **Make a Playwright test the default ask on every change.** Update the
+  project instructions (`AGENTS.md` / `CLAUDE.md`) so each change offers a
+  Playwright run:
+  - **For the user** — always offer a Playwright-backed way for the user to try
+    the change themselves (a runnable server + suggested things to click). This
+    is the always-on part.
+  - **For the agent** — an agent-run Playwright verification only when extra
+    confidence is wanted, not required for every change.
+  - Write a reusable **Playwright harness + instructions** that supports several
+    runs at once on **different ports** (parallel agents/sessions), isolated
+    throwaway worktrees, a build-or-dev choice, and cleanup. (Reference: the
+    ad-hoc harness used to verify the ordlista search PR #18 — isolated worktree
+    + `astro preview`/`dev`, `--port`, curl-gated readiness, port/worktree
+    teardown — is a starting point to formalize.)
+- [ ] **Ship to a demo/preview page before merging to GitHub Pages.** Investigate
+  a pre-merge preview deploy (e.g. a per-PR or per-branch demo URL) so changes
+  can be reviewed live before they land on the production GitHub Pages site — if
+  feasible with the current static / GH-Pages setup.
+
 ## Parking lot (earlier review findings, not re-raised by user)
 
 - ~1.5 s audible gap between hun and hund in the hero sample (clip trailing
