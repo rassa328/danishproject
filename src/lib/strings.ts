@@ -57,6 +57,12 @@ export const UI = {
     praksisFailed:
       'Kunde inte hämta praksis-orden — övar bara med grundorden just nu. Ladda om sidan för att försöka igen.',
     deckLabel: 'Kortlek:',
+    // Deck pill / popover chrome (redesign). `kortUnit` is the count suffix
+    // ("29 KORT"); `swedishLabel` captions the Swedish prompt word; the footer
+    // note explains the auto-picked default deck.
+    kortUnit: 'KORT',
+    swedishLabel: 'svenska',
+    popoverFooter: 'standardleken väljs åt dig',
     directionLegend: 'Riktning',
     write: 'Skriv',
     listen: 'Lyssna',
