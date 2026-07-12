@@ -70,6 +70,10 @@
   let warning = $state('');
   // Waveform sweep counter for the listen-mode replay button.
   let promptPulse = $state(0);
+  // Sweep counter for the 0.75× slow-replay glyphs (prompt slow + speak-mode
+  // word slow — never visible at once, so one counter serves both; reset per
+  // card so a fresh mount never replays a stale sweep).
+  let slowPulse = $state(0);
   // The site's ONE animated moment: true only when 'done' was EARNED by grading
   // the last card (grade() sets it; start() clears it). A boolean, not {#key} —
   // the done screen remounts on settings-save/repeat-round and a key would
@@ -87,6 +91,9 @@
   // graph is 7 bars; the sentence graph is longer (per design override).
   const VOICE_BARS = [10, 22, 34, 26, 34, 18, 10];
   const VOICE_BARS_LONG = [8, 18, 30, 22, 34, 26, 32, 16, 28, 20, 34, 14, 24];
+  // 0.75× slow-replay glyph: the word graph at inline scale, next to the
+  // mono speed label; its sweep runs at a lazier tempo (see .slow-bar).
+  const SLOW_BARS = VOICE_BARS.map((h) => Math.round(h * 0.35));
   const now = () => new Date();
   const current = $derived(queue[idx]);
   // Best-effort answer-example glyph: the bar count tracks THIS example's
@@ -252,16 +259,22 @@
     const outcome = await speak(text, opts);
     if (outcome === 'cancelled') return;
     promptAudioState = outcome === 'audio' ? 'ok' : outcome;
-    if (outcome === 'audio' || outcome === 'tts') promptPulse++;
+    // The control the learner pressed is the one that sweeps: slow replays
+    // pulse the slow glyph, normal replays the main graph.
+    if (outcome === 'audio' || outcome === 'tts') {
+      if (rate !== undefined) slowPulse++;
+      else promptPulse++;
+    }
   }
 
   // Slow replay of the revealed word in 'speak' mode (compare against your own
   // pronunciation at 0.75×).
-  function playSlowWord() {
+  async function playSlowWord() {
     if (!current) return;
     const opts: { audioUrl?: string; rate: number } = { rate: 0.75 };
     if (current.audio) opts.audioUrl = withBase(current.audio);
-    void speak(current.danish, opts);
+    const outcome = await speak(current.danish, opts);
+    if (outcome === 'audio' || outcome === 'tts') slowPulse++;
   }
 
   /** Advance past an unplayable listen card WITHOUT grading it (no forced
@@ -390,6 +403,7 @@
   function afterPrompt() {
     speakSilent = false;
     promptAudioState = 'ok';
+    slowPulse = 0;
     refreshChoices();
     tick().then(() => {
       // Non-typed modes have no input — focus the container so the keyboard
@@ -565,6 +579,18 @@
     };
   });
 </script>
+
+<!-- The 0.75× glyph: the word voice graph at inline scale. Shared by the
+     listen-prompt slow replays and the speak-mode word slow replay. -->
+{#snippet slowGraph()}
+  <span class="slow-wave" class:animate={slowPulse > 0} aria-hidden="true">
+    {#key slowPulse}
+      {#each SLOW_BARS as h, j (j)}
+        <span class="slow-bar" style={`height:${h}px;animation-delay:${j * 75}ms`}></span>
+      {/each}
+    {/key}
+  </span>
+{/snippet}
 
 {#if !ready}
   <div class="head-row"><h1 class="page-title">{T.title}</h1></div>
@@ -742,12 +768,12 @@
               <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.play}>
                 {@render voiceGraph()}
               </button>
-              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{T.slowSpeed}</button>
+              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>
             {:else}
               <button type="button" class="voice-btn" onclick={() => playPrompt()} aria-label={T.replay} title={direction === 'listen-sentence' ? T.replayKeyTitle : undefined}>
                 {@render voiceGraph()}
               </button>
-              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{T.slowSpeed}</button>
+              <button type="button" class="slow" onclick={() => playPrompt(0.75)} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>
               {#if promptAudioState === 'tts'}<span class="tts-hint" title={T.ttsHintTitle}>{T.ttsHint}</span>{/if}
             {/if}
           {:else if direction === 'cloze'}
@@ -817,7 +843,7 @@
                   <p class="attempt" lang="da" aria-hidden="true">{typed}</p>
                 {/if}
               {/if}
-              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{T.slowSpeed}</button>{/if}</p>
+              <p class="da" lang="da">{current.danish} <SpeakButton text={current.danish} audio={current.audio} showLabel={false} bars={[8, 16, 22, 13, 8]} />{#if direction === 'speak'}<button type="button" class="slow" onclick={playSlowWord} title={T.slowReplay}>{@render slowGraph()}{T.slowSpeed}</button>{/if}</p>
               {#if current.exampleDa}<p class="ex" lang="da">{current.exampleDa} <SpeakButton text={current.exampleDa} audio={current.audioExample} label={T.hear} showLabel={false} bars={exBars} barWidth={2.5} barGap={2} /></p>{/if}
               {#if current.note}<p class="note"><span class="obs" aria-hidden="true">OBS</span>{current.note}</p>{/if}
               {#if selfGraded && speakSilent}<p class="hint">{T.noAudio}</p>{/if}
@@ -1144,8 +1170,14 @@
     50% { transform: scaleY(1.35); }
     100% { transform: scaleY(1); }
   }
-  /* 0.75× slow-replay: small, subtle, mono — sits just below the graph. */
+  /* 0.75× slow-replay: the mini word graph + a small mono label — same glyph
+     family as the other audio controls. Its sweep runs at a lazier tempo than
+     the full-speed graphs (750ms/75ms vs 500ms/55ms): the button itself
+     sounds slow. */
   .slow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     margin-top: 2px;
     background: none;
     border: none;
@@ -1157,6 +1189,18 @@
     cursor: pointer;
   }
   .slow:hover { color: var(--ink); border: none; }
+  .slow-wave { display: inline-flex; align-items: center; gap: 2px; }
+  .slow-bar {
+    flex: none;
+    width: 2.5px;
+    border-radius: 2px;
+    background: var(--bars);
+    transform-origin: center;
+  }
+  .slow:hover .slow-bar { background: var(--ink); }
+  @media (prefers-reduced-motion: no-preference) {
+    .slow-wave.animate .slow-bar { animation: voicePulse 750ms ease-in-out both; }
+  }
   .tts-hint { color: var(--mut3); font-size: 11px; font-style: italic; margin-top: 6px; cursor: help; }
 
   /* Reveal-button block (speak / listen-sentence). */
