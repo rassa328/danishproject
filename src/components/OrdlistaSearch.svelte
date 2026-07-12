@@ -5,7 +5,7 @@
   // cache) on first focus of the field, so plain browsing never downloads it.
   // While a query is active the themed sections below are hidden and the matches
   // render in the normal wordlist row look (same as VocabTable).
-  import SpeakButton from './SpeakButton.svelte';
+  import { audioClick } from '../lib/word-audio.ts';
   import { fetchPraksis } from '../lib/praksis-client.ts';
   import { foldNordic } from '../lib/char-map.ts';
   import { UI } from '../lib/strings.ts';
@@ -101,11 +101,19 @@
         {#each results.slice(0, MAX_SHOWN) as e (e.id)}
           <div class="row">
             <div class="col">
-              <span class="da" lang="da"
-                >{e.danish}{#if e.audio}
-                  <SpeakButton text={e.danish} audio={e.audio} showLabel={false} />{/if}</span
+              <span
+                class="da"
+                lang="da"
+                use:audioClick={e.audio ? { text: e.danish, audio: e.audio } : undefined}
+                >{e.danish}</span
               >
-              {#if e.exampleDa}<span class="ex" lang="da">{e.exampleDa}</span>{/if}
+              {#if e.exampleDa}<span
+                  class="ex"
+                  lang="da"
+                  use:audioClick={e.audioExample
+                    ? { text: e.exampleDa, audio: e.audioExample }
+                    : undefined}>{e.exampleDa}</span
+                >{/if}
             </div>
             <div class="col">
               <span class="sv">{e.swedish}</span>
