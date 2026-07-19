@@ -413,6 +413,22 @@ export class Store {
     return n;
   }
 
+  /** Soonest strictly-future due date across all non-suspended records, or null
+   *  if nothing is scheduled ahead. Drives the empty state's "nästa repetition
+   *  väntar {nextDue}" phrase when the whole backlog is cleared. */
+  nextDueDate(now: Date = new Date()): Date | null {
+    const srs = this.loadSrs().srs;
+    const t = now.getTime();
+    let best: number | null = null;
+    for (const k of Object.keys(srs)) {
+      const r = srs[k];
+      if (!r || r.suspended) continue;
+      const due = new Date(r.due).getTime();
+      if (due > t && (best === null || due < best)) best = due;
+    }
+    return best === null ? null : new Date(best);
+  }
+
   // ---- daily output missions (bridge to real speaking) ----
   isMissionDone(dateIso: string): boolean {
     return this.loadSrs().missionLog?.[dateIso] === true;
