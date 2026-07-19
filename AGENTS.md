@@ -24,6 +24,28 @@ This repository is edited concurrently by Claude instances, Codex instances, and
 
 ## Product invariants
 
-- User-facing audio uses real human recordings only; never text-to-speech.
+- User-facing audio ships as pre-generated committed clips (Azure da-DK neural
+  TTS, `da-DK-ChristelNeural`) — never runtime synthesis as the primary path.
+  The app is clip-first; the Web Speech fallback for a missing clip is a
+  degraded state that must be disclosed in the UI ("talsyntes"), and the
+  number drills play composed committed clips only (no fallback).
+
+## Audio generation procedure (run after ANY new Danish words/sentences)
+
+Whenever Danish text that users can hear is added or changed — new lessons
+(`<span lang="da">` prose spans), starter-deck rows, examples, number atoms —
+generate the missing clips before (or with) the push that ships the text:
+
+1. `set -a; . ./.env; set +a; npm run tts` — idempotent: synthesizes only
+   missing clips, rebuilds `src/data/lesson-audio.json`, rewrites deck CSV
+   audio columns. (`npm run tts -- --numbers` for number atoms; praksis-deck
+   clips are gated — see `scripts/generate-tts.ts` header.)
+2. If the script rewrote a CSV with no content change (line-endings only),
+   restore it: `git checkout -- src/data/vocab/*.csv`.
+3. `npm run check:content` must pass; commit the new `public/audio/*.mp3`
+   together with the manifest in the same commit as the text they voice.
+
+A lesson/word PR or push without its clips leaves the new content silently on
+the Web Speech fallback — treat missing clips as a broken build.
 
 These rules are the default for future sessions in this repository until the user explicitly overrides them.
