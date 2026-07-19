@@ -105,7 +105,10 @@
                 >{e.danish}{#if e.audio}
                   <SpeakButton text={e.danish} audio={e.audio} showLabel={false} />{/if}</span
               >
-              {#if e.exampleDa}<span class="ex" lang="da">{e.exampleDa}</span>{/if}
+              {#if e.exampleDa}<span class="ex" lang="da"
+                  >{e.exampleDa}{#if e.audioExample}
+                    <SpeakButton text={e.exampleDa} audio={e.audioExample} showLabel={false} />{/if}</span
+                >{/if}
             </div>
             <div class="col">
               <span class="sv">{e.swedish}</span>

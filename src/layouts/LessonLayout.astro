@@ -94,7 +94,10 @@ const metaLabel = `${(topicLabel[topic] ?? topic).toUpperCase()} · ${estMinutes
     {/* Stød discrimination drill — belongs to the stød lesson only. Its pair
         data derives clip ids exactly like the lesson's own audio spans, and it
         skips pairs whose clips aren't committed yet. */}
-    {lessonId === '01-stoed' && <MinimalPairDrill client:visible />}
+    {/* client:idle, not client:visible: the drill SSRs zero children while its
+        onMount clip probe runs, so a visible-directive island has no box for
+        the IntersectionObserver and would never hydrate. */}
+    {lessonId === '01-stoed' && <MinimalPairDrill client:idle />}
 
     {checkpoint.length > 0 && <Checkpoint client:visible items={checkpoint} />}
 
@@ -243,6 +246,15 @@ const metaLabel = `${(topicLabel[topic] ?? topic).toUpperCase()} · ${estMinutes
       width: 100%;
       border-collapse: collapse;
       margin: 18px 0 0;
+    }
+    /* On phones, 4-column tables exceed the viewport's min-content width and
+       would pan the whole page — let the table scroll inside its own box. */
+    @media (max-width: 480px) {
+      .prose :global(table) {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
     }
     .prose :global(th) {
       font-family: var(--font-mono);

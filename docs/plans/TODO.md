@@ -50,6 +50,18 @@ Recorded 2026-07-11 from a live review of the deployed site.
 - [ ] **Reword "Läs en lektion →".** User: "man läser inte en lektion."
   `strings.ts:97`, done-screen link. Needs a verb that matches what lessons
   are (listening/doing): e.g. "Gå till lektionerna →" — user picks the wording.
+- [ ] **Lyssna / Lyssna (mening): drop the prompt playback controls on the
+  solution screen.** Requested 2026-07-12 20:21. In listen and listen-sentence,
+  the prompt's replay controls (the 1× voice-graph play button + the 0.75×
+  slow-replay) currently keep showing after the answer is revealed — redundant,
+  since the revealed card already has its own play button (the `SpeakButton` on
+  the word / sentence). Hide them once we reach the solution. In
+  `FlashcardReviewer.svelte`, the `{#if direction === 'listen' ||
+  direction === 'listen-sentence'}` voice-controls block at the top of `.drill`
+  (~L794–825) renders in BOTH phases; wrap its inner `.voice-btn` / `.slow` /
+  no-audio-notice in `{#if phase === 'prompt'}` (keep the outer branch so the
+  cloze/default prompt text is unaffected). Low-risk, isolated — no keyboard
+  shortcut depends on these in the revealed phase (`R`-replay is prompt-only).
 
 - [ ] **Fast flip-review mode (game-like).** Decided 2026-07-11, detailed
   plan-mode session pending. Agreed shape:
@@ -69,6 +81,37 @@ Recorded 2026-07-11 from a live review of the deployed site.
   - Constraint lifted 2026-07-11 15:43 (drill-engine done): `strings.ts` is
     free, and the drill's `blip.ts`/`webaudio.ts` + DrillEngine feedback
     patterns are now real modules to reuse.
+
+## Numbers (/tal)
+
+- [ ] **Fold the number-dictation logic into flashcards and remove `/tal`.**
+  Decided 2026-07-11 22:09 — full plan-mode session TOMORROW (this is a
+  placeholder, not the plan). Goal: **delete the standalone `/tal` page**;
+  its number-drill capability lives inside the flashcards surface instead.
+  Rationale: now that `/zen` exists as the cross-activity focused-drill shell,
+  a separate top-level numbers page is redundant — numbers should be one more
+  thing you can practise from flashcards.
+  What `/tal` is today (inventory for the plan):
+  - Page `src/pages/tal.astro` → mounts `DrillEngine.svelte` with
+    `kind="numbers"` and the `src/data/number-audio.json` clip manifest.
+  - Mode `number-dictation` in `src/lib/drill-modes.ts` — **ungraded, no SRS**
+    ("numbers v1", `srs: null`). Audio composes committed clips via
+    NumberAudioPlayer (real recordings only, never TTS — product invariant).
+  - Core logic: `src/lib/danish-numbers.ts` (`NUMBER_LEVELS`,
+    `normalizeDigits`), `src/lib/number-audio.ts`, `src/data/number-audio.json`.
+  - Level gating: island disables levels lacking full clip coverage.
+  Open questions to settle in the plan (don't decide now):
+  - Do numbers become real FSRS cards, or stay an ungraded practice mode
+    reachable from the flashcards page? (Flashcards are SRS today; `/tal` is not.)
+  - Entry point in flashcards UI — a study group / mode toggle? How the
+    picker surfaces number levels.
+  - `/skriv` also mounts DrillEngine (`kind="words"`) — out of scope unless the
+    plan says otherwise; only `/tal` is being removed.
+  - Cleanup once absorbed: `tal.astro`, nav link, any `/tal` references in
+    `strings.ts` and `index.astro`; keep `danish-numbers.*` / `number-audio.*`
+    (they move, not die). Confirm no other page imports the numbers path.
+  - Redirect/handling for existing `/tal` bookmarks after removal.
+  Registers a normal plan in `docs/plans/active/` before implementation starts.
 
 ## Home page
 
@@ -93,9 +136,34 @@ Recorded 2026-07-11 from a live review of the deployed site.
   themselves (smaller size, more headroom, or crop-safe positioning). Applies
   on `lektioner/index.astro:16-17` and `ordlista.astro:48-49`.
 
+## Mobile (2026-07-19 audit — see `done/mobile-port-audit.md`)
+
+Full-site mobile audit + fixes done 2026-07-19 20:20 (uncommitted on
+`flashcards-lyssna-mening-hide-word`). 41 live-verified findings fixed:
+tap targets, table overflow, hover-only affordances, keyboard-hint copy,
+zen scroll/virtual-keyboard handling, plus the lesson-01 minimal-pair drill
+that never hydrated at all (`client:visible` island with zero SSR children).
+Still open from that audit:
+
+- [ ] **Real-device iOS Safari pass** — everything was verified in
+  Playwright-chromium iPhone emulation only. Check: zen keyboard
+  (visualViewport height), audio after autoplay-block, scroll feel.
+- [ ] **Zen mode/direction steps commit on ONE tap on Android** (focus
+  precedes click; the pointerdown was-hot guard covers source-step buttons
+  only) while iOS needs two — unify (extend `noteDeckPointerDown` to
+  mode/direction, or embrace one-tap and drop the gate there).
+- [ ] **Zen expanded cloud duplicate labels** (pre-existing): "verb",
+  "kropp & hälsa", "falska vänner", "övrigt" appear twice (theme set vs POS
+  set) with nothing distinguishing them.
+- [ ] **svelte-check: clear the 9 pre-existing errors** — all
+  `exactOptionalPropertyTypes` on SpeakButton's `audio` prop (6 DrillEngine,
+  2 FlashcardReviewer, 1 LessonAudio); widen the prop to
+  `string | undefined`.
+
 ## Parking lot (earlier review findings, not re-raised by user)
 
 - ~1.5 s audible gap between hun and hund in the hero sample (clip trailing
   silence + 350 ms pause).
 - Hem is red-heavy (accent on cards/DailyMission h3).
-- Ordlista table overflows at 320 px (pre-existing).
+- ~~Ordlista table overflows at 320 px (pre-existing).~~ FIXED 2026-07-19
+  (mobile audit — no page-level overflow at 320 px, verified live).

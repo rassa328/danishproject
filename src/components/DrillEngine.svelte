@@ -512,7 +512,11 @@
     const d = drill;
     if (!d) return;
     if (d.phase === 'answering') submitAnswer();
-    else continueFromMiss();
+    else if (!isBlankAttempt(typed)) {
+      // Text typed while the miss panel is up would be silently discarded by
+      // advancing — swallow this submit and clear it; the next one continues.
+      typed = '';
+    } else continueFromMiss();
   }
 
   function advanceNow() {
@@ -1115,6 +1119,9 @@
   .summary { margin: 0 0 var(--sp-2); }
   .attempt { color: var(--muted); font-size: var(--step--1); margin: 0 0 var(--sp-2); }
   .continue { margin: var(--sp-3) 0 0; display: flex; align-items: baseline; gap: var(--sp-3); }
+  /* "Vidare" is bare underlined text ~38px wide — widen the touch target;
+     the negative margin keeps the text left-aligned where it was. */
+  .continue .linklike { padding-inline: var(--sp-2); margin-inline: calc(-1 * var(--sp-2)); }
   .hint-inline { color: var(--muted); font-size: var(--step--1); }
   .da { font-size: var(--step-2); font-weight: 700; margin: 0 0 var(--sp-1); display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
   .transcript { font-weight: 400; }

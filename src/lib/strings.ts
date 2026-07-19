@@ -68,9 +68,13 @@ export const UI = {
     listenSentencePrompt: 'lyssna på meningen',
     listenSentenceReveal: 'visa meningen',
     comprehendHint: 'Bedöm dig själv: hur mycket förstod du? (1–4)',
+    // Touch variant — no number keys to press on a phone.
+    comprehendHintTouch: 'Bedöm dig själv: hur mycket förstod du?',
     speakPrompt: 'säg ordet högt',
     speakReveal: 'hör uttalet',
     selfGradeHint: 'Bedöm dig själv: hur nära var ditt uttal? (1–4)',
+    // Touch variant — no number keys to press on a phone.
+    selfGradeHintTouch: 'Bedöm dig själv: hur nära var ditt uttal?',
     noAudio: 'Ingen dansk röst i den här webbläsaren — uttalet kan inte spelas.',
     clozePrompt: 'fyll i ordet som saknas',
     clozeHint: 'ledtråd',
@@ -102,6 +106,8 @@ export const UI = {
     incorrect: 'Fel',
     grades: { again: 'Igen', hard: 'Svårt', good: 'Medel', easy: 'Lätt' },
     gradeKeysHint: 'tangenterna 1–4 graderar — och styr hur ofta ordet repeteras · klicka på ordet för att höra det',
+    // Touch variant — no keyboard on a phone; tapping replaces clicking.
+    gradeKeysHintTouch: 'knapparna graderar — och styr hur ofta ordet repeteras · tryck på ordet för att höra det',
     wrongHint: 'Fel svar räknas som ”Igen”.',
     saveError: 'Kunde inte spara framsteg — din lagring kan vara full.',
     doneTitle: 'Klart för nu!',
@@ -111,6 +117,36 @@ export const UI = {
     toLessons: 'Läs en lektion →',
     repeatDue: 'Repetera förfallna',
     practiceFree: 'Öva fritt (påverkar inte schemat)',
+    // "Deck complete" empty state — a mini flashcard teaching "færdig" (klar)
+    // shown when the selected mode has no due cards left. Variant A still has
+    // other modes to jump to (chips); variant B has cleared everything.
+    empty: {
+      eyebrow: 'Dagens sista kort',
+      word: 'færdig',
+      wordAria: 'Lyssna på uttalet av færdig',
+      example: 'Jeg er færdig for i dag.',
+      // Variant A: the cleared mode's own next-due, plus a nudge to other decks.
+      explainerA: (mode: string, nextDue: string) =>
+        `${mode} repeteras igen ${nextDue}. Under tiden finns det kort kvar i alla andra lekar.`,
+      // Variant B: nothing due anywhere — reassure, don't nudge.
+      explainerB: (nextDue: string) =>
+        `Du har repeterat alla förfallna kort i dag — i varje lek. Nästa repetition väntar ${nextDue}.`,
+      statStreak: 'dagar i rad',
+      statLearning: 'ord under inlärning',
+      // Free-practice link line; the bracketed word is the clickable link.
+      freePreA: 'eller ',
+      freePreB: 'vill du ändå fortsätta? ',
+      freeLink: 'öva fritt',
+      freePost: ' — påverkar inte schemat',
+    },
+    // Days-until-due → Swedish "next due" phrase (Anki-style spaced repetition).
+    nextDueLabel: (days: number): string => {
+      if (days <= 0) return 'senare idag';
+      if (days === 1) return 'i morgon';
+      if (days < 7) return `om ${days} dagar`;
+      if (days < 14) return 'om en vecka';
+      return `om ${Math.round(days / 7)} veckor`;
+    },
     noTagMatch: 'Inga kort matchar den här taggen.',
     // Mode-radio gating: why a direction is disabled for the selected deck.
     clozeUnavailable: 'Inga kort med exempelmeningar i den här kortleken.',
@@ -277,6 +313,8 @@ export const UI = {
     enterKey: 'enter',
     escKey: 'esc',
     keyHintPick: 'pilar väljer · enter',
+    // Touch variant — explains the select-then-confirm double tap instead.
+    keyHintPickTouch: 'tryck för att välja · tryck igen för att bekräfta',
     keyHintBegin: 'enter börjar',
     runHintListen: 'r spelar igen · esc paus',
     runHintListenOrd: 'enter spelar igen · esc paus',
@@ -288,6 +326,9 @@ export const UI = {
     inputDigits: 'Skriv talet med siffror',
     inputDanish: 'Skriv på danska',
     inputSwedish: 'Skriv på svenska',
+    // Touch: programmatic focus can't raise the virtual keyboard (iOS), so the
+    // bare hairline field needs visible copy inviting the tap that does.
+    inputTouchPlaceholder: 'skriv här',
     submit: 'svara',
     pauseShort: 'paus',
     ttsNote: 'talsyntes',

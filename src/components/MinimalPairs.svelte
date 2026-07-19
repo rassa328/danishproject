@@ -166,6 +166,14 @@
     text-transform: uppercase;
     color: var(--mut3);
   }
+  /* Below ~520px the auto-fit rows wrap to fewer columns, so the 3-label
+     header no longer sits over its columns — hide it (it's aria-hidden and
+     each wrapped row stays self-explanatory: word, word, sense). */
+  @media (max-width: 520px) {
+    .mp-head {
+      display: none;
+    }
+  }
   /* Word + its inline note. The word/glyph button never breaks; the note may
      wrap below it but stays with its own word. */
   .mp-cell {
@@ -186,7 +194,10 @@
     color: var(--ink);
     background: none;
     border: none;
-    padding: 0;
+    /* Touch hit area ~44px tall; the negative margin cancels the padding so
+       the baseline-aligned grid layout doesn't shift. */
+    padding: 10px 6px;
+    margin: -10px -6px;
     cursor: pointer;
     transition: color 120ms ease;
   }

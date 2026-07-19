@@ -65,6 +65,11 @@
   import { UI } from '../lib/strings.ts';
 
   const T = UI.zen;
+  // Touch devices: hint copy without keyboard references, a visible tap
+  // affordance on the answer field, and no focus-stealing on outside taps.
+  // SSR-safe guard; everything keyed off it renders post-interaction.
+  const coarsePointer =
+    typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 
   let {
     cards = [],
@@ -227,6 +232,8 @@
   });
 
   let player: NumberAudioPlayer | undefined;
+  /** visualViewport resize handler — kept for removeEventListener on destroy. */
+  let vvCleanup: (() => void) | null = null;
   let timers: ReturnType<typeof setTimeout>[] = [];
   // One deck fetch per page; reset on failure so the next Begynd retries.
   let deckPromise: Promise<void> | null = null;
@@ -832,14 +839,31 @@
     }
   }
 
-  /** Click anywhere on the run screen re-focuses the answer input. */
-  function onRootClick() {
-    if (phase === 'run' && !paused && !inTransition()) focusInput();
+  /** Click anywhere on the run screen re-focuses the answer input. On touch,
+   *  only taps on the field or the touch buttons refocus — an unconditional
+   *  refocus would re-raise the virtual keyboard on every outside tap, making
+   *  it impossible to dismiss. */
+  function onRootClick(e: MouseEvent) {
+    if (phase !== 'run' || paused || inTransition()) return;
+    if (coarsePointer) {
+      const t = e.target;
+      if (!(t instanceof Element) || !t.closest('input.answer, .touch-row')) return;
+    }
+    focusInput();
   }
 
   onMount(() => {
     store = new Store();
     player = createNumberAudioPlayer(manifest ?? { atoms: {} });
+    // The virtual keyboard does not resize the layout viewport (iOS Safari,
+    // Chrome 108+), so the fixed .zen overlay would keep centering content
+    // behind it. Drive the overlay height from visualViewport instead.
+    const vv = window.visualViewport;
+    if (vv) {
+      vvCleanup = () => rootEl?.style.setProperty('--vvh', `${vv.height}px`);
+      vv.addEventListener('resize', vvCleanup);
+      vvCleanup();
+    }
     // Restore last session's picks so the start flow pre-highlights them
     // (Morgendis v2 behavior).
     let raw: string | null = null;
@@ -859,6 +883,7 @@
     clearTimers();
     player?.stop();
     stopSpeech();
+    if (vvCleanup) window.visualViewport?.removeEventListener('resize', vvCleanup);
   });
 
   // The faint top-left ‹ arrow mirrors Escape for the current phase (the design
@@ -1001,7 +1026,16 @@
             <span class="key">{T.escKey}</span>
           </button>
         {/if}
-        <span class="key">{flow.step === 'begin' ? T.keyHintBegin : T.keyHintPick}</span>
+        {#if flow.step === 'begin'}
+          {#if !coarsePointer}<span class="key">{T.keyHintBegin}</span>{/if}
+        {:else if !coarsePointer}
+          <span class="key">{T.keyHintPick}</span>
+        {:else if flow.step === 'source'}
+          <!-- Touch hint only where two-tap select-confirm is guaranteed (the
+               pointerdown was-hot guard exists on source-step buttons only;
+               mode/direction can commit on one tap when focus precedes click). -->
+          <span class="key">{T.keyHintPickTouch}</span>
+        {/if}
       </div>
     </div>
   {/if}
@@ -1053,6 +1087,7 @@
         autocapitalize="none"
         autocorrect="off"
         spellcheck="false"
+        placeholder={coarsePointer ? T.inputTouchPlaceholder : undefined}
         aria-label={kind === 'digits' ? T.inputDigits : kind === 'danish' ? T.inputDanish : T.inputSwedish}
         class="answer"
         class:wide={kind !== 'digits'}
@@ -1104,6 +1139,11 @@
   .zen {
     position: fixed;
     inset: 0;
+    /* --vvh tracks visualViewport.height (set in onMount): when the virtual
+       keyboard opens, the overlay shrinks to the visible area so the centered
+       run stage stays above the keyboard. Unset (no visualViewport, or before
+       mount) the inset alone sizes it exactly as before. */
+    height: var(--vvh, auto);
     background: var(--bg);
     color: var(--ink);
     overflow: hidden;
@@ -1198,6 +1238,26 @@
     justify-content: center;
     gap: 48px;
     transition: opacity 500ms ease;
+  }
+  /* The start stage can outgrow a phone viewport (expanded category cloud):
+     let it scroll. Auto margins center like justify-content did but, unlike
+     it, never push content past the scrollable top edge when overflowing. */
+  .stage:not(.run):not(.done) {
+    justify-content: flex-start;
+    overflow-y: auto;
+  }
+  .stage:not(.run):not(.done) > :not(.footer) {
+    margin-block: auto;
+    /* Clear the top chrome when scrolled to the top. */
+    padding-block: 64px 24px;
+  }
+  /* The footer joins the scroll flow here: an absolute bottom:28px footer
+     would paint mid-cloud once the stage scrolls (and steal taps from the
+     cells under it). In flow it sits below ALL content; when everything fits,
+     the step's auto margins push it to the bottom — same place as before. */
+  .stage:not(.run):not(.done) > .footer {
+    position: static;
+    margin-bottom: 28px;
   }
 
   /* ---- start: mode / direction ---- */
@@ -1492,7 +1552,9 @@
       display: flex;
       gap: 32px;
     }
-    .touch-btn {
+    /* `.zen` prefix: the `.zen button` reset (padding/margin 0) out-specifies
+       a bare class selector, which would zero the padding here. */
+    .zen .touch-btn {
       font-size: 12px;
       letter-spacing: 0.06em;
       color: var(--mut2);
@@ -1500,6 +1562,68 @@
       padding: 6px 2px;
       min-height: var(--min-tap);
     }
+    /* Category cells are ~25px text lines: more row air plus an invisible
+       absolute pseudo-hit-area (it can't join flex flow) → ~39px targets
+       without moving the visual underline. Row spacing comes from
+       .cat-cloud's gap (rows are siblings there), which must outgrow the
+       ±7px expansions so adjacent rows never shadow each other. */
+    .cat-row {
+      gap: 14px 24px;
+    }
+    .cat-cloud {
+      gap: 16px;
+    }
+    .zen .cat {
+      position: relative;
+    }
+    .zen .cat::after {
+      content: '';
+      position: absolute;
+      inset: -7px -8px;
+    }
+    /* Bare-glyph chrome (← and ◐) and the footer back/exit: real tap sizes;
+       negative margins keep the visual positions. `.zen` prefix so these
+       out-specify the `.zen button` reset (same trick as `.zen .cat`). */
+    .zen .top-back,
+    .zen .theme-toggle {
+      padding: 12px;
+      margin: -12px;
+    }
+    .zen .back {
+      min-height: var(--min-tap);
+      align-items: center;
+    }
+    /* Keyboard-key badges (enter/esc) mean nothing on a phone. The footer's
+       step hint stays — it carries the touch copy. `.zen` prefix: the
+       pause-overlay badge has a later `.pause-opt .key { display:block }`
+       this must out-specify. */
+    .zen .begin .key,
+    .zen .back .key,
+    .zen .pause-opt .key {
+      display: none;
+    }
+    /* The run footer only repeats keyboard shortcuts (esc/r/enter) that the
+       touch-row buttons already cover — and it overlaps them once the virtual
+       keyboard shrinks the viewport. */
+    .stage.run .footer {
+      display: none;
+    }
+    /* A faint field wash so the tap target that raises the keyboard is
+       visible before first focus (programmatic focus can't raise it on iOS). */
+    .answer {
+      background: color-mix(in oklab, var(--ink) 5%, transparent);
+      border-radius: 6px 6px 0 0;
+    }
+  }
+  /* Short viewports (keyboard open, tiny landscape): the absolute footer would
+     rise into the centered run content — the hint is redundant there. */
+  @media (max-height: 480px) {
+    .stage.run .footer {
+      display: none;
+    }
+  }
+  .answer::placeholder {
+    color: var(--mut5);
   }
 
   /* ---- done ---- */

@@ -75,13 +75,19 @@ const zenHref = withBase('zen');
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 12px clamp(14px, 3.5vw, 26px);
+    /* 12px column floor: at 320px the row has 284px; a 14px floor overflows by
+       1px and wraps the theme toggle onto its own line. */
+    gap: 12px clamp(12px, 3.5vw, 26px);
     font-size: 13.5px;
   }
   .links a {
     text-decoration: none;
     color: var(--mut2);
     transition: color 120ms ease;
+    /* Touch hit area ~42px tall; negative margin keeps the layout footprint
+       (4px sides stay inside the 12px column gap, so neighbors don't overlap). */
+    padding: 10px 4px;
+    margin: -10px -4px;
   }
   .links a:hover,
   .links a:focus-visible {
@@ -109,7 +115,10 @@ const zenHref = withBase('zen');
     background: none;
     border: none;
     cursor: pointer;
-    padding: 0;
+    /* The bare ◐ glyph is a 13x14px box — padding grows the touch target to
+       ~40px while the negative margin keeps the visual footprint unchanged. */
+    padding: 13px;
+    margin: -13px;
     align-self: center;
     transition: color 120ms ease;
   }

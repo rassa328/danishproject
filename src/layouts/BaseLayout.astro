@@ -72,6 +72,13 @@ const totalWords = (cardCount + praksisUniqueCount).toLocaleString('sv-SE');
       footer a:focus-visible {
         color: var(--ink);
       }
+      /* When the footer wraps to stacked lines, the '·' separators dangle at
+         line ends — hide them; stacked lines need no separators. */
+      @media (max-width: 640px) {
+        footer > span[aria-hidden] {
+          display: none;
+        }
+      }
     </style>
   </body>
 </html>

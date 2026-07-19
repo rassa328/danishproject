@@ -151,6 +151,9 @@ const totalWords = cardCount + praksisUniqueCount;
       text-decoration: none;
       white-space: nowrap;
       transition: color 120ms ease;
+      /* Touch hit area ~45px; negative margin keeps the header baseline. */
+      padding: 12px;
+      margin: -12px;
     }
     .train:hover,
     .train:focus-visible {
@@ -193,14 +196,25 @@ const totalWords = cardCount + praksisUniqueCount;
       color: var(--red);
       background: color-mix(in oklab, var(--red) 14%, transparent);
     }
-    /* Only the head word carries the always-on dotted underline; example
-       sentences stay plain (still playable — the affordance shows on hover). */
-    :global(.ex.da-clickable) {
-      text-decoration-line: none;
+    /* Tappable head words are a ~25px text line — grow the touch target;
+       inline-block keeps the negative margin from bleeding into neighbors. */
+    :global(.da.da-clickable) {
+      display: inline-block;
+      padding: 10px;
+      margin: -10px;
     }
-    :global(.ex.da-clickable:hover),
-    :global(.ex.da-clickable:focus-visible) {
-      text-decoration-line: underline;
+    /* Only the head word carries the always-on dotted underline; example
+       sentences stay plain (still playable — the affordance shows on hover).
+       Hover-capable devices only: on touch there is no hover, so the examples
+       must keep the base dotted underline or playback is undiscoverable. */
+    @media (hover: hover) {
+      :global(.ex.da-clickable) {
+        text-decoration-line: none;
+      }
+      :global(.ex.da-clickable:hover),
+      :global(.ex.da-clickable:focus-visible) {
+        text-decoration-line: underline;
+      }
     }
 
     /* Printable cheat sheet: drop the chrome and the click affordance. */

@@ -7,6 +7,7 @@
   import SpeakButton from './SpeakButton.svelte';
   import SettingsPanel from './SettingsPanel.svelte';
   import FlashcardSettings from './FlashcardSettings.svelte';
+  import FlashcardEmptyState from './FlashcardEmptyState.svelte';
   import CelebrationFlag from './CelebrationFlag.svelte';
   import { clozeSentence, type Card } from '../lib/vocab.ts';
   import { DUE_ALL_GROUP_ID, type GroupMatch, type StudyGroup } from '../lib/deck-groups.ts';
@@ -24,6 +25,11 @@
   import { UI } from '../lib/strings.ts';
 
   const T = UI.flashcards;
+  // Touch devices get captions without keyboard references (tangenterna 1–4,
+  // enter). SSR-safe: the captions only render post-interaction, after
+  // hydration, so the guard never causes a hydration mismatch.
+  const coarsePointer =
+    typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
   // Inställningar + Säkerhetskopiera are temporarily hidden from the UI (user
   // request). `as boolean` keeps the block type-checked (no unreachable-code
   // error) and its handlers/import referenced; flip to true to restore.
@@ -134,6 +140,10 @@
   // cards. speakSilent flags a 'speak' reveal that produced no audio.
   let sessionPool = $state<Card[]>([]);
   let poolSize = $state(0);
+  // Free practice is a no-stakes roam: grades are never written back, so the
+  // SRS schedule, streak and daily new-card budget stay untouched (the "öva
+  // fritt — påverkar inte schemat" promise). Set per session by start(free).
+  let freeSession = $state(false);
   let filteredReason = $state<FilteredReason>('none');
   let speakSilent = $state(false);
   // Everything the reviewer can study right now: the starter props, plus the
@@ -163,6 +173,37 @@
     if (!ready || phase !== 'done') return [];
     return dueByDirection({ pool: sessionPool, directions: DIRECTIONS, srs: store, now: now() });
   });
+
+  // "Deck complete" empty state (selected mode has no due cards, nothing was
+  // reviewed this round, and it's not a tag/mode-availability dead end). Shows
+  // the færdig empty-state card instead of a plain message.
+  const showEmptyCard = $derived(
+    ready &&
+      phase === 'done' &&
+      reviewed === 0 &&
+      !(tag && poolSize === 0) &&
+      filteredReason === 'none',
+  );
+  // {nextDue} source: variant A (other modes still due) reports when the CLEARED
+  // current mode returns; variant B (nothing due anywhere) the soonest globally.
+  const emptyNextDueDate = $derived.by(() => {
+    if (!showEmptyCard) return null;
+    return doneDue.length > 0 ? soonestDueForDirection(direction) : store.nextDueDate(now());
+  });
+
+  /** Soonest strictly-future due date among this pool's cards in one direction,
+   *  or null if none are scheduled ahead. */
+  function soonestDueForDirection(d: Direction): Date | null {
+    const t = now().getTime();
+    let best: number | null = null;
+    for (const c of eligibleForDirection(sessionPool, d)) {
+      const r = store.getRecord(c.id, d);
+      if (!r || r.suspended) continue;
+      const due = new Date(r.due).getTime();
+      if (due > t && (best === null || due < best)) best = due;
+    }
+    return best === null ? null : new Date(best);
+  }
 
   /** Restart the session, but if the learner is mid-round, confirm first and
    *  revert the just-changed control on cancel. */
@@ -397,6 +438,7 @@
     });
     sessionPool = built.pool; // cached for distractors (avoid re-filtering per card)
     poolSize = built.pool.length;
+    freeSession = free; // gates grade() persistence for this session
     filteredReason = built.filteredReason;
     againReentries = new Map();
     queue = built.queue;
@@ -460,7 +502,8 @@
     if (phase !== 'prompt' || !current) return;
     // Cloze requires the exact in-context form that was blanked (not just the
     // lemma); other typed modes accept any accepted form. Both tolerate edge
-    // punctuation ("løbe." for "løbe") but never fold æ/ø/å — see session.ts.
+    // punctuation ("løbe." for "løbe") and Swedish-keyboard spellings of æ/ø
+    // (ä→æ, ö→ø, ae→æ) — see session.ts.
     wasCorrect =
       direction === 'cloze' && clozeText
         ? matchCloze(typed, clozeText.answer)
@@ -478,8 +521,12 @@
       // Self-graded modes (speak) trust the learner's rating; typed modes floor a
       // wrong answer to Again.
       const eff = selfGraded ? g : clampForCorrectness(g, wasCorrect);
-      const { result } = store.grade(current.id, direction, eff, now());
-      if (!result.ok) warning = T.saveError;
+      // Free practice never persists: no reschedule, no streak bump, no new-card
+      // spend. The card can still re-queue on Again below (session-only).
+      if (!freeSession) {
+        const { result } = store.grade(current.id, direction, eff, now());
+        if (!result.ok) warning = T.saveError;
+      }
       // A failed card re-enters this session a few positions ahead (capped per
       // card), so FSRS's minutes-scale relearning step gets a real same-session
       // retrieval attempt instead of waiting a day.
@@ -740,6 +787,16 @@
     {#if praksisNotice}<p class="warning" role="alert">{T.praksisFailed}</p>{/if}
     {#if loadingDeck}
       <div class="card"><p class="progress" role="status">{T.loadingDeck}</p></div>
+    {:else if showEmptyCard}
+      <FlashcardEmptyState
+        dueModes={doneDue}
+        activeMode={direction}
+        nextDueDate={emptyNextDueDate}
+        streakDays={store.getStreak()}
+        wordsLearning={store.startedCount()}
+        onSwitchMode={switchDirection}
+        onPracticeFree={() => start(true)}
+      />
     {:else if phase === 'done'}
       <div class="card">
         <div class="done">
@@ -912,7 +969,7 @@
       <!-- Helper caption sits below the card (design §8.7), still keyed to the
            revealed state and carrying the same per-mode copy. -->
       {#if phase === 'revealed'}
-        <p class="card-hint">{#if direction === 'listen-sentence'}{T.comprehendHint}{:else if selfGraded}{T.selfGradeHint}{:else}{T.gradeKeysHint}{/if}</p>
+        <p class="card-hint">{#if direction === 'listen-sentence'}{coarsePointer ? T.comprehendHintTouch : T.comprehendHint}{:else if selfGraded}{coarsePointer ? T.selfGradeHintTouch : T.selfGradeHint}{:else}{coarsePointer ? T.gradeKeysHintTouch : T.gradeKeysHint}{/if}</p>
       {/if}
     {/if}
 
@@ -1170,10 +1227,12 @@
   .prompt-ex { margin: 12px 0 0; font-size: 14px; color: var(--mut2); }
   /* Cloze: the Swedish sentence is a hidden hint that fades up on click. */
   .hint-toggle {
-    margin: 12px 0 0;
+    /* Touch hit area ~40px; negative margins offset the extra padding so the
+       text sits where the bare 4px-padded button did. */
+    margin: 4px -8px -8px 0;
     background: none;
     border: none;
-    padding: 4px 6px;
+    padding: 12px 14px;
     font-size: 13px;
     font-style: italic;
     color: var(--mut4);
@@ -1236,10 +1295,15 @@
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    margin-top: 2px;
+    /* Touch hit area ~40px tall: the padding grows the box; the negative
+       margins put the glyph back where the bare 2px-padded button sat.
+       position:relative paints the padded box above in-flow siblings the
+       negative margin pulls it under (else they steal the edge taps). */
+    position: relative;
+    margin: -9px -2px;
     background: none;
     border: none;
-    padding: 2px 6px;
+    padding: 11px 8px;
     font-family: var(--font-mono);
     font-size: 11px;
     letter-spacing: 0.08em;
@@ -1265,8 +1329,12 @@
   .hairline { display: block; width: 168px; height: 1px; background: var(--bd3); margin-top: 30px; }
   .reveal-row { margin-top: 30px; }
   .reveal-btn { margin-top: 16px; }
-  /* The "enter" key hint on reveal buttons — smaller, mono, a darker tone. */
+  /* The "enter" key hint on reveal buttons — smaller, mono, a darker tone.
+     Hidden on touch devices: there is no enter key to press. */
   .key { font-family: var(--font-mono); font-size: 10px; color: var(--mut4); }
+  @media (pointer: coarse) {
+    .key { display: none; }
+  }
 
   /* ---- Känn igen: stacked choice pills ---- */
   .choices {
@@ -1318,14 +1386,19 @@
     margin: 18px 0 0;
   }
   .char {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font: inherit;
     font-size: 15px;
     color: var(--mut2);
     background: none;
     border: none;
     padding: 4px 6px;
-    min-width: 0;
-    min-height: 0;
+    /* Boxless buttons, so the 44px touch minimum is invisible chrome. */
+    min-width: 44px;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
     cursor: pointer;
   }
   .char:hover { color: var(--ink); border: none; }
@@ -1415,6 +1488,18 @@
     flex-wrap: wrap;
     gap: 10px;
     margin-top: 30px;
+  }
+  /* Narrow phones: the four pills need ~365px, so flex wrap strands Lätt
+     alone on a second row — a 2×2 grid reads deliberately instead. */
+  @media (max-width: 420px) {
+    .grade-pills {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      width: min(320px, 100%);
+    }
+    .grade {
+      justify-content: center;
+    }
   }
   .grade {
     display: inline-flex;

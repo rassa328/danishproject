@@ -411,6 +411,13 @@
     padding: 2px;
     border-radius: 6px;
     transition: color 150ms ease;
+    /* Invisible expanded hit area (~40px) — visuals and layout unchanged. */
+    position: relative;
+  }
+  .x::before {
+    content: '';
+    position: absolute;
+    inset: -9px;
   }
   .x:hover { color: var(--ink); }
 
@@ -474,6 +481,14 @@
     background: var(--ghost);
     border: 1px solid var(--bd4);
     transition: background-color 250ms ease, border-color 250ms ease;
+    /* Invisible expanded hit area (~40px tall); absolute so the pseudo never
+       joins the flex flow and shifts the knob. */
+    position: relative;
+  }
+  .toggle::before {
+    content: '';
+    position: absolute;
+    inset: -9px;
   }
   .toggle .knob {
     width: 16px;
@@ -515,6 +530,14 @@
     border: 1px solid var(--bd4);
     color: var(--mut2);
     transition: color 150ms ease, border-color 150ms ease;
+    /* Invisible expanded hit area (~42px); − and + sit 60px apart across the
+       value readout, so the expansions never overlap each other. */
+    position: relative;
+  }
+  .step::before {
+    content: '';
+    position: absolute;
+    inset: -9px;
   }
   .step:hover {
     border-color: var(--mut4);
@@ -538,6 +561,13 @@
     gap: 6px;
     margin-top: 10px;
   }
+  /* Touch: the chips' expanded radio hit areas (±5px vertical) must not shadow
+     the next wrapped row — widen the row gap so expansions can't overlap. */
+  @media (pointer: coarse) {
+    .chips {
+      row-gap: 12px;
+    }
+  }
   .chips.wrap { flex-wrap: wrap; }
   .chip {
     position: relative;
@@ -557,9 +587,11 @@
   }
   .chip input {
     position: absolute;
-    inset: 0;
+    /* The invisible radio IS the hit area — extend it a bit past the ~31px
+       pill (vertical only: chips sit 6px apart horizontally). */
+    inset: -5px 0;
     width: 100%;
-    height: 100%;
+    height: calc(100% + 10px);
     margin: 0;
     opacity: 0;
     cursor: pointer;
@@ -672,6 +704,18 @@
     .gear:active { transform: scale(0.92); }
     .step:active, .toggle:active:not(:disabled) { transform: scale(0.88); }
     .chip:active, .resume:active:not(:disabled) { transform: scale(0.95); }
+  }
+  /* Touch: the press scale shrinks the button AND its expanded hit pseudo
+     between pointerdown and the click hit-test, so edge taps silently
+     retarget to the row. Keep geometry stable; press-cue via opacity.
+     (After the motion block: equal specificity, later order wins.) */
+  @media (pointer: coarse) {
+    .step:active,
+    .toggle:active:not(:disabled),
+    .chip:active {
+      transform: none;
+      opacity: 0.6;
+    }
   }
   @keyframes fcPanelIn {
     from { opacity: 0; transform: translateY(-8px) scale(0.98); }

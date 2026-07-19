@@ -168,7 +168,10 @@
     color: var(--ink);
   }
   .to-lesson {
-    margin-top: 8px;
+    /* Touch hit area ~45px tall: padding grows the box, the negative vertical
+       margins keep the visual position exactly where the bare link sat. */
+    margin: -4px 0 -12px;
+    padding: 12px 16px 12px 0;
     font-size: 13px;
     color: var(--mut1);
     text-decoration: none;
